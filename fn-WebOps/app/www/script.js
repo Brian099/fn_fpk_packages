@@ -334,6 +334,7 @@ if(siteModeRadios.length > 0) {
 }
 if(httpsCheckbox) httpsCheckbox.addEventListener("change", updateSiteFormVisibility);
 var newSiteRoot=document.getElementById("new-site-root");
+var newSiteRewrite=document.getElementById("new-site-rewrite");
 var browseRootBtn=document.getElementById("browse-root");
 var dirSelectorModal=document.getElementById("dir-selector-modal");
 var dirCurrentPath=document.getElementById("dir-current-path");
@@ -371,6 +372,7 @@ if(createSiteBtn){createSiteBtn.addEventListener("click",function(){
   newSiteDomain.value="";
   newSitePort.value="2829";
   newSiteRoot.value="/var/www/html/";
+  if(newSiteRewrite) newSiteRewrite.value="";
   if(siteModeRadios.length > 0) siteModeRadios[0].checked = true;
   if(httpsCheckbox) httpsCheckbox.checked = false;
   if(newSitePortSsl) newSitePortSsl.value = "8443";
@@ -414,6 +416,11 @@ if(doCreateSiteBtn){doCreateSiteBtn.addEventListener("click",function(){
        }
        
        if(!confirm("将创建基于端口的网站 "+port+" (HTTPS: "+(isHttps?"是, 端口 "+portSsl:"否")+")，是否继续？"))return;
+   }
+   
+   var rewrite = newSiteRewrite ? newSiteRewrite.value.trim() : "";
+   if(rewrite){
+       body += "\nrewrite=" + encodeURIComponent(rewrite);
    }
    
    fetch(apiBase+"/api/sites/create",{method:"POST",body:body,headers:{"Content-Type":"text/plain"}}).then(function(res){

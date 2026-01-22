@@ -96,6 +96,29 @@ create_site_json() {
   fi
   
   mode=$(echo "$input" | grep "^mode=" | cut -d= -f2- | tr -d '\r')
+  rewrite_encoded=$(echo "$input" | grep "^rewrite=" | cut -d= -f2- | tr -d '\r')
+  rewrite_block=""
+  if [ -n "$rewrite_encoded" ]; then
+    decoded=""
+    if command -v php >/dev/null 2>&1; then
+      decoded=$(php -r "echo rawurldecode(\$argv[1]);" -- "$rewrite_encoded")
+    elif command -v python3 >/dev/null 2>&1; then
+      decoded=$(python3 -c "import sys, urllib.parse; print(urllib.parse.unquote(sys.argv[1]))" "$rewrite_encoded")
+    fi
+    
+    if [ -n "$decoded" ]; then
+        # Handle indentation and escaping for HERE-document
+        rewrite_block=$(echo "$decoded" | awk '{
+            # Remove leading whitespace
+            if ($0 != "") sub(/^[ \t]+/, "", $0);
+            
+            # Indent
+            if ($0 == "") print "";
+            else if ($0 ~ /^location/ || $0 ~ /^}$/) print "    " $0;
+            else print "        " $0;
+        }' | sed 's/\\/\\\\/g; s/\$/\\\$/g; s/`/\\`/g')
+    fi
+  fi
   domain=$(echo "$input" | grep "^domain=" | cut -d= -f2- | tr -d '\r')
   port=$(echo "$input" | grep "^port=" | cut -d= -f2- | tr -d '\r') # Legacy/Port HTTP
   port_https=$(echo "$input" | grep "^port_https=" | cut -d= -f2- | tr -d '\r')
@@ -171,6 +194,8 @@ server {
     index index.html index.htm index.php;
     client_max_body_size 8M;
     
+    $rewrite_block
+    
     location / {
         try_files \$uri \$uri/ =404;
     }
@@ -190,6 +215,8 @@ server {
     root $root_dir;
     index index.html index.htm index.php;
     client_max_body_size 8M;
+    
+    $rewrite_block
     
     location / {
         try_files \$uri \$uri/ =404;
@@ -268,6 +295,8 @@ server {
     index index.html index.htm index.php;
     client_max_body_size 8M;
     
+    $rewrite_block
+    
     location / {
         try_files \$uri \$uri/ =404;
     }
@@ -286,6 +315,8 @@ server {
     root $root_dir;
     index index.html index.htm index.php;
     client_max_body_size 8M;
+    
+    $rewrite_block
     
     location / {
         try_files \$uri \$uri/ =404;
