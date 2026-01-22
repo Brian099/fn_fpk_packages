@@ -92,7 +92,7 @@ jobs:
         if: success() && !cancelled()
         uses: ncipollo/release-action@v1
         with:
-          token: ${{ secrets.Brian099 }}
+          token: ${{ secrets.RELEASE }}
           tag: ${{ env.TAG }}
           artifacts: "*.fpk"
           bodyFile: "apps-list.md"
