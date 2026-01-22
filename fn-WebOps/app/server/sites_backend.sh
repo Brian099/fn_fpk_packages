@@ -101,6 +101,8 @@ create_site_json() {
   port_https=$(echo "$input" | grep "^port_https=" | cut -d= -f2- | tr -d '\r')
   root_dir=$(echo "$input" | grep "^root=" | cut -d= -f2- | tr -d '\r')
   https_enabled=$(echo "$input" | grep "^https_enabled=" | cut -d= -f2- | tr -d '\r')
+  redirect_enabled=$(echo "$input" | grep "^redirect_enabled=" | cut -d= -f2- | tr -d '\r')
+  redirect_target=$(echo "$input" | grep "^redirect_target=" | cut -d= -f2- | tr -d '\r')
 
   # Fallback for legacy calls or simple port mode
   if [ -z "$mode" ]; then
@@ -171,6 +173,8 @@ server {
     index index.html index.htm index.php;
     client_max_body_size 8M;
     
+    $rewrite_content
+    
     location / {
         try_files \$uri \$uri/ =404;
     }
@@ -190,6 +194,8 @@ server {
     root $root_dir;
     index index.html index.htm index.php;
     client_max_body_size 8M;
+    
+    $rewrite_content
     
     location / {
         try_files \$uri \$uri/ =404;
@@ -248,7 +254,28 @@ EOF
           ssl_key="/etc/nginx/certs/${site_name}_ssl${port_https}.key"
           create_certificate_placeholder "$ssl_cert" "$ssl_key" "localhost"
           
-          cat > "$config_file" <<EOF
+          if [ "$redirect_enabled" = "true" ] && [ -n "$redirect_target" ]; then
+              cat > "$config_file" <<EOF
+server {
+    listen $port default_server;
+    listen [::]:$port default_server;
+    listen $port_https ssl default_server;
+    listen [::]:$port_https ssl default_server;
+    
+    server_name _;
+    
+    ssl_certificate $ssl_cert;
+    ssl_certificate_key $ssl_key;
+    ssl_session_timeout 5m;
+    ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;
+    ssl_ciphers EECDH+CHACHA20:EECDH+AES128:RSA+AES128:EECDH+AES256:RSA+AES256:EECDH+3DES:RSA+3DES:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    return 301 $redirect_target;
+}
+EOF
+          else
+              cat > "$config_file" <<EOF
 server {
     listen $port default_server;
     listen [::]:$port default_server;
@@ -274,11 +301,23 @@ server {
     location ~ \.php$ {
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_param HTTPS on;
     }
 }
 EOF
+          fi
       else
-          cat > "$config_file" <<EOF
+          if [ "$redirect_enabled" = "true" ] && [ -n "$redirect_target" ]; then
+              cat > "$config_file" <<EOF
+server {
+    listen $port default_server;
+    listen [::]:$port default_server;
+    server_name _;
+    return 301 $redirect_target;
+}
+EOF
+          else
+              cat > "$config_file" <<EOF
 server {
     listen $port default_server;
     listen [::]:$port default_server;
@@ -296,6 +335,7 @@ server {
     }
 }
 EOF
+          fi
       fi
   fi
 
