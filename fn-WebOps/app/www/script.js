@@ -308,9 +308,6 @@ var fieldPortHttp = document.getElementById("field-port-http");
 var fieldPortHttps = document.getElementById("field-port-https");
 var httpsCheckbox = document.getElementById("new-site-https");
 var newSitePortSsl = document.getElementById("new-site-port-ssl");
-var redirectCheckbox = document.getElementById("new-site-redirect");
-var fieldRedirectTarget = document.getElementById("field-redirect-target");
-var newSiteRedirectTarget = document.getElementById("new-site-redirect-target");
 
 function updateSiteFormVisibility() {
     var mode = "domain";
@@ -318,7 +315,6 @@ function updateSiteFormVisibility() {
         if(siteModeRadios[i].checked) mode = siteModeRadios[i].value;
     }
     var isHttps = httpsCheckbox ? httpsCheckbox.checked : false;
-    var isRedirect = redirectCheckbox ? redirectCheckbox.checked : false;
     
     if (mode === "domain") {
         if(fieldDomain) fieldDomain.style.display = "block";
@@ -329,8 +325,6 @@ function updateSiteFormVisibility() {
         if(fieldPortHttp) fieldPortHttp.style.display = "block";
         if(fieldPortHttps) fieldPortHttps.style.display = isHttps ? "block" : "none";
     }
-
-    if(fieldRedirectTarget) fieldRedirectTarget.style.display = isRedirect ? "block" : "none";
 }
 
 if(siteModeRadios.length > 0) {
@@ -339,7 +333,6 @@ if(siteModeRadios.length > 0) {
     }
 }
 if(httpsCheckbox) httpsCheckbox.addEventListener("change", updateSiteFormVisibility);
-if(redirectCheckbox) redirectCheckbox.addEventListener("change", updateSiteFormVisibility);
 var newSiteRoot=document.getElementById("new-site-root");
 var browseRootBtn=document.getElementById("browse-root");
 var dirSelectorModal=document.getElementById("dir-selector-modal");
@@ -381,8 +374,6 @@ if(createSiteBtn){createSiteBtn.addEventListener("click",function(){
   if(siteModeRadios.length > 0) siteModeRadios[0].checked = true;
   if(httpsCheckbox) httpsCheckbox.checked = false;
   if(newSitePortSsl) newSitePortSsl.value = "8443";
-  if(redirectCheckbox) redirectCheckbox.checked = false;
-  if(newSiteRedirectTarget) newSiteRedirectTarget.value = "";
   updateSiteFormVisibility();
   createSiteModal.style.display="flex";
 });}
@@ -404,32 +395,12 @@ if(doCreateSiteBtn){doCreateSiteBtn.addEventListener("click",function(){
    var isHttps = httpsCheckbox && httpsCheckbox.checked;
    
    body += "\nhttps_enabled="+(isHttps?"true":"false");
-
-   var isRewrite = rewriteCheckbox && rewriteCheckbox.checked;
-   var rewriteRules = "";
-   if(isRewrite) {
-       rewriteRules = newSiteRewriteRules.value;
-       try {
-           var b64Rules = btoa(unescape(encodeURIComponent(rewriteRules)));
-           body += "\nrewrite_enabled=true";
-           body += "\nrewrite_rules_b64="+b64Rules;
-       } catch(e) {
-           alert("重写规则编码失败"); return;
-       }
-   } else {
-       body += "\nrewrite_enabled=false";
-   }
    
    if (mode === "domain") {
        var domain = newSiteDomain.value.trim();
        if(!domain){alert("请填写域名");return;}
        body += "\ndomain="+domain;
-       
-       var confirmMsg = "将创建基于域名的网站 "+domain+" (HTTPS: "+(isHttps?"是":"否")+")";
-       if(isRewrite) confirmMsg += "\n并包含自定义重写规则";
-       confirmMsg += "，是否继续？";
-       
-       if(!confirm(confirmMsg))return;
+       if(!confirm("将创建基于域名的网站 "+domain+" (HTTPS: "+(isHttps?"是":"否")+")，是否继续？"))return;
    } else {
        var port = newSitePort.value.trim();
        if(!port){alert("请填写HTTP端口");return;}
@@ -442,11 +413,7 @@ if(doCreateSiteBtn){doCreateSiteBtn.addEventListener("click",function(){
            body += "\nport_https="+portSsl;
        }
        
-       var confirmMsg = "将创建基于端口的网站 "+port+" (HTTPS: "+(isHttps?"是, 端口 "+portSsl:"否")+")";
-       if(isRewrite) confirmMsg += "\n并包含自定义重写规则";
-       confirmMsg += "，是否继续？";
-
-       if(!confirm(confirmMsg))return;
+       if(!confirm("将创建基于端口的网站 "+port+" (HTTPS: "+(isHttps?"是, 端口 "+portSsl:"否")+")，是否继续？"))return;
    }
    
    fetch(apiBase+"/api/sites/create",{method:"POST",body:body,headers:{"Content-Type":"text/plain"}}).then(function(res){
