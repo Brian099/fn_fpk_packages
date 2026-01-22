@@ -1,0 +1,9 @@
+!.gitkeep
+.vscode
+/fnpack*
+*.fpk
+*.bak
+*.db
+
+# macOS
+**/.DS_Store

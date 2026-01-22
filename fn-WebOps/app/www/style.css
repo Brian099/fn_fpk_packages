@@ -1,0 +1,360 @@
+:root {
+  --primary-color: #1890ff;
+  --success-color: #52c41a;
+  --warning-color: #faad14;
+  --error-color: #ff4d4f;
+  --text-color: rgba(0, 0, 0, 0.85);
+  --text-color-secondary: rgba(0, 0, 0, 0.45);
+  --border-color: #d9d9d9;
+  --bg-color: #f0f2f5;
+  --component-bg: #fff;
+  --border-radius: 4px;
+  --box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  background: var(--bg-color);
+  color: var(--text-color);
+  margin: 0;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1.5715;
+}
+
+.page {
+  max-width: 1000px;
+  margin: 24px auto;
+  padding: 24px;
+  background: var(--component-bg);
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+}
+
+h1 {
+  font-size: 24px;
+  margin-bottom: 24px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.status {
+  font-size: 14px;
+  color: var(--text-color-secondary);
+}
+
+/* Table Styles */
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #fff;
+  border-radius: var(--border-radius);
+}
+
+thead th {
+  background: #fafafa;
+  color: rgba(0, 0, 0, 0.85);
+  font-weight: 500;
+  text-align: left;
+  padding: 16px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.3s ease;
+}
+
+tbody td {
+  padding: 16px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.3s;
+}
+
+tbody tr:hover td {
+  background: #fafafa;
+}
+
+/* Button Styles */
+button {
+  line-height: 1.5715;
+  position: relative;
+  display: inline-block;
+  font-weight: 400;
+  white-space: nowrap;
+  text-align: center;
+  background-image: none;
+  border: 1px solid transparent;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.015);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
+  user-select: none;
+  touch-action: manipulation;
+  height: 32px;
+  padding: 4px 15px;
+  font-size: 14px;
+  border-radius: var(--border-radius);
+  color: rgba(0, 0, 0, 0.85);
+  background: #fff;
+  border-color: var(--border-color);
+}
+
+button:hover, button:focus {
+  color: #40a9ff;
+  border-color: #40a9ff;
+  background: #fff;
+}
+
+button:active {
+  color: #096dd9;
+  border-color: #096dd9;
+  background: #fff;
+}
+
+/* Primary Button */
+button.primary, #create-site-btn, #do-create-site, #do-edit-port, #save-upload-limit, #dir-select-confirm {
+  color: #fff;
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.045);
+}
+
+button.primary:hover, button.primary:focus,
+#create-site-btn:hover, #create-site-btn:focus,
+#do-create-site:hover, #do-create-site:focus,
+#do-edit-port:hover, #do-edit-port:focus,
+#save-upload-limit:hover, #save-upload-limit:focus,
+#dir-select-confirm:hover, #dir-select-confirm:focus {
+  color: #fff;
+  background: #40a9ff;
+  border-color: #40a9ff;
+}
+
+button.primary:active,
+#create-site-btn:active,
+#do-create-site:active,
+#do-edit-port:active,
+#save-upload-limit:active,
+#dir-select-confirm:active {
+  color: #fff;
+  background: #096dd9;
+  border-color: #096dd9;
+}
+
+/* Danger Button (Custom class for delete actions if needed, though mostly handled via inline styles in JS, we can override) */
+button.danger {
+  color: #ff4d4f;
+  background: #fff;
+  border-color: #ff4d4f;
+}
+
+button.danger:hover {
+  color: #fff;
+  background: #ff4d4f;
+  border-color: #ff4d4f;
+}
+
+/* Input Styles */
+input[type="text"], input:not([type]) {
+  box-sizing: border-box;
+  margin: 0;
+  font-variant: tabular-nums;
+  list-style: none;
+  font-feature-settings: 'tnum';
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 11px;
+  color: rgba(0, 0, 0, 0.85);
+  font-size: 14px;
+  line-height: 1.5715;
+  background-color: #fff;
+  background-image: none;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  transition: all 0.3s;
+}
+
+input:hover {
+  border-color: #40a9ff;
+  border-right-width: 1px !important;
+}
+
+input:focus {
+  border-color: #40a9ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  outline: 0;
+}
+
+/* Badges & Tags */
+.badge {
+  display: inline-block;
+  padding: 0 7px;
+  font-size: 12px;
+  line-height: 20px;
+  white-space: nowrap;
+  background: #fafafa;
+  border: 1px solid #d9d9d9;
+  border-radius: 2px;
+  cursor: default;
+  opacity: 1;
+  transition: all 0.3s;
+}
+
+.badge-on {
+  color: #52c41a;
+  background: #f6ffed;
+  border-color: #b7eb8f;
+}
+
+.badge-off {
+  color: #ff4d4f;
+  background: #fff2f0;
+  border-color: #ffccc7;
+}
+
+.tag {
+  display: inline-block;
+  height: auto;
+  margin-right: 8px;
+  padding: 0 7px;
+  font-size: 12px;
+  line-height: 20px;
+  white-space: nowrap;
+  background: #f0f5ff;
+  border: 1px solid #adc6ff;
+  border-radius: 2px;
+  cursor: default;
+  color: #2f54eb;
+}
+
+/* Alert/Error */
+.error {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px 15px;
+  color: rgba(0, 0, 0, 0.85);
+  font-size: 14px;
+  line-height: 1.5715;
+  list-style: none;
+  position: relative;
+  word-wrap: break-word;
+  border-radius: 2px;
+  margin-bottom: 16px;
+  background-color: #fff2f0;
+  border: 1px solid #ffccc7;
+}
+
+.empty {
+  padding: 32px 0;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.25);
+  font-size: 14px;
+}
+
+/* Modals */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1000;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.45);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  position: relative;
+  background-color: #fff;
+  background-clip: padding-box;
+  border: 0;
+  border-radius: var(--border-radius);
+  box-shadow: 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
+  pointer-events: auto;
+  padding: 24px;
+  min-width: 400px;
+}
+
+.modal-header {
+  margin-bottom: 16px;
+  color: rgba(0, 0, 0, 0.85);
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 22px;
+  word-wrap: break-word;
+}
+
+.modal-footer {
+  margin-top: 24px;
+  text-align: right;
+  background: transparent;
+  border-top: none;
+}
+
+.modal-footer button + button {
+  margin-left: 8px;
+}
+
+/* Form Groups in Modals */
+.form-item {
+  margin-bottom: 24px;
+  vertical-align: top;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 8px;
+  color: rgba(0, 0, 0, 0.85);
+  font-size: 14px;
+}
+
+.radio-group label {
+  margin-right: 16px;
+  cursor: pointer;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+/* Specific button overrides for JS generated buttons if needed */
+#php-plugin-list button {
+  padding: 0 7px;
+  font-size: 12px;
+  height: 24px;
+  line-height: 22px;
+}
+
+/* Link-like buttons in table */
+td button {
+  color: #1890ff;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  padding: 0;
+  height: auto;
+  margin-right: 8px;
+}
+
+td button:hover {
+  color: #40a9ff;
+  background: transparent;
+  border-color: transparent;
+}
+
+td button[style*="color: #d93025"], td button[style*="color:#d93025"] {
+  color: #ff4d4f !important;
+}
+
+td button[style*="color: #d93025"]:hover, td button[style*="color:#d93025"]:hover {
+  color: #ff7875 !important;
+}

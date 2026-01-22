@@ -1,0 +1,98 @@
+#
+# Copyright (C) 2022 Ing <https://github.com/wjz304>
+#
+# This is free software, licensed under the MIT License.
+# See /LICENSE for more information.
+#
+
+name: Build
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: Init Env
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          sudo timedatectl set-timezone "Asia/Shanghai"
+
+      - name: Build
+        run: |
+          REPO="${{ github.repository }}"
+          TAG=$(date +"%Y.%m.%d-%H%M")
+          echo "TAG=${TAG}" >> $GITHUB_ENV
+
+          curl -sSL https://static2.fnnas.com/fnpack/fnpack-1.0.4-linux-amd64 -o fnpack
+          sudo chmod +x fnpack
+
+          echo "| 应用名称 | 版本 | 平台 | 描述 |" > apps-list.md
+          echo "|----------|------|------|------|" >> apps-list.md
+
+          APPS=()
+          for APP in fn-*; do
+            [ -f "${APP}/norelease" ] && continue
+            [ -f "${APP}/manifest" ] || continue
+            echo "Building ${APP} ..."
+
+            # ./fnpack create ${APP} --without-ui true  # 如果不需要 UI, 可以启用此行
+            ./fnpack build --directory ${APP}
+
+            APPNAME=$(grep '^appname' "$APP/manifest" | awk -F= '{print $2}' | xargs)
+            VERSION=$(grep '^version' "$APP/manifest" | awk -F= '{print $2}' | xargs)
+            DESC=$(grep '^desc' "$APP/manifest" | awk -F= '{print $2}' | xargs)
+            PLATFORM=$(grep '^platform' "$APP/manifest" | awk -F= '{print $2}' | xargs)
+
+            echo "| ${APPNAME} | v${VERSION} | ${PLATFORM} | ${DESC} |" >> apps-list.md
+
+            mv -f "${APPNAME}.fpk" "${APPNAME}_v${VERSION}.fpk"
+
+            SIZE=$(stat -c%s "${APPNAME}_v${VERSION}.fpk" 2>/dev/null | awk '{printf "%10.3f",$1/1024/1024}')
+            NAME=$(grep '^display_name' "$APP/manifest" | awk -F= '{print $2}' | xargs)
+            TYPE=$(grep '^install_type' "$APP/manifest" | awk -F= '{print $2}' | xargs)
+            APPS+=("\"${APP}\": {\"display_name\": \"${NAME}\", \"desc\": \"${DESC}\", \"labels\": \"工具\", \"version\": \"${VERSION}\", \"download_url\": \"https://github.com/${REPO}/releases/download/${TAG}/${APPNAME}_v${VERSION}.fpk\", \"author\": \"Ing\", \"author_url\": \"https://github.com/${REPO}\", \"bug_report_url\": \"https://github.com/${REPO}/issues\", \"install_type\": \"${TYPE}\", \"size\": \"${SIZE}\", \"history\": {\"v${VERSION}\": \"Initial release of ${APPNAME} package.\"}}")
+          done
+
+          echo "" >> apps-list.md
+          echo "![](https://img.shields.io/github/downloads/${REPO}/${TAG}/total)" >> apps-list.md
+
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt update >/dev/null 2>&1 && sudo apt install -y jq >/dev/null 2>&1
+          fi
+          echo {$(IFS=,; echo "${APPS[*]}")} | jq . >fnpack.json
+
+      - name: Check and Push
+        if: success()
+        run: |
+          echo "Git push ..."
+          # git checkout main
+          git pull
+          status=$(git status -s | grep -E "fnpack.json" | awk '{printf " %s", $2}')
+          if [ -n "${status}" ]; then
+            git add ${status}
+            git commit -m "update $(date +%Y-%m-%d" "%H:%M:%S)"
+            git push -f
+          fi
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: fn-apps
+          path: "*.fpk"
+          retention-days: 5
+
+      - name: Release
+        if: success() && !cancelled()
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.Brian099 }}
+          tag: ${{ env.TAG }}
+          artifacts: "*.fpk"
+          bodyFile: "apps-list.md"
