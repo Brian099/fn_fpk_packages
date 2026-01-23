@@ -28,13 +28,11 @@
   
   <div class="layui-side layui-bg-black">
     <div class="layui-side-scroll">
-      <ul class="layui-nav layui-nav-tree" lay-filter="test">
-        <li class="layui-nav-item layui-nav-itemed">
-          <a href="javascript:;">网站管理</a>
-          <dl class="layui-nav-child">
-            <dd><a href="javascript:;" class="layui-this">网站列表</a></dd>
-          </dl>
-        </li>
+      <ul class="layui-nav layui-nav-tree" lay-filter="nav-menu">
+        <li class="layui-nav-item layui-this"><a href="javascript:;" data-id="system">系统环境</a></li>
+        <li class="layui-nav-item"><a href="javascript:;" data-id="sites">网站列表</a></li>
+        <li class="layui-nav-item"><a href="javascript:;" data-id="plugins">插件管理</a></li>
+        <li class="layui-nav-item"><a href="javascript:;" data-id="settings">通用设置</a></li>
       </ul>
     </div>
   </div>
@@ -42,36 +40,77 @@
   <div class="layui-body">
     <div style="padding: 15px;">
       
-      <div class="layui-row layui-col-space15">
-        <div class="layui-col-md6">
-          <div class="layui-card">
-            <div class="layui-card-header">Nginx 状态</div>
-            <div class="layui-card-body" id="nginx-status">
-              <i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 检测中...
+      <!-- View: System Environment -->
+      <div id="view-system" class="layui-anim layui-anim-fadein">
+        <div class="layui-row layui-col-space15">
+          <div class="layui-col-md6">
+            <div class="layui-card">
+              <div class="layui-card-header">Nginx 状态</div>
+              <div class="layui-card-body" id="nginx-status">
+                <i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 检测中...
+              </div>
             </div>
           </div>
-        </div>
-        <div class="layui-col-md6">
-          <div class="layui-card">
-            <div class="layui-card-header">PHP 状态</div>
-            <div class="layui-card-body" id="php-status">
-              <i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 检测中...
+          <div class="layui-col-md6">
+            <div class="layui-card">
+              <div class="layui-card-header">PHP 状态</div>
+              <div class="layui-card-body" id="php-status">
+                <i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 检测中...
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="layui-card">
-        <div class="layui-card-header">网站列表</div>
-        <div class="layui-card-body">
-          <div class="layui-btn-container">
-            <button class="layui-btn layui-btn-sm" id="btn-create-site"><i class="layui-icon layui-icon-add-1"></i> 新建网站</button>
-            <button class="layui-btn layui-btn-sm layui-btn-normal" id="btn-php-plugins"><i class="layui-icon layui-icon-component"></i> 插件管理</button>
-            <button class="layui-btn layui-btn-sm layui-btn-warm" id="btn-upload-limit"><i class="layui-icon layui-icon-upload-drag"></i> 上传限制</button>
-            <button class="layui-btn layui-btn-sm layui-btn-primary" id="btn-refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+      <!-- View: Site List -->
+      <div id="view-sites" class="layui-anim layui-anim-fadein" style="display:none;">
+        <div class="layui-card">
+          <div class="layui-card-header">网站列表</div>
+          <div class="layui-card-body">
+            <div class="layui-btn-container">
+              <button class="layui-btn layui-btn-sm" id="btn-create-site"><i class="layui-icon layui-icon-add-1"></i> 新建网站</button>
+              <button class="layui-btn layui-btn-sm layui-btn-primary" id="btn-refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+            </div>
+            <table id="site-table" lay-filter="site-table"></table>
           </div>
-          
-          <table id="site-table" lay-filter="site-table"></table>
+        </div>
+      </div>
+
+      <!-- View: Plugin Management -->
+      <div id="view-plugins" class="layui-anim layui-anim-fadein" style="display:none;">
+        <div class="layui-card">
+          <div class="layui-card-header">PHP 插件管理</div>
+          <div class="layui-card-body">
+            <div style="margin-bottom: 10px; display:flex; gap:10px;">
+              <input type="text" id="input-plugin-custom" placeholder="自定义插件包名" class="layui-input" style="width: 200px;">
+              <button class="layui-btn layui-btn-sm" id="btn-install-custom-plugin">安装自定义</button>
+              <button class="layui-btn layui-btn-sm layui-btn-normal" id="btn-install-all-plugins">一键安装全部</button>
+            </div>
+            <table id="plugin-table" lay-filter="plugin-table"></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- View: General Settings -->
+      <div id="view-settings" class="layui-anim layui-anim-fadein" style="display:none;">
+        <div class="layui-card">
+          <div class="layui-card-header">通用设置</div>
+          <div class="layui-card-body">
+             <form class="layui-form" lay-filter="form-settings" style="max-width: 600px;">
+              <div class="layui-form-item">
+                 <blockquote class="layui-elem-quote" style="font-size:12px;">此设置将同时修改 PHP 和 Nginx 的上传大小限制。</blockquote>
+              </div>
+              <div class="layui-form-item">
+                <label class="layui-form-label">上传限制</label>
+                <div class="layui-input-block">
+                  <div style="display:flex; gap:10px;">
+                    <input type="text" name="upload_limit" id="input-upload-limit" placeholder="例如: 64M" class="layui-input">
+                    <button type="button" class="layui-btn" id="btn-save-upload-limit">保存设置</button>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
 
@@ -187,36 +226,6 @@
       </div>
     </div>
   </form>
-</div>
-
-<!-- Dialog: Upload Limit -->
-<div id="tpl-upload-limit" style="display:none; padding:20px;">
-  <form class="layui-form">
-    <div class="layui-form-item">
-       <blockquote class="layui-elem-quote" style="font-size:12px;">此设置将同时修改 PHP 和 Nginx 的上传大小限制。</blockquote>
-    </div>
-    <div class="layui-form-item">
-      <label class="layui-form-label">限制大小</label>
-      <div class="layui-input-block">
-        <input type="text" id="input-upload-limit" placeholder="例如: 64M" class="layui-input">
-      </div>
-    </div>
-    <div class="layui-form-item">
-      <div class="layui-input-block">
-        <button type="button" class="layui-btn" id="btn-save-upload-limit">保存并应用</button>
-      </div>
-    </div>
-  </form>
-</div>
-
-<!-- Dialog: PHP Plugins -->
-<div id="tpl-php-plugins" style="display:none; padding:20px;">
-  <div style="margin-bottom: 10px; display:flex; gap:10px;">
-    <input type="text" id="input-plugin-custom" placeholder="自定义插件包名" class="layui-input" style="flex:1;">
-    <button class="layui-btn layui-btn-sm" id="btn-install-custom-plugin">安装自定义</button>
-    <button class="layui-btn layui-btn-sm layui-btn-normal" id="btn-install-all-plugins">一键安装全部</button>
-  </div>
-  <table id="plugin-table" lay-filter="plugin-table"></table>
 </div>
 
 <!-- Dialog: Dir Selector -->

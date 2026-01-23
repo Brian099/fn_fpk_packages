@@ -36,60 +36,32 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
     });
   }
 
-  // --- Main Site Table ---
-  table.render({
-    elem: '#site-table',
-    url: apiBase + '/api/sites',
-    parseData: function(res){
-      return {
-        "code": 0,
-        "msg": "",
-        "count": res ? res.length : 0,
-        "data": res || []
-      };
-    },
-    cols: [[
-      {field: 'name', title: '网站名称', width: 150},
-      {field: 'mode', title: '类型', width: 80, templet: function(d){ return d.mode==='domain'?'域名':'端口'; }},
-      {field: 'port', title: '监听端口', width: 120, templet: function(d){ 
-          if(d.port) return d.port.split(',').map(p=>`<span class="layui-badge layui-bg-gray">${p}</span>`).join(' ');
-          return '-';
-      }},
-      {field: 'root', title: '根目录', minWidth: 200},
-      {field: 'enabled', title: '状态', width: 100, templet: function(d){
-          return d.enabled ? '<span class="layui-badge layui-bg-green">已启用</span>' : '<span class="layui-badge layui-bg-orange">已停用</span>';
-      }},
-      {fixed: 'right', title:'操作', toolbar: '#site-bar', width: 220}
-    ]],
-    page: false,
-    text: {none: '暂无网站配置'}
+  // --- Navigation Logic ---
+  $('.layui-nav-item a').click(function(){
+      var id = $(this).data('id');
+      if(id) switchTab(id);
   });
 
-  // --- Table Tools ---
-  table.on('tool(site-table)', function(obj){
-    var data = obj.data;
-    if(obj.event === 'del'){
-      layer.confirm('确定要删除网站 '+data.name+' 吗？<br>此操作不可恢复。', {icon: 3, title:'删除确认'}, function(index){
-        apiPost("/api/sites/delete", "name="+encodeURIComponent(data.name), "删除成功", function(){
-            obj.del();
-        });
-        layer.close(index);
-      });
-    } else if(obj.event === 'disable' || obj.event === 'enable'){
-       var action = obj.event; // disable or enable
-       var actionText = action === 'disable' ? '停用' : '启用';
-       layer.confirm('确定要'+actionText+'网站 '+data.name+' 吗？', {icon: 3, title: actionText+'确认'}, function(index){
-           apiPost("/api/sites/" + action, "name="+encodeURIComponent(data.name), actionText+"成功", function(){
-               reloadSites();
-           });
-           layer.close(index);
-       });
-    } else if(obj.event === 'edit-port'){
-        openEditPortModal(data);
-    }
-  });
+  function switchTab(id) {
+      // Hide all views
+      $('#view-system, #view-sites, #view-plugins, #view-settings').hide();
+      // Show target
+      $('#view-' + id).show();
+      
+      // Load content if needed
+      if(id === 'system') {
+          loadStatus();
+      } else if(id === 'sites') {
+          // Table auto-renders, but maybe resize?
+          table.resize('site-table');
+      } else if(id === 'plugins') {
+          loadPluginTable();
+      } else if(id === 'settings') {
+          loadUploadLimit();
+      }
+  }
 
-  // --- Status Loading ---
+  // --- System Environment ---
   function loadStatus() {
       // Nginx
       fetch(apiBase+"/api/nginx/status").then(r=>r.json()).then(data => {
@@ -129,247 +101,76 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
           }
       }).catch(()=> $('#php-status').text('获取失败'));
   }
-  loadStatus();
-  $('#btn-refresh').click(function(){ reloadSites(); loadStatus(); });
 
-  // --- Create Site Modal ---
-  $('#btn-create-site').click(function(){
-      // Reset form
-      form.val('form-create-site', {
-          "name": "", "mode": "domain", "domain": "", "port": "2829", 
-          "https_enabled": false, "port_ssl": "8443", 
-          "root": "/var/www/html/", "rewrite": ""
-      });
-      // Trigger change events to update visibility
-      $('input[name=mode][value=domain]').prop('checked', true);
-      $('input[name=https_enabled]').prop('checked', false);
-      form.render();
-      updateCreateSiteVisibility("domain", false);
-
-      layer.open({
-          type: 1,
-          title: '新建网站',
-          content: $('#tpl-create-site'), // Content from DOM
-          area: ['600px', '750px'],
-          success: function(layero, index){
-              // Re-bind events inside layer if needed (Layui handles form filters globally usually)
-          }
-      });
+  // --- Site List ---
+  table.render({
+    elem: '#site-table',
+    url: apiBase + '/api/sites',
+    parseData: function(res){
+      return {
+        "code": 0,
+        "msg": "",
+        "count": res ? res.length : 0,
+        "data": res || []
+      };
+    },
+    cols: [[
+      {field: 'name', title: '网站名称', width: 150},
+      {field: 'mode', title: '类型', width: 80, templet: function(d){ return d.mode==='domain'?'域名':'端口'; }},
+      {field: 'port', title: '监听端口', width: 120, templet: function(d){ 
+          if(d.port) return d.port.split(',').map(p=>`<span class="layui-badge layui-bg-gray">${p}</span>`).join(' ');
+          return '-';
+      }},
+      {field: 'root', title: '根目录', minWidth: 200},
+      {field: 'enabled', title: '状态', width: 100, templet: function(d){
+          return d.enabled ? '<span class="layui-badge layui-bg-green">已启用</span>' : '<span class="layui-badge layui-bg-orange">已停用</span>';
+      }},
+      {fixed: 'right', title:'操作', toolbar: '#site-bar', width: 220}
+    ]],
+    page: false,
+    text: {none: '暂无网站配置'}
   });
 
-  // Visibility Logic
-  form.on('radio(site-mode)', function(data){
-      updateCreateSiteVisibility(data.value, $('input[name=https_enabled]').prop('checked'));
-  });
-  form.on('checkbox(https-enabled)', function(data){
-      var mode = $('input[name=mode]:checked').val();
-      updateCreateSiteVisibility(mode, data.elem.checked);
-  });
-
-  function updateCreateSiteVisibility(mode, https) {
-      if(mode === 'domain') {
-          $('#field-domain').show();
-          $('#field-port-http').hide();
-          $('#field-port-https').hide();
-      } else {
-          $('#field-domain').hide();
-          $('#field-port-http').show();
-          if(https) $('#field-port-https').show(); else $('#field-port-https').hide();
-      }
-  }
-
-  // Submit Create Site
-  form.on('submit(submit-create-site)', function(data){
-      var field = data.field;
-      var body = "mode=" + field.mode + "\nroot=" + field.root;
-      
-      if(field.name) body += "\nname=" + encodeURIComponent(field.name);
-      body += "\nhttps_enabled=" + (field.https_enabled ? "true" : "false");
-
-      if(field.mode === 'domain') {
-          if(!field.domain) { layer.msg('请输入域名'); return false; }
-          body += "\ndomain=" + field.domain;
-      } else {
-          if(!field.port) { layer.msg('请输入HTTP端口'); return false; }
-          body += "\nport=" + field.port;
-          if(field.https_enabled) {
-              if(!field.port_ssl) { layer.msg('请输入HTTPS端口'); return false; }
-              body += "\nport_https=" + field.port_ssl;
-          }
-      }
-
-      if(field.rewrite) {
-          body += "\nrewrite=" + encodeURIComponent(field.rewrite);
-      }
-
-      apiPost("/api/sites/create", body, "创建成功", function(){
-          layer.closeAll('page');
-          reloadSites();
+  table.on('tool(site-table)', function(obj){
+    var data = obj.data;
+    if(obj.event === 'del'){
+      layer.confirm('确定要删除网站 '+data.name+' 吗？<br>此操作不可恢复。', {icon: 3, title:'删除确认'}, function(index){
+        apiPost("/api/sites/delete", "name="+encodeURIComponent(data.name), "删除成功", function(){
+            obj.del();
+        });
+        layer.close(index);
       });
-      return false; // Prevent form reload
+    } else if(obj.event === 'disable' || obj.event === 'enable'){
+       var action = obj.event; // disable or enable
+       var actionText = action === 'disable' ? '停用' : '启用';
+       layer.confirm('确定要'+actionText+'网站 '+data.name+' 吗？', {icon: 3, title: actionText+'确认'}, function(index){
+           apiPost("/api/sites/" + action, "name="+encodeURIComponent(data.name), actionText+"成功", function(){
+               reloadSites();
+           });
+           layer.close(index);
+       });
+    } else if(obj.event === 'edit-port'){
+        openEditPortModal(data);
+    }
   });
 
-  // --- Edit Port Modal ---
-  function openEditPortModal(site) {
-      form.val('form-edit-port', {
-          "site_name": site.name,
-          "port": "",
-          "port_https": ""
-      });
-      
-      // Parse ports
-      var ports = (site.port || "").split(",");
-      var httpPort = "", httpsPort = "";
-      ports.forEach(function(p){
-          p = p.trim();
-          if(p==="443" || p==="8443" || p==="2931") httpsPort = p;
-          else if(!httpPort) httpPort = p;
-          else if(!httpsPort) httpsPort = p; 
-      });
-      form.val('form-edit-port', {
-          "port": httpPort,
-          "port_https": httpsPort
-      });
+  $('#btn-refresh').click(function(){ reloadSites(); });
 
-      layer.open({
-          type: 1,
-          title: '修改端口 - ' + site.name,
-          content: $('#tpl-edit-port'),
-          area: ['400px', '300px']
-      });
-  }
-
-  form.on('submit(submit-edit-port)', function(data){
-      var f = data.field;
-      if(!f.port) { layer.msg('请输入HTTP端口'); return false; }
-      var body = "name=" + encodeURIComponent(f.site_name) + "\nport=" + f.port;
-      if(f.port_https) body += "\nport_https=" + f.port_https;
-      
-      apiPost("/api/sites/update-port", body, "修改成功", function(){
-          layer.closeAll('page');
-          reloadSites();
-      });
-      return false;
-  });
-
-  // --- Directory Selector ---
-  var currentDirInputId = "";
-  $('#btn-browse-root').click(function(){
-      currentDirInputId = "input-root-path";
-      openDirSelector($('#input-root-path').val());
-  });
-
-  function openDirSelector(initialPath) {
-      loadDirs(initialPath || "/");
-      layer.open({
-          type: 1,
-          title: '选择目录',
-          content: $('#tpl-dir-selector'),
-          area: ['500px', '400px']
-      });
-  }
-
-  $('#btn-dir-up').click(function(){
-      var current = $('#dir-selector-current').val();
-      var parent = current.replace(/[^/]+\/?$/, "");
-      if(!parent) parent = "/";
-      loadDirs(parent);
-  });
-
-  $('#btn-dir-confirm').click(function(){
-      var selected = $('#dir-selector-current').val();
-      if(currentDirInputId) $('#'+currentDirInputId).val(selected);
-      layer.closeAll('page'); // Note: this closes all page layers, might be too aggressive if multiple layers
-      // Better to capture layer index, but here we assume one modal at a time.
-  });
-
-  function loadDirs(path) {
-      $('#dir-selector-current').val(path);
-      $('#dir-list-container').html('<div class="layui-icon layui-icon-loading"> 加载中...</div>');
-      
-      fetch(apiBase+"/api/fs/list", {method:"POST", body:path})
-      .then(r=>r.json())
-      .then(data => {
-          if(!data.ok) { $('#dir-list-container').text("错误: " + data.error); return; }
-          $('#dir-selector-current').val(data.current);
-          var html = "";
-          if(data.dirs) {
-              data.dirs.forEach(d => {
-                  html += `<div class="dir-item" style="padding:5px; cursor:pointer; border-bottom:1px solid #f0f0f0;">
-                      <i class="layui-icon layui-icon-folder"></i> ${d}
-                  </div>`;
-              });
-          } else {
-              html = "<div style='padding:10px; color:#999'>无子目录</div>";
-          }
-          $('#dir-list-container').html(html);
-          
-          $('#dir-list-container .dir-item').click(function(){
-              var name = $(this).text().trim();
-              var cur = $('#dir-selector-current').val();
-              loadDirs(cur.replace(/\/?$/, "/") + name);
-          });
-      })
-      .catch(() => $('#dir-list-container').text("加载失败"));
-  }
-
-  // --- Upload Limit ---
-  $('#btn-upload-limit').click(function(){
-      var loading = layer.load();
-      fetch(apiBase+"/api/settings/get-upload-limit").then(r=>r.json()).then(data=>{
-          layer.close(loading);
-          $('#input-upload-limit').val(data.ok ? data.limit : "");
-          layer.open({
-              type: 1,
-              title: '修改上传限制',
-              content: $('#tpl-upload-limit'),
-              area: ['400px', '250px']
-          });
-      }).catch(()=>{ layer.close(loading); layer.msg('获取配置失败'); });
-  });
-
-  $('#btn-save-upload-limit').click(function(){
-      var val = $('#input-upload-limit').val();
-      if(!val) { layer.msg('请输入限制值'); return; }
-      apiPost("/api/settings/set-upload-limit", "limit="+encodeURIComponent(val), "修改成功", function(){
-          layer.closeAll('page');
-      });
-  });
-
-  // --- PHP Plugins ---
-  $('#btn-php-plugins').click(function(){
-      layer.open({
-          type: 1,
-          title: 'PHP 插件管理',
-          content: $('#tpl-php-plugins'),
-          area: ['600px', '500px'],
-          success: function(){
-              loadPluginTable();
-          }
-      });
-  });
-
+  // --- Plugin Management ---
+  var pluginTableRendered = false;
   function loadPluginTable() {
+      if(pluginTableRendered) {
+          table.reload('plugin-table');
+          return;
+      }
+      pluginTableRendered = true;
+      
       table.render({
           elem: '#plugin-table',
           url: apiBase + '/api/php/extensions',
           parseData: function(res){
-              // Transform data
-              var list = [];
-              if(Array.isArray(res)) list = res;
-              // Add default plugins if not in list (optional, but old logic did it)
-              // Actually old logic fetched status and matched against default list.
-              // Let's stick to what API returns for now, or merge with default list.
-              // To keep it simple, let's just show what API returns + merge logic from old script?
-              // Old script: pluginPackagesFromDefault() -> filter installedMap.
-              // The API /api/php/extensions returns ALL installed extensions.
-              // But we want to show installable ones too?
-              // Actually /api/php/extensions ONLY returns `php -m` result (installed ones).
-              // The old script hardcoded a list of "available" extensions in `defaultPhpExtensions`.
-              // We need that list to show what can be installed.
-              
               var installedMap = {};
-              if(res) res.forEach(r => installedMap[r.name] = true);
+              if(res && Array.isArray(res)) res.forEach(r => installedMap[r.name] = true);
               
               var allPkgs = defaultPhpExtensions.split('\n').filter(x=>x.trim());
               var gridData = allPkgs.map(name => {
@@ -388,7 +189,9 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
                   return `<a class="layui-btn layui-btn-xs" lay-event="install">安装</a>`;
               }}
           ]],
-          height: 350
+          page: false,
+          limit: 1000,
+          height: 'full-200' // Auto fill
       });
   }
 
@@ -423,5 +226,158 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
           apiPost("/api/php/install", name, "安装完成", function(){ loadPluginTable(); });
       });
   });
+
+  // --- General Settings ---
+  function loadUploadLimit() {
+      var loading = layer.load();
+      fetch(apiBase+"/api/settings/get-upload-limit").then(r=>r.json()).then(data=>{
+          layer.close(loading);
+          $('#input-upload-limit').val(data.ok ? data.limit : "");
+      }).catch(()=>{ layer.close(loading); layer.msg('获取配置失败'); });
+  }
+
+  $('#btn-save-upload-limit').click(function(){
+      var val = $('#input-upload-limit').val();
+      if(!val) { layer.msg('请输入限制值'); return; }
+      apiPost("/api/settings/set-upload-limit", "limit="+encodeURIComponent(val), "修改成功");
+  });
+
+  // --- Create Site Logic (Keep as is) ---
+  $('#btn-create-site').click(function(){
+      form.val('form-create-site', {
+          "name": "", "mode": "domain", "domain": "", "port": "2829", 
+          "https_enabled": false, "port_ssl": "8443", 
+          "root": "/var/www/html/", "rewrite": ""
+      });
+      $('input[name=mode][value=domain]').prop('checked', true);
+      $('input[name=https_enabled]').prop('checked', false);
+      form.render();
+      updateCreateSiteVisibility("domain", false);
+
+      layer.open({
+          type: 1, title: '新建网站', content: $('#tpl-create-site'), area: ['600px', '750px']
+      });
+  });
+
+  form.on('radio(site-mode)', function(data){
+      updateCreateSiteVisibility(data.value, $('input[name=https_enabled]').prop('checked'));
+  });
+  form.on('checkbox(https-enabled)', function(data){
+      var mode = $('input[name=mode]:checked').val();
+      updateCreateSiteVisibility(mode, data.elem.checked);
+  });
+
+  function updateCreateSiteVisibility(mode, https) {
+      if(mode === 'domain') {
+          $('#field-domain').show(); $('#field-port-http').hide(); $('#field-port-https').hide();
+      } else {
+          $('#field-domain').hide(); $('#field-port-http').show();
+          if(https) $('#field-port-https').show(); else $('#field-port-https').hide();
+      }
+  }
+
+  form.on('submit(submit-create-site)', function(data){
+      var field = data.field;
+      var body = "mode=" + field.mode + "\nroot=" + field.root;
+      if(field.name) body += "\nname=" + encodeURIComponent(field.name);
+      body += "\nhttps_enabled=" + (field.https_enabled ? "true" : "false");
+
+      if(field.mode === 'domain') {
+          if(!field.domain) { layer.msg('请输入域名'); return false; }
+          body += "\ndomain=" + field.domain;
+      } else {
+          if(!field.port) { layer.msg('请输入HTTP端口'); return false; }
+          body += "\nport=" + field.port;
+          if(field.https_enabled) {
+              if(!field.port_ssl) { layer.msg('请输入HTTPS端口'); return false; }
+              body += "\nport_https=" + field.port_ssl;
+          }
+      }
+      if(field.rewrite) body += "\nrewrite=" + encodeURIComponent(field.rewrite);
+
+      apiPost("/api/sites/create", body, "创建成功", function(){
+          layer.closeAll('page');
+          reloadSites();
+      });
+      return false;
+  });
+
+  // --- Edit Port Logic ---
+  function openEditPortModal(site) {
+      form.val('form-edit-port', { "site_name": site.name, "port": "", "port_https": "" });
+      var ports = (site.port || "").split(",");
+      var httpPort = "", httpsPort = "";
+      ports.forEach(function(p){
+          p = p.trim();
+          if(p==="443" || p==="8443" || p==="2931") httpsPort = p;
+          else if(!httpPort) httpPort = p;
+          else if(!httpsPort) httpsPort = p; 
+      });
+      form.val('form-edit-port', { "port": httpPort, "port_https": httpsPort });
+
+      layer.open({ type: 1, title: '修改端口 - ' + site.name, content: $('#tpl-edit-port'), area: ['400px', '300px'] });
+  }
+
+  form.on('submit(submit-edit-port)', function(data){
+      var f = data.field;
+      if(!f.port) { layer.msg('请输入HTTP端口'); return false; }
+      var body = "name=" + encodeURIComponent(f.site_name) + "\nport=" + f.port;
+      if(f.port_https) body += "\nport_https=" + f.port_https;
+      
+      apiPost("/api/sites/update-port", body, "修改成功", function(){
+          layer.closeAll('page');
+          reloadSites();
+      });
+      return false;
+  });
+
+  // --- Directory Selector ---
+  var currentDirInputId = "";
+  $('#btn-browse-root').click(function(){
+      currentDirInputId = "input-root-path";
+      openDirSelector($('#input-root-path').val());
+  });
+
+  function openDirSelector(initialPath) {
+      loadDirs(initialPath || "/");
+      layer.open({ type: 1, title: '选择目录', content: $('#tpl-dir-selector'), area: ['500px', '400px'] });
+  }
+
+  $('#btn-dir-up').click(function(){
+      var current = $('#dir-selector-current').val();
+      var parent = current.replace(/[^/]+\/?$/, "");
+      if(!parent) parent = "/";
+      loadDirs(parent);
+  });
+
+  $('#btn-dir-confirm').click(function(){
+      var selected = $('#dir-selector-current').val();
+      if(currentDirInputId) $('#'+currentDirInputId).val(selected);
+      layer.closeAll('page');
+  });
+
+  function loadDirs(path) {
+      $('#dir-selector-current').val(path);
+      $('#dir-list-container').html('<div class="layui-icon layui-icon-loading"> 加载中...</div>');
+      fetch(apiBase+"/api/fs/list", {method:"POST", body:path}).then(r=>r.json()).then(data => {
+          if(!data.ok) { $('#dir-list-container').text("错误: " + data.error); return; }
+          $('#dir-selector-current').val(data.current);
+          var html = "";
+          if(data.dirs) {
+              data.dirs.forEach(d => {
+                  html += `<div class="dir-item" style="padding:5px; cursor:pointer; border-bottom:1px solid #f0f0f0;"><i class="layui-icon layui-icon-folder"></i> ${d}</div>`;
+              });
+          } else { html = "<div style='padding:10px; color:#999'>无子目录</div>"; }
+          $('#dir-list-container').html(html);
+          $('#dir-list-container .dir-item').click(function(){
+              var name = $(this).text().trim();
+              var cur = $('#dir-selector-current').val();
+              loadDirs(cur.replace(/\/?$/, "/") + name);
+          });
+      }).catch(() => $('#dir-list-container').text("加载失败"));
+  }
+
+  // --- Initialize ---
+  loadStatus(); // Default tab is system
 
 });
