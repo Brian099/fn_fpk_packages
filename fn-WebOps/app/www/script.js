@@ -263,7 +263,7 @@ pluginList.textContent="插件状态加载失败";
 if(pluginButton){pluginButton.addEventListener("click",function(){
 renderPluginList();
 if(pluginCustom)pluginCustom.value="";
-pluginModal.style.display="flex";
+pluginModal.style.display="block";
 });}
 if(pluginClose){pluginClose.addEventListener("click",function(){
 pluginModal.style.display="none";
@@ -379,7 +379,7 @@ if(createSiteBtn){createSiteBtn.addEventListener("click",function(){
   if(httpsCheckbox) httpsCheckbox.checked = false;
   if(newSitePortSsl) newSitePortSsl.value = "8443";
   updateSiteFormVisibility();
-  createSiteModal.style.display="flex";
+  createSiteModal.style.display="block";
 });}
 
 if(cancelCreateSiteBtn){cancelCreateSiteBtn.addEventListener("click",function(){
@@ -543,7 +543,7 @@ function openEditPortModal(site){
     editSitePortInput.value=httpPort;
     editSitePortHttpsInput.value=httpsPort;
     
-    editPortModal.style.display="flex";
+    editPortModal.style.display="block";
 }
 
 if(cancelEditPortBtn){
