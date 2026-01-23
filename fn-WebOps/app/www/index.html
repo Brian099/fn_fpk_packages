@@ -7,178 +7,177 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="container">
-<h1>网站配置管理</h1>
-<div id="nginx-status" class="status" style="margin-bottom:8px; font-size:14px"></div>
-<div id="php-status" class="status" style="margin-bottom:16px; font-size:14px"></div>
-<div id="error" class="msg"></div>
-<div class="toolbar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px">
-<div class="status" id="status" style="color:var(--muted); font-size:14px">正在加载网站列表...</div>
-<div class="actions">
-<button id="create-site-btn" class="primary">新建网站</button>
-<button id="edit-php-plugins">插件管理</button>
-<button id="upload-limit-btn">上传限制</button>
-<button id="refresh">刷新</button>
-</div>
-</div>
-<div id="table-container">
-<div class="empty" id="empty" style="display:none; text-align:center; padding:20px; color:var(--muted)">暂无网站配置</div>
-<table id="table" class="clients" style="display:none; width:100%">
-<thead>
-<tr>
-<th>网站名称</th>
-<th>类型</th>
-<th>监听端口</th>
-<th>根目录</th>
-<th>状态</th>
-<th>操作</th>
-</tr>
-</thead>
-<tbody id="tbody"></tbody>
-</table>
-</div>
+<div class="page">
+  <h1>网站配置管理</h1>
+  
+  <div id="nginx-status" class="status"></div>
+  <div id="php-status" class="status"></div>
+  <div id="error" class="error" style="display:none"></div>
+  
+  <div class="toolbar">
+    <div class="status" id="status">正在加载网站列表...</div>
+    <div>
+      <button id="create-site-btn" class="primary">新建网站</button>
+      <button id="edit-php-plugins">插件管理</button>
+      <button id="upload-limit-btn">上传限制</button>
+      <button id="refresh">刷新</button>
+    </div>
+  </div>
+  
+  <div id="table-container">
+    <div class="empty" id="empty" style="display:none">暂无网站配置</div>
+    <table id="table" style="display:none">
+      <thead>
+        <tr>
+          <th>网站名称</th>
+          <th>类型</th>
+          <th>监听端口</th>
+          <th>根目录</th>
+          <th>状态</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
 
-<!-- PHP Plugin Modal -->
-<div id="php-plugin-modal" class="modal">
-<div class="backdrop"></div>
-<div class="panel" style="width: 520px; max-width: 90%;">
-<h3>PHP 插件管理</h3>
-<div class="content">
-<div id="php-plugin-list" style="max-height:260px;overflow:auto;margin:8px 0;border:1px solid var(--border);border-radius:4px;padding:6px 8px;"></div>
-<div class="form-item" style="margin: 8px 0; display: flex; gap: 8px;">
-<input id="php-plugin-custom" placeholder="自定义插件包名，例如 php8.2-xdebug" style="flex: 1;">
-<button id="php-plugin-custom-install">安装自定义插件</button>
-</div>
-</div>
-<div class="actions">
-<button id="php-plugin-install-all" class="primary">全部安装</button>
-<button id="php-plugin-close">关闭</button>
-</div>
-</div>
-</div>
+  <!-- PHP Plugin Modal -->
+  <div id="php-plugin-modal" class="modal-mask">
+    <div class="modal-content">
+      <div class="modal-header">PHP 插件管理</div>
+      <div class="form-item">
+        <div id="php-plugin-list"></div>
+      </div>
+      <div class="form-item" style="margin-top: 0;">
+        <label class="form-label">自定义安装插件</label>
+        <div style="display: flex; gap: 8px;">
+          <input id="php-plugin-custom" placeholder="例如：php8.2-xdebug">
+          <button id="php-plugin-custom-install">安装</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="php-plugin-install-all" class="primary">全部安装</button>
+        <button id="php-plugin-close">关闭</button>
+      </div>
+    </div>
+  </div>
 
-<!-- Create Site Modal -->
-<div id="create-site-modal" class="modal">
-<div class="backdrop"></div>
-<div class="panel" style="width: 420px">
-<h3>新建网站</h3>
-<div class="content">
+  <!-- Create Site Modal -->
+  <div id="create-site-modal" class="modal-mask">
+    <div class="modal-content">
+      <div class="modal-header">新建网站</div>
+      
+      <div class="form-item">
+        <label class="form-label">网站名称 (Site Name)</label>
+        <input id="new-site-name" placeholder="选填，留空则默认使用域名或端口">
+      </div>
 
-<div class="form-item" style="margin-bottom: 12px">
-   <label class="form-label" style="display:block;margin-bottom:4px;color:var(--muted);font-size:12px">网站名称 (Site Name)</label>
-   <input id="new-site-name" placeholder="选填，留空则默认使用域名或端口">
-</div>
+      <div class="form-item">
+        <label class="form-label">模式 (Mode)</label>
+        <div class="radio-group">
+          <label><input type="radio" name="site-mode" value="domain" checked> 基于域名</label>
+          <label><input type="radio" name="site-mode" value="port"> 基于端口</label>
+        </div>
+      </div>
 
-<div class="form-item" style="margin-bottom: 12px">
-   <label class="form-label" style="display:block;margin-bottom:4px;color:var(--muted);font-size:12px">模式 (Mode)</label>
-   <div class="radio-group" style="display:flex; gap:12px">
-       <label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--text)"><input type="radio" name="site-mode" value="domain" checked> 基于域名</label>
-       <label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--text)"><input type="radio" name="site-mode" value="port"> 基于端口</label>
-   </div>
-</div>
+      <div id="field-domain" class="form-item">
+        <label class="form-label">域名 (Domain)</label>
+        <input id="new-site-domain" placeholder="example.com">
+      </div>
 
-<div id="field-domain" class="form-item" style="margin-bottom: 12px">
-   <label class="form-label" style="display:block;margin-bottom:4px;color:var(--muted);font-size:12px">域名 (Domain)</label>
-   <input id="new-site-domain" placeholder="example.com">
-</div>
+      <div id="field-port-http" class="form-item" style="display:none">
+        <label class="form-label">HTTP 端口 (Port)</label>
+        <input id="new-site-port" value="2829">
+      </div>
 
-<div id="field-port-http" class="form-item" style="display:none;margin-bottom: 12px">
-   <label class="form-label" style="display:block;margin-bottom:4px;color:var(--muted);font-size:12px">HTTP 端口 (Port)</label>
-   <input id="new-site-port" value="2829">
-</div>
+      <div class="form-item">
+        <label><input type="checkbox" id="new-site-https"> 启用 HTTPS</label>
+      </div>
 
-<div class="form-item" style="margin-bottom: 12px">
-   <label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--text)"><input type="checkbox" id="new-site-https"> 启用 HTTPS (Enable SSL)</label>
-</div>
+      <div id="field-port-https" class="form-item" style="display:none">
+        <label class="form-label">HTTPS 端口</label>
+        <input id="new-site-port-ssl" value="8443">
+      </div>
 
-<div id="field-port-https" class="form-item" style="display:none;margin-bottom: 12px">
-   <label class="form-label" style="display:block;margin-bottom:4px;color:var(--muted);font-size:12px">HTTPS 端口</label>
-   <input id="new-site-port-ssl" value="8443">
-</div>
+      <div class="form-item">
+        <label class="form-label">根目录 (Root Directory)</label>
+        <div style="display:flex; gap: 0;">
+          <input id="new-site-root" placeholder="/var/www/html/example" style="flex:1; border-top-right-radius:0; border-bottom-right-radius:0;">
+          <button id="browse-root" style="border-top-left-radius:0; border-bottom-left-radius:0;">浏览</button>
+        </div>
+      </div>
 
-<div class="form-item" style="margin-bottom: 12px">
-<label class="form-label" style="display:block;margin-bottom:4px;color:var(--muted);font-size:12px">根目录 (Root Directory)</label>
-<div style="display:flex">
-<input id="new-site-root" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 0;" placeholder="/var/www/html/example">
-<button id="browse-root" style="border-top-left-radius: 0; border-bottom-left-radius: 0;">浏览</button>
-</div>
-</div>
+      <div class="form-item">
+        <label class="form-label">伪静态规则</label>
+        <textarea id="new-site-rewrite" rows="4" placeholder="例如: try_files $uri $uri/ /index.php?$query_string;" style="font-family: monospace;"></textarea>
+      </div>
 
-<div class="form-item" style="margin-bottom: 12px">
-   <label class="form-label" style="display:block;margin-bottom:4px;color:var(--muted);font-size:12px">伪静态规则 (Rewrite Rules)</label>
-   <textarea id="new-site-rewrite" rows="4" placeholder="例如: try_files $uri $uri/ /index.php?$query_string;" style="width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 10px; font-family: monospace; background: var(--surface); color: var(--text); box-sizing:border-box; resize:vertical;"></textarea>
-</div>
+      <div class="modal-footer">
+        <button id="do-create-site" class="primary">创建</button>
+        <button id="cancel-create-site">取消</button>
+      </div>
+    </div>
+  </div>
 
-</div>
-<div class="actions">
-<button id="do-create-site" class="primary">创建</button>
-<button id="cancel-create-site">取消</button>
-</div>
-</div>
-</div>
+  <!-- Edit Port Modal -->
+  <div id="edit-port-modal" class="modal-mask">
+    <div class="modal-content">
+      <div class="modal-header">修改端口</div>
+      <input type="hidden" id="edit-site-name">
+      <div class="form-item">
+        <label class="form-label">HTTP 端口</label>
+        <input id="edit-site-port">
+      </div>
+      <div class="form-item">
+        <label class="form-label">HTTPS 端口 (可选)</label>
+        <input id="edit-site-port-https" placeholder="留空则不修改">
+      </div>
+      <div class="modal-footer">
+        <button id="do-edit-port" class="primary">保存</button>
+        <button id="cancel-edit-port">取消</button>
+      </div>
+    </div>
+  </div>
 
-<!-- Edit Port Modal -->
-<div id="edit-port-modal" class="modal">
-<div class="backdrop"></div>
-<div class="panel" style="width: 320px">
-<h3>修改端口</h3>
-<div class="content">
-<input type="hidden" id="edit-site-name">
-<div class="form-item" style="margin-bottom: 12px">
-   <label class="form-label" style="display:block;margin-bottom:4px;color:var(--muted);font-size:12px">HTTP 端口</label>
-   <input id="edit-site-port">
-</div>
-<div class="form-item" style="margin-bottom: 12px">
-   <label class="form-label" style="display:block;margin-bottom:4px;color:var(--muted);font-size:12px">HTTPS 端口 (可选)</label>
-   <input id="edit-site-port-https" placeholder="留空则不修改">
-</div>
-</div>
-<div class="actions">
-<button id="do-edit-port" class="primary">保存</button>
-<button id="cancel-edit-port">取消</button>
-</div>
-</div>
-</div>
+  <!-- Dir Selector Modal -->
+  <div id="dir-selector-modal" class="modal-mask">
+    <div class="modal-content" style="display: flex; flex-direction: column; max-height: 80vh;">
+      <div class="modal-header">选择目录</div>
+      <div class="form-item" style="margin: 16px 20px 8px;">
+        <div style="display:flex; gap: 8px;">
+          <input id="dir-current-path" style="flex:1; font-family:monospace" readonly>
+          <button id="dir-up-level">上级目录</button>
+        </div>
+      </div>
+      <div style="margin: 0 20px; flex: 1; min-height: 200px;">
+        <div id="dir-list" style="border: 1px solid var(--border); border-radius: 8px; height: 100%; overflow: auto;"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="dir-select-confirm" class="primary">选择此目录</button>
+        <button id="dir-select-cancel">取消</button>
+      </div>
+    </div>
+  </div>
 
-<!-- Dir Selector Modal -->
-<div id="dir-selector-modal" class="modal" style="z-index: 11000">
-<div class="backdrop"></div>
-<div class="panel" style="width: 500px; max-height: 80vh; display: flex; flex-direction: column;">
-<h3>选择目录</h3>
-<div class="content" style="flex:1; display:flex; flex-direction:column; min-height:0; overflow:hidden">
-<div style="display:flex;margin-bottom:8px">
-<input id="dir-current-path" style="flex:1;font-family:monospace" readonly>
-<button id="dir-up-level" style="margin-left:4px">上级目录</button>
-</div>
-<div id="dir-list" style="flex:1;overflow:auto;border:1px solid var(--border);border-radius:4px;margin-bottom:8px;padding:4px"></div>
-</div>
-<div class="actions">
-<button id="dir-select-confirm" class="primary">选择此目录</button>
-<button id="dir-select-cancel">取消</button>
-</div>
-</div>
-</div>
-
-<!-- Upload Limit Modal -->
-<div id="upload-limit-modal" class="modal">
-<div class="backdrop"></div>
-<div class="panel" style="width: 400px">
-<h3>修改上传文件大小限制</h3>
-<div class="content">
-<div class="form-item" style="color: var(--muted); font-size: 13px; margin-bottom: 12px">
-此设置将同时修改 PHP (upload_max_filesize, post_max_size, memory_limit) 和 Nginx (client_max_body_size) 的配置。
-</div>
-<div class="form-item" style="margin-bottom: 12px">
-<label class="form-label" style="display:block;margin-bottom:4px;color:var(--muted);font-size:12px">新的限制大小 (例如: 64M, 128M, 1G)</label>
-<input id="upload-limit-input" placeholder="64M">
-</div>
-</div>
-<div class="actions">
-<button id="save-upload-limit" class="primary">保存并应用</button>
-<button id="cancel-upload-limit">取消</button>
-</div>
-</div>
-</div>
+  <!-- Upload Limit Modal -->
+  <div id="upload-limit-modal" class="modal-mask">
+    <div class="modal-content">
+      <div class="modal-header">修改上传文件大小限制</div>
+      <div class="form-item">
+        <div style="color: var(--muted); font-size: 13px; line-height: 1.4;">
+          此设置将同时修改 PHP (upload_max_filesize, post_max_size, memory_limit) 和 Nginx (client_max_body_size) 的配置。
+        </div>
+      </div>
+      <div class="form-item">
+        <label class="form-label">新的限制大小</label>
+        <input id="upload-limit-input" placeholder="例如: 64M, 128M, 1G">
+      </div>
+      <div class="modal-footer">
+        <button id="save-upload-limit" class="primary">保存并应用</button>
+        <button id="cancel-upload-limit">取消</button>
+      </div>
+    </div>
+  </div>
 
 </div>
 <script src="script.js"></script>
