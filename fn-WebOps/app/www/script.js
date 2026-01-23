@@ -245,14 +245,14 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
   // --- Create Site Logic (Keep as is) ---
   $('#btn-create-site').click(function(){
       form.val('form-create-site', {
-          "name": "", "mode": "domain", "domain": "", "port": "2829", 
-          "https_enabled": false, "port_ssl": "8443", 
-          "root": "/var/www/html/", "rewrite": ""
+          "name": "", "mode": "port", "domain": "", "port": "", 
+          "https_enabled": false, "port_ssl": "", 
+          "root": "", "rewrite": ""
       });
-      $('input[name=mode][value=domain]').prop('checked', true);
+      $('input[name=mode][value=port]').prop('checked', true);
       $('input[name=https_enabled]').prop('checked', false);
       form.render();
-      updateCreateSiteVisibility("domain", false);
+      updateCreateSiteVisibility("port", false);
 
       layer.open({
           type: 1, title: '新建网站', content: $('#tpl-create-site'), area: ['600px', '750px']
