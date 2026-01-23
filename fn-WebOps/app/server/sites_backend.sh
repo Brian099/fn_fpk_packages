@@ -120,6 +120,17 @@ create_site_json() {
     fi
   fi
   domain=$(echo "$input" | grep "^domain=" | cut -d= -f2- | tr -d '\r')
+  custom_name=$(echo "$input" | grep "^name=" | cut -d= -f2- | tr -d '\r')
+  if [ -n "$custom_name" ]; then
+      if command -v php >/dev/null 2>&1; then
+        custom_name=$(php -r "echo rawurldecode(\$argv[1]);" -- "$custom_name")
+      fi
+      # Validate custom name (alphanumeric, dot, hyphen, underscore)
+      if echo "$custom_name" | grep -q "[^a-zA-Z0-9._-]"; then
+          echo '{"ok":false,"error":"invalid site name (only alphanumeric, dot, hyphen, underscore allowed)"}'
+          return 0
+      fi
+  fi
   port=$(echo "$input" | grep "^port=" | cut -d= -f2- | tr -d '\r') # Legacy/Port HTTP
   port_https=$(echo "$input" | grep "^port_https=" | cut -d= -f2- | tr -d '\r')
   root_dir=$(echo "$input" | grep "^root=" | cut -d= -f2- | tr -d '\r')
@@ -157,11 +168,15 @@ create_site_json() {
           return 0
       fi
       
-      site_name="$domain"
+      if [ -n "$custom_name" ]; then
+          site_name="$custom_name"
+      else
+          site_name="$domain"
+      fi
       config_file="/etc/nginx/sites-available/$site_name"
       
       if [ -f "$config_file" ]; then
-          echo '{"ok":false,"error":"site already exists"}'
+          echo "{\"ok\":false,\"error\":\"site/config already exists: $site_name\"}"
           return 0
       fi
 
@@ -247,11 +262,15 @@ EOF
           return 0
       fi
 
-      site_name="port_${port}"
+      if [ -n "$custom_name" ]; then
+          site_name="$custom_name"
+      else
+          site_name="port_${port}"
+      fi
       config_file="/etc/nginx/sites-available/$site_name"
       
       if [ -f "$config_file" ]; then
-          echo '{"ok":false,"error":"site already exists"}'
+          echo "{\"ok\":false,\"error\":\"site/config already exists: $site_name\"}"
           return 0
       fi
       

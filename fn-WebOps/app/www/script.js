@@ -308,6 +308,7 @@ var fieldPortHttp = document.getElementById("field-port-http");
 var fieldPortHttps = document.getElementById("field-port-https");
 var httpsCheckbox = document.getElementById("new-site-https");
 var newSitePortSsl = document.getElementById("new-site-port-ssl");
+var newSiteName = document.getElementById("new-site-name");
 
 function updateSiteFormVisibility() {
     var mode = "domain";
@@ -370,6 +371,7 @@ function loadDirs(path){
 
 if(createSiteBtn){createSiteBtn.addEventListener("click",function(){
   newSiteDomain.value="";
+  if(newSiteName) newSiteName.value="";
   newSitePort.value="2829";
   newSiteRoot.value="/var/www/html/";
   if(newSiteRewrite) newSiteRewrite.value="";
@@ -394,6 +396,11 @@ if(doCreateSiteBtn){doCreateSiteBtn.addEventListener("click",function(){
   if(!root){alert("请填写根目录");return;}
   
   var body = "mode="+mode+"\nroot="+root;
+
+  if (newSiteName && newSiteName.value.trim()) {
+      body += "\nname=" + encodeURIComponent(newSiteName.value.trim());
+  }
+
    var isHttps = httpsCheckbox && httpsCheckbox.checked;
    
    body += "\nhttps_enabled="+(isHttps?"true":"false");
