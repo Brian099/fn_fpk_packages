@@ -78,17 +78,7 @@ typeTd.textContent=typeText;
 tr.appendChild(typeTd);
 var portTd=document.createElement("td");
 var port=site.port||"";
-if(port){
-  var tags = port.split(",").map(function(p){
-    var tag=document.createElement("span");
-    tag.className="tag";
-    tag.textContent=p.trim();
-    return tag.outerHTML;
-  }).join(" ");
-  portTd.innerHTML=tags;
-}else{
-  portTd.textContent="-";
-}
+if(port){var tag=document.createElement("span");tag.className="tag";tag.textContent=port;portTd.appendChild(tag)}else{portTd.textContent="-"}
 tr.appendChild(portTd);
 var rootTd=document.createElement("td");
 rootTd.textContent=site.root||"-";
@@ -99,25 +89,30 @@ if(site.enabled){badge.className="badge badge-on";badge.textContent="已启用"}
 statusTd.appendChild(badge);
 tr.appendChild(statusTd);
 var opTd=document.createElement("td");
-opTd.style.display="flex";
-opTd.style.gap="6px";
-opTd.style.flexWrap="wrap";
-
 if(site.mode !== "domain"){
     var editBtn=document.createElement("button");
     editBtn.textContent="修改端口";
-    editBtn.className="btn-small";
+    editBtn.style.fontSize="12px";
     editBtn.onclick=function(){openEditPortModal(site)};
     opTd.appendChild(editBtn);
 }
 var toggleBtn=document.createElement("button");
-toggleBtn.textContent=site.enabled?"停用":"启用";
-toggleBtn.className="btn-small "+(site.enabled?"btn-warning":"btn-success");
+if(site.enabled){
+  toggleBtn.textContent="停用";
+  toggleBtn.style.color="#e67e22";
+}else{
+  toggleBtn.textContent="启用";
+  toggleBtn.style.color="#27ae60";
+}
+toggleBtn.style.fontSize="12px";
+toggleBtn.style.marginLeft="5px";
 toggleBtn.onclick=function(){toggleSiteStatus(site)};
 opTd.appendChild(toggleBtn);
 var delBtn=document.createElement("button");
 delBtn.textContent="删除";
-delBtn.className="btn-small btn-danger";
+delBtn.style.fontSize="12px";
+delBtn.style.marginLeft="5px";
+delBtn.style.color="#d93025";
 delBtn.onclick=function(){deleteSite(site)};
 opTd.appendChild(delBtn);
 tr.appendChild(opTd);
@@ -241,8 +236,6 @@ var installed=!!installedMap[name];
 if(!installed){
 var installBtn=document.createElement("button");
 installBtn.textContent="安装";
-installBtn.style.padding="4px 12px";
-installBtn.style.fontSize="12px";
 installBtn.style.marginLeft="4px";
 installBtn.addEventListener("click",function(){
 if(!confirm("将安装/更新插件 "+name+"，是否继续？"))return;
@@ -252,8 +245,6 @@ btnBox.appendChild(installBtn);
 }else{
 var removeBtn=document.createElement("button");
 removeBtn.textContent="删除";
-removeBtn.style.padding="4px 12px";
-removeBtn.style.fontSize="12px";
 removeBtn.style.marginLeft="4px";
 removeBtn.addEventListener("click",function(){
 if(!confirm("将删除插件 "+name+"，是否继续？"))return;
@@ -365,13 +356,12 @@ function loadDirs(path){
       data.dirs.forEach(function(d){
         var div=document.createElement("div");
         div.textContent=d;
-        div.style.padding="8px 12px";
+        div.style.padding="4px";
         div.style.cursor="pointer";
-        div.style.transition="background 0.2s";
         div.addEventListener("click",function(){
           loadDirs(data.current.replace(/\/?$/,"/")+d);
         });
-        div.addEventListener("mouseover",function(){div.style.background="var(--surface2)"});
+        div.addEventListener("mouseover",function(){div.style.background="#f0f0f0"});
         div.addEventListener("mouseout",function(){div.style.background="transparent"});
         dirList.appendChild(div);
       });
@@ -440,26 +430,11 @@ if(doCreateSiteBtn){doCreateSiteBtn.addEventListener("click",function(){
        body += "\nrewrite=" + encodeURIComponent(rewrite);
    }
    
-   doCreateSiteBtn.disabled=true;
-   doCreateSiteBtn.textContent="创建中...";
-   
    fetch(apiBase+"/api/sites/create",{method:"POST",body:body,headers:{"Content-Type":"text/plain"}}).then(function(res){
     return res.json().catch(function(){return{ok:false}});
   }).then(function(data){
-    doCreateSiteBtn.disabled=false;
-    doCreateSiteBtn.textContent="创建";
-    if(data.ok){
-      alert("创建成功");
-      createSiteModal.style.display="none";
-      loadSites();
-    }else{
-      alert("创建失败: "+(data.error||"未知错误"));
-    }
-  }).catch(function(){
-    doCreateSiteBtn.disabled=false;
-    doCreateSiteBtn.textContent="创建";
-    alert("请求失败");
-  });
+    if(data.ok){alert("创建成功");createSiteModal.style.display="none";loadSites();}else{alert("创建失败: "+(data.error||"未知错误"));}
+  }).catch(function(){alert("请求失败");});
 });}
 
 if(browseRootBtn){browseRootBtn.addEventListener("click",function(){
@@ -618,128 +593,8 @@ if(doEditPortBtn){
     });
 }
 
-// 添加点击遮罩层关闭模态框功能
-document.querySelectorAll('.modal-mask').forEach(function(modal) {
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
-            modal.style.display = 'none';
-        }
-    });
-});
-
-// 添加键盘快捷键支持
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        document.querySelectorAll('.modal-mask').forEach(function(modal) {
-            if (modal.style.display === 'flex') {
-                modal.style.display = 'none';
-            }
-        });
-    }
-    if (e.key === 'r' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        loadSites();
-    }
-});
-
-// 添加表单输入验证
-function validatePort(port) {
-    var num = parseInt(port, 10);
-    return !isNaN(num) && num > 0 && num <= 65535;
-}
-
-// 监听端口输入
-if(newSitePort) {
-    newSitePort.addEventListener('change', function() {
-        if(!validatePort(this.value)) {
-            alert('端口号必须在 1-65535 之间');
-            this.value = '2829';
-        }
-    });
-}
-
-if(newSitePortSsl) {
-    newSitePortSsl.addEventListener('change', function() {
-        if(!validatePort(this.value)) {
-            alert('端口号必须在 1-65535 之间');
-            this.value = '8443';
-        }
-    });
-}
-
-if(editSitePortInput) {
-    editSitePortInput.addEventListener('change', function() {
-        if(!validatePort(this.value)) {
-            alert('端口号必须在 1-65535 之间');
-        }
-    });
-}
-
-if(editSitePortHttpsInput) {
-    editSitePortHttpsInput.addEventListener('change', function() {
-        if(this.value && !validatePort(this.value)) {
-            alert('端口号必须在 1-65535 之间');
-            this.value = '';
-        }
-    });
-}
-
-document.getElementById("refresh").addEventListener("click",function(){
-    loadSites();
-    loadNginxStatus();
-    loadPhpStatus();
-});
-
-// 初始化加载
+document.getElementById("refresh").addEventListener("click",function(){loadSites()});
 loadNginxStatus();
 loadPhpStatus();
 loadSites();
-
-// 添加自动刷新支持
-var autoRefreshInterval = null;
-var autoRefreshCheckbox = null;
-
-// 可以添加一个自动刷新的开关（可选）
-function setupAutoRefresh() {
-    var toolbar = document.querySelector('.toolbar');
-    if (toolbar) {
-        var refreshDiv = document.createElement('div');
-        refreshDiv.style.display = 'flex';
-        refreshDiv.style.alignItems = 'center';
-        refreshDiv.style.gap = '8px';
-        refreshDiv.innerHTML = '<label><input type="checkbox" id="auto-refresh"> 自动刷新 (10秒)</label>';
-        toolbar.appendChild(refreshDiv);
-        
-        autoRefreshCheckbox = document.getElementById('auto-refresh');
-        if (autoRefreshCheckbox) {
-            autoRefreshCheckbox.addEventListener('change', function() {
-                if (this.checked) {
-                    startAutoRefresh();
-                } else {
-                    stopAutoRefresh();
-                }
-            });
-        }
-    }
-}
-
-function startAutoRefresh() {
-    stopAutoRefresh();
-    autoRefreshInterval = setInterval(function() {
-        loadSites();
-        loadNginxStatus();
-        loadPhpStatus();
-    }, 10000);
-}
-
-function stopAutoRefresh() {
-    if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
-        autoRefreshInterval = null;
-    }
-}
-
-// 初始化自动刷新功能（可选）
-// setupAutoRefresh();
-
 })();
