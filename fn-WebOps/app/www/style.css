@@ -100,3 +100,11 @@ body {
 .layui-nav-tree .layui-nav-item a {
     /* Optional: spacing or rounded hover effects */
 }
+
+/* --- Fix for Local Layui Icons --- */
+@font-face {
+  font-family: 'layui-icon';
+  src: url('font/iconfont.woff2') format('woff2'),
+       url('font/iconfont.woff') format('woff'),
+       url('font/iconfont.ttf') format('truetype');
+}
