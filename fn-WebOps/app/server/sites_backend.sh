@@ -1013,6 +1013,36 @@ disable_site_json() {
   fi
 }
 
+fix_permissions_json() {
+  if [ -n "$CONTENT_LENGTH" ] && [ "$CONTENT_LENGTH" -gt 0 ] 2>/dev/null; then
+    input=$(dd bs=1 count="$CONTENT_LENGTH" 2>/dev/null || cat)
+  fi
+  site_name=$(echo "$input" | grep "^name=" | cut -d= -f2- | tr -d '\r')
+  
+  if [ -z "$site_name" ]; then
+    echo '{"ok":false,"error":"missing site name"}'
+    return 1
+  fi
+  
+  config_file="/etc/nginx/sites-available/$site_name"
+  if [ ! -f "$config_file" ]; then
+    echo '{"ok":false,"error":"site config not found"}'
+    return 1
+  fi
+  
+  root_dir=$(grep "root" "$config_file" | head -1 | awk '{print $2}' | tr -d ';')
+  
+  if [ -z "$root_dir" ] || [ ! -d "$root_dir" ]; then
+    echo '{"ok":false,"error":"root directory not found"}'
+    return 1
+  fi
+  
+  chown -R www-data:www-data "$root_dir" 2>/dev/null || true
+  chmod -R 755 "$root_dir" 2>/dev/null || true
+  
+  echo '{"ok":true,"message":"permissions fixed"}'
+}
+
 case "$1" in
   list-sites-json)
     list_sites_json
@@ -1040,6 +1070,9 @@ case "$1" in
     ;;
   disable-site)
     disable_site_json
+    ;;
+  fix-permissions)
+    fix_permissions_json
     ;;
   nginx-status)
     nginx_status_json

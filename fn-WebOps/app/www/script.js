@@ -132,26 +132,24 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
   });
 
   table.on('tool(site-table)', function(obj){
-    var data = obj.data;
-    if(obj.event === 'del'){
-      layer.confirm('确定要删除网站 '+data.name+' 吗？<br>此操作不可恢复。', {icon: 3, title:'删除确认'}, function(index){
-        apiPost("/api/sites/delete", "name="+encodeURIComponent(data.name), "删除成功", function(){
-            obj.del();
-        });
-        layer.close(index);
-      });
-    } else if(obj.event === 'disable' || obj.event === 'enable'){
-       var action = obj.event; // disable or enable
-       var actionText = action === 'disable' ? '停用' : '启用';
-       layer.confirm('确定要'+actionText+'网站 '+data.name+' 吗？', {icon: 3, title: actionText+'确认'}, function(index){
-           apiPost("/api/sites/" + action, "name="+encodeURIComponent(data.name), actionText+"成功", function(){
-               reloadSites();
-           });
-           layer.close(index);
-       });
-    } else if(obj.event === 'edit-port'){
-        openEditPortModal(data);
-    }
+      var data = obj.data;
+      if(obj.event === 'del'){
+          layer.confirm('确定删除网站 '+data.name+'?', function(index){
+              layer.close(index);
+              apiPost("/api/sites/delete", "name="+encodeURIComponent(data.name), "删除成功", function(){ reloadSites(); });
+          });
+      } else if(obj.event === 'edit-port'){
+          openEditPortModal(data);
+      } else if(obj.event === 'enable'){
+          apiPost("/api/sites/enable", "name="+encodeURIComponent(data.name), "已启用", function(){ reloadSites(); });
+      } else if(obj.event === 'disable'){
+          apiPost("/api/sites/disable", "name="+encodeURIComponent(data.name), "已停用", function(){ reloadSites(); });
+      } else if(obj.event === 'fix-permissions'){
+          layer.confirm('确定修复网站目录权限? <br>将把目录所有者设为 www-data, 权限设为 755', function(index){
+              layer.close(index);
+              apiPost("/api/sites/fix-permissions", "name="+encodeURIComponent(data.name), "权限修复成功");
+          });
+      }
   });
 
   $('#btn-refresh').click(function(){ reloadSites(); });
