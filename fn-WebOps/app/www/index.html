@@ -2,131 +2,224 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>网站配置管理</title>
+<title>WebOps Panel</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
-<body>
-<div class="page">
-<h1>网站配置管理</h1>
-<div id="nginx-status" class="status" style="margin-bottom:8px"></div>
-<div id="php-status" class="status" style="margin-bottom:16px"></div>
-<div id="error" class="error" style="display:none"></div>
-<div class="toolbar">
-<div class="status" id="status">正在加载网站列表...</div>
-<div>
-<button id="create-site-btn" class="primary">新建网站</button>
-<button id="edit-php-plugins">插件管理</button>
-<button id="upload-limit-btn">上传限制</button>
-<button id="refresh">刷新</button>
-</div>
-</div>
-<div id="table-container">
-<div class="empty" id="empty" style="display:none">暂无网站配置</div>
-<table id="table" style="display:none">
-<thead>
-<tr>
-<th>网站名称</th>
-<th>类型</th>
-<th>监听端口</th>
-<th>根目录</th>
-<th>状态</th>
-<th>操作</th>
-</tr>
-</thead>
-<tbody id="tbody"></tbody>
-</table>
+<body class="hold-transition sidebar-mini">
+<div class="wrapper">
+  <!-- Navbar -->
+  <nav class="main-header navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" id="sidebar-toggle" href="#" role="button"><i class="fas fa-bars"></i></a>
+      </li>
+      <li class="nav-item d-none d-sm-inline-block">
+        <a href="#" class="nav-link">首页</a>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- Main Sidebar Container -->
+  <aside class="main-sidebar">
+    <a href="#" class="brand-link">
+      <span class="brand-text font-weight-light">WebOps Panel</span>
+    </a>
+    <div class="sidebar">
+      <nav class="mt-2">
+        <ul class="nav nav-pills nav-sidebar flex-column">
+          <li class="nav-item">
+            <a href="#" class="nav-link active">
+              <i class="nav-icon fas fa-tachometer-alt"></i>
+              <p>控制台</p>
+            </a>
+          </li>
+          <li class="nav-item">
+             <a href="#" class="nav-link">
+                <i class="nav-icon fas fa-globe"></i>
+                <p>网站管理</p>
+             </a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </aside>
+
+  <!-- Content Wrapper -->
+  <div class="content-wrapper">
+    <!-- Content Header -->
+    <div class="content-header">
+      <div class="container-fluid">
+        <div class="row mb-2">
+          <div class="col-sm-6">
+            <h1 class="m-0">网站配置管理</h1>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main content -->
+    <div class="content">
+      <div class="container-fluid">
+        
+        <!-- Status Row -->
+        <div class="row">
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-header">
+                <h3 class="card-title">Nginx 状态</h3>
+              </div>
+              <div class="card-body" id="nginx-status">
+                加载中...
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-header">
+                <h3 class="card-title">PHP 状态</h3>
+              </div>
+              <div class="card-body" id="php-status">
+                加载中...
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error Alert -->
+        <div id="error" class="error" style="display:none"></div>
+
+        <!-- Site List -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">网站列表</h3>
+            <div class="card-tools">
+                <button id="create-site-btn" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> 新建网站</button>
+                <button id="edit-php-plugins" class="btn btn-info btn-sm"><i class="fas fa-cubes"></i> 插件管理</button>
+                <button id="upload-limit-btn" class="btn btn-warning btn-sm"><i class="fas fa-upload"></i> 上传限制</button>
+                <button id="refresh" class="btn btn-default btn-sm"><i class="fas fa-sync"></i> 刷新</button>
+            </div>
+          </div>
+          <div class="card-body p-0">
+             <div id="status" class="status" style="padding: 1rem;">正在加载网站列表...</div>
+             <div id="table-container">
+                <div class="empty" id="empty" style="display:none; padding: 2rem; text-align: center;">暂无网站配置</div>
+                <table id="table" class="table table-striped" style="display:none">
+                  <thead>
+                    <tr>
+                      <th>网站名称</th>
+                      <th>类型</th>
+                      <th>监听端口</th>
+                      <th>根目录</th>
+                      <th>状态</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody"></tbody>
+                </table>
+             </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- PHP Plugin Modal -->
 <div id="php-plugin-modal" class="modal-mask">
 <div class="modal-content" style="width: 520px; max-width: 90%;">
-<div class="modal-header">PHP 插件管理</div>
-<div id="php-plugin-list" style="max-height:260px;overflow:auto;margin:8px 0;border:1px solid #eee;border-radius:4px;padding:6px 8px;"></div>
-<div class="form-item" style="margin: 8px 0; display: flex; gap: 8px;">
-<input id="php-plugin-custom" placeholder="自定义插件包名，例如 php8.2-xdebug" style="flex: 1;">
-<button id="php-plugin-custom-install">安装自定义插件</button>
+<div class="modal-header"><span>PHP 插件管理</span></div>
+<div style="padding: 1rem;">
+    <div id="php-plugin-list" style="max-height:260px;overflow:auto;margin:8px 0;border:1px solid #eee;border-radius:4px;padding:6px 8px;"></div>
+    <div class="form-item" style="margin: 8px 0; display: flex; gap: 8px; padding: 0;">
+    <input id="php-plugin-custom" placeholder="自定义插件包名，例如 php8.2-xdebug" style="flex: 1;">
+    <button id="php-plugin-custom-install" class="btn btn-primary btn-sm">安装自定义插件</button>
+    </div>
 </div>
 <div class="modal-footer">
-<button id="php-plugin-install-all">全部安装</button>
-<button id="php-plugin-close">关闭</button>
+<button id="php-plugin-install-all" class="btn btn-info btn-sm">全部安装</button>
+<button id="php-plugin-close" class="btn btn-default btn-sm">关闭</button>
 </div>
 </div>
 </div>
 
 <!-- Create Site Modal -->
 <div id="create-site-modal" class="modal-mask">
-<div class="modal-content" style="width: 400px">
-<div class="modal-header">新建网站</div>
+<div class="modal-content" style="width: 500px">
+<div class="modal-header"><span>新建网站</span></div>
+<div style="padding: 1rem;">
+    <div class="form-item">
+       <label class="form-label">网站名称 (Site Name)</label>
+       <input id="new-site-name" placeholder="选填，留空则默认使用域名或端口">
+    </div>
 
-<div class="form-item">
-   <label class="form-label">网站名称 (Site Name)</label>
-   <input id="new-site-name" placeholder="选填，留空则默认使用域名或端口">
-</div>
+    <div class="form-item">
+       <label class="form-label">模式 (Mode)</label>
+       <div class="radio-group">
+           <label><input type="radio" name="site-mode" value="domain" checked> 基于域名 (Domain)</label>
+           <label><input type="radio" name="site-mode" value="port"> 基于端口 (Port)</label>
+       </div>
+    </div>
 
-<div class="form-item">
-   <label class="form-label">模式 (Mode)</label>
-   <div class="radio-group">
-       <label><input type="radio" name="site-mode" value="domain" checked> 基于域名 (Domain)</label>
-       <label><input type="radio" name="site-mode" value="port"> 基于端口 (Port)</label>
-   </div>
-</div>
+    <div id="field-domain" class="form-item">
+       <label class="form-label">域名 (Domain)</label>
+       <input id="new-site-domain" placeholder="example.com">
+    </div>
 
-<div id="field-domain" class="form-item">
-   <label class="form-label">域名 (Domain)</label>
-   <input id="new-site-domain" placeholder="example.com">
-</div>
+    <div id="field-port-http" class="form-item" style="display:none">
+       <label class="form-label">HTTP 端口 (Port)</label>
+       <input id="new-site-port" value="2829">
+    </div>
 
-<div id="field-port-http" class="form-item" style="display:none">
-   <label class="form-label">HTTP 端口 (Port)</label>
-   <input id="new-site-port" value="2829">
-</div>
+    <div class="form-item">
+       <label><input type="checkbox" id="new-site-https"> 启用 HTTPS (Enable SSL)</label>
+    </div>
 
-<div class="form-item">
-   <label><input type="checkbox" id="new-site-https"> 启用 HTTPS (Enable SSL)</label>
-</div>
+    <div id="field-port-https" class="form-item" style="display:none">
+       <label class="form-label">HTTPS 端口</label>
+       <input id="new-site-port-ssl" value="8443">
+    </div>
 
-<div id="field-port-https" class="form-item" style="display:none">
-   <label class="form-label">HTTPS 端口</label>
-   <input id="new-site-port-ssl" value="8443">
-</div>
+    <div class="form-item">
+    <label class="form-label">根目录 (Root Directory)</label>
+    <div style="display:flex">
+    <input id="new-site-root" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 0;" placeholder="/var/www/html/example">
+    <button id="browse-root" class="btn btn-default" style="border-top-left-radius: 0; border-bottom-left-radius: 0; border-color: #ced4da;">浏览</button>
+    </div>
+    </div>
 
-<div class="form-item">
-<label class="form-label">根目录 (Root Directory)</label>
-<div style="display:flex">
-<input id="new-site-root" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 0;" placeholder="/var/www/html/example">
-<button id="browse-root" style="border-top-left-radius: 0; border-bottom-left-radius: 0;">浏览</button>
+    <div class="form-item">
+       <label class="form-label">伪静态规则 (Rewrite Rules)</label>
+       <textarea id="new-site-rewrite" rows="4" placeholder="例如: try_files $uri $uri/ /index.php?$query_string;" style="width: 100%; font-family: monospace;"></textarea>
+    </div>
 </div>
-</div>
-
-<div class="form-item">
-   <label class="form-label">伪静态规则 (Rewrite Rules)</label>
-   <textarea id="new-site-rewrite" rows="4" placeholder="例如: try_files $uri $uri/ /index.php?$query_string;" style="width: 100%; border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 4px 11px; font-family: monospace;"></textarea>
-</div>
-
 <div class="modal-footer">
-<button id="do-create-site" class="primary">创建</button>
-<button id="cancel-create-site">取消</button>
+<button id="do-create-site" class="btn btn-primary">创建</button>
+<button id="cancel-create-site" class="btn btn-default">取消</button>
 </div>
 </div>
 </div>
 
 <!-- Edit Port Modal -->
 <div id="edit-port-modal" class="modal-mask">
-<div class="modal-content" style="width: 300px">
-<div class="modal-header">修改端口</div>
-<input type="hidden" id="edit-site-name">
-<div class="form-item">
-   <label class="form-label">HTTP 端口</label>
-   <input id="edit-site-port">
-</div>
-<div class="form-item">
-   <label class="form-label">HTTPS 端口 (可选)</label>
-   <input id="edit-site-port-https" placeholder="留空则不修改">
+<div class="modal-content" style="width: 350px">
+<div class="modal-header"><span>修改端口</span></div>
+<div style="padding: 1rem;">
+    <input type="hidden" id="edit-site-name">
+    <div class="form-item">
+       <label class="form-label">HTTP 端口</label>
+       <input id="edit-site-port">
+    </div>
+    <div class="form-item">
+       <label class="form-label">HTTPS 端口 (可选)</label>
+       <input id="edit-site-port-https" placeholder="留空则不修改">
+    </div>
 </div>
 <div class="modal-footer">
-<button id="do-edit-port" class="primary">保存</button>
-<button id="cancel-edit-port">取消</button>
+<button id="do-edit-port" class="btn btn-primary">保存</button>
+<button id="cancel-edit-port" class="btn btn-default">取消</button>
 </div>
 </div>
 </div>
@@ -134,15 +227,17 @@
 <!-- Dir Selector Modal -->
 <div id="dir-selector-modal" class="modal-mask" style="z-index: 1100">
 <div class="modal-content" style="width: 500px; max-height: 80vh; display: flex; flex-direction: column;">
-<div class="modal-header">选择目录</div>
-<div style="display:flex;margin-bottom:8px">
-<input id="dir-current-path" style="flex:1;font-family:monospace" readonly>
-<button id="dir-up-level" style="margin-left:4px">上级目录</button>
+<div class="modal-header"><span>选择目录</span></div>
+<div style="padding: 1rem; flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+    <div style="display:flex;margin-bottom:8px">
+    <input id="dir-current-path" style="flex:1;font-family:monospace" readonly>
+    <button id="dir-up-level" class="btn btn-default btn-sm" style="margin-left:4px">上级目录</button>
+    </div>
+    <div id="dir-list" style="flex:1;overflow:auto;border:1px solid #eee;border-radius:4px;margin-bottom:8px;min-height:200px"></div>
 </div>
-<div id="dir-list" style="flex:1;overflow:auto;border:1px solid #eee;border-radius:4px;margin-bottom:8px;min-height:200px"></div>
 <div class="modal-footer">
-<button id="dir-select-confirm" class="primary">选择此目录</button>
-<button id="dir-select-cancel">取消</button>
+<button id="dir-select-confirm" class="btn btn-primary">选择此目录</button>
+<button id="dir-select-cancel" class="btn btn-default">取消</button>
 </div>
 </div>
 </div>
@@ -150,22 +245,23 @@
 <!-- Upload Limit Modal -->
 <div id="upload-limit-modal" class="modal-mask">
 <div class="modal-content" style="width: 400px">
-<div class="modal-header">修改上传文件大小限制</div>
-<div class="form-item" style="color: var(--text-color-secondary); font-size: 13px;">
-此设置将同时修改 PHP (upload_max_filesize, post_max_size, memory_limit) 和 Nginx (client_max_body_size) 的配置。
-</div>
-<div class="form-item">
-<label class="form-label">新的限制大小 (例如: 64M, 128M, 1G)</label>
-<input id="upload-limit-input" placeholder="64M">
+<div class="modal-header"><span>修改上传文件大小限制</span></div>
+<div style="padding: 1rem;">
+    <div class="form-item" style="color: var(--secondary-color); font-size: 13px;">
+    此设置将同时修改 PHP (upload_max_filesize, post_max_size, memory_limit) 和 Nginx (client_max_body_size) 的配置。
+    </div>
+    <div class="form-item">
+    <label class="form-label">新的限制大小 (例如: 64M, 128M, 1G)</label>
+    <input id="upload-limit-input" placeholder="64M">
+    </div>
 </div>
 <div class="modal-footer">
-<button id="save-upload-limit" class="primary">保存并应用</button>
-<button id="cancel-upload-limit">取消</button>
+<button id="save-upload-limit" class="btn btn-primary">保存并应用</button>
+<button id="cancel-upload-limit" class="btn btn-default">取消</button>
 </div>
 </div>
 </div>
 
-</div>
 <script src="script.js"></script>
 </body>
 </html>

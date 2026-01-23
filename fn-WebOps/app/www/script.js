@@ -28,7 +28,7 @@ if(data.version){text+=" ("+data.version+")"}
 if(data.config_exists){text+="，配置文件存在"}else{text+="，配置文件缺失"}
 nginxStatusEl.textContent=text;
 }else{
-nginxStatusEl.innerHTML="Nginx 状态: 未安装 <button id=\"install-nginx\">一键安装</button>";
+nginxStatusEl.innerHTML="Nginx 状态: 未安装 <button id=\"install-nginx\" class=\"btn btn-primary btn-sm\">一键安装</button>";
 var btn=document.getElementById("install-nginx");
 if(btn){btn.addEventListener("click",function(){
 if(!confirm("将自动执行 apt 安装 Nginx，并启动服务，是否继续？"))return;
@@ -48,7 +48,7 @@ if(data.version){text+=" ("+data.version+")"}
 if(data.fpm_running){text+="，PHP-FPM 运行中"}else{text+="，PHP-FPM 未运行"}
 phpStatusEl.textContent=text;
 }else{
-phpStatusEl.innerHTML="PHP 状态: 未安装 <button id=\"install-php\">一键安装</button>";
+phpStatusEl.innerHTML="PHP 状态: 未安装 <button id=\"install-php\" class=\"btn btn-primary btn-sm\">一键安装</button>";
 var btn=document.getElementById("install-php");
 if(btn){btn.addEventListener("click",function(){
 if(!confirm("将自动执行 apt 安装 PHP 与 PHP-FPM，并启动服务，是否继续？"))return;
@@ -92,11 +92,13 @@ var opTd=document.createElement("td");
 if(site.mode !== "domain"){
     var editBtn=document.createElement("button");
     editBtn.textContent="修改端口";
+    editBtn.className="btn btn-info btn-sm";
     editBtn.style.fontSize="12px";
     editBtn.onclick=function(){openEditPortModal(site)};
     opTd.appendChild(editBtn);
 }
 var toggleBtn=document.createElement("button");
+toggleBtn.className="btn btn-default btn-sm";
 if(site.enabled){
   toggleBtn.textContent="停用";
   toggleBtn.style.color="#e67e22";
@@ -110,6 +112,7 @@ toggleBtn.onclick=function(){toggleSiteStatus(site)};
 opTd.appendChild(toggleBtn);
 var delBtn=document.createElement("button");
 delBtn.textContent="删除";
+delBtn.className="btn btn-default btn-sm";
 delBtn.style.fontSize="12px";
 delBtn.style.marginLeft="5px";
 delBtn.style.color="#d93025";
@@ -236,6 +239,7 @@ var installed=!!installedMap[name];
 if(!installed){
 var installBtn=document.createElement("button");
 installBtn.textContent="安装";
+installBtn.className="btn btn-primary btn-sm";
 installBtn.style.marginLeft="4px";
 installBtn.addEventListener("click",function(){
 if(!confirm("将安装/更新插件 "+name+"，是否继续？"))return;
@@ -245,6 +249,7 @@ btnBox.appendChild(installBtn);
 }else{
 var removeBtn=document.createElement("button");
 removeBtn.textContent="删除";
+removeBtn.className="btn btn-danger btn-sm";
 removeBtn.style.marginLeft="4px";
 removeBtn.addEventListener("click",function(){
 if(!confirm("将删除插件 "+name+"，是否继续？"))return;
@@ -597,4 +602,27 @@ document.getElementById("refresh").addEventListener("click",function(){loadSites
 loadNginxStatus();
 loadPhpStatus();
 loadSites();
+
+// Sidebar toggle
+var sidebarToggle = document.getElementById('sidebar-toggle');
+var sidebar = document.querySelector('.main-sidebar');
+
+if(sidebarToggle) {
+    sidebarToggle.addEventListener('click', function(e) {
+        e.preventDefault();
+        if(window.innerWidth <= 768) {
+            sidebar.classList.toggle('sidebar-open');
+        }
+    });
+    
+    document.addEventListener('click', function(e) {
+        if(window.innerWidth <= 768 && 
+           sidebar.classList.contains('sidebar-open') && 
+           !sidebar.contains(e.target) && 
+           !sidebarToggle.contains(e.target)) {
+            sidebar.classList.remove('sidebar-open');
+        }
+    });
+}
+
 })();
