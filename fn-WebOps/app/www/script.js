@@ -125,7 +125,7 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
       {field: 'enabled', title: '状态', width: 100, templet: function(d){
           return d.enabled ? '<span class="layui-badge layui-bg-green">已启用</span>' : '<span class="layui-badge layui-bg-orange">已停用</span>';
       }},
-      {fixed: 'right', title:'操作', toolbar: '#site-bar', width: 220}
+      {fixed: 'right', title:'操作', toolbar: '#site-bar', minWidth: 220}
     ]],
     page: false,
     text: {none: '暂无网站配置'}
@@ -239,6 +239,14 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
       if(!val) { layer.msg('请输入限制值'); return; }
       apiPost("/api/settings/set-upload-limit", "limit="+encodeURIComponent(val), "修改成功");
   });
+
+  $('#btn-restart-nginx').click(function(){
+      layer.confirm('确定重启 Nginx 服务？<br>这可能会中断当前连接', function(index){
+          layer.close(index);
+          apiPost("/api/nginx/restart", "", "重启成功");
+      });
+  });
+
 
   // --- Create Site Logic (Keep as is) ---
   $('#btn-create-site').click(function(){

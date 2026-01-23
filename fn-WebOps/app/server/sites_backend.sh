@@ -152,8 +152,8 @@ create_site_json() {
   fi
   
   mkdir -p "$root_dir"
-  chown www-data:www-data "$root_dir" 2>/dev/null || true
-  chmod 755 "$root_dir" 2>/dev/null || true
+  chown -R www-data:www-data "$root_dir" 2>/dev/null || true
+  chmod -R 755 "$root_dir" 2>/dev/null || true
 
   site_name=""
   config_file=""
@@ -1043,6 +1043,14 @@ fix_permissions_json() {
   echo '{"ok":true,"message":"permissions fixed"}'
 }
 
+nginx_restart_json() {
+  if systemctl restart nginx >/dev/null 2>&1; then
+    echo '{"ok":true,"message":"Nginx restarted successfully"}'
+  else
+    echo '{"ok":false,"error":"Failed to restart Nginx"}'
+  fi
+}
+
 case "$1" in
   list-sites-json)
     list_sites_json
@@ -1073,6 +1081,9 @@ case "$1" in
     ;;
   fix-permissions)
     fix_permissions_json
+    ;;
+  nginx-restart)
+    nginx_restart_json
     ;;
   nginx-status)
     nginx_status_json
