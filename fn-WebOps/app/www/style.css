@@ -20,7 +20,7 @@ body {
 .status-badge {
     display: inline-block;
     padding: 2px 5px;
-    border-radius: 2px;
+    border-radius: 4px; /* Increased radius */
     font-size: 12px;
 }
 
@@ -55,3 +55,48 @@ body {
 .text-right { text-align: right; }
 .mt-10 { margin-top: 10px; }
 .mb-10 { margin-bottom: 10px; }
+
+/* --- Soft UI / Rounded Corners Overrides --- */
+
+/* Buttons */
+.layui-btn {
+    border-radius: 6px !important;
+}
+
+/* Inputs, Selects, Textareas */
+.layui-input, .layui-textarea, .layui-select {
+    border-radius: 6px !important;
+}
+
+/* Cards (Panels) */
+.layui-card {
+    border-radius: 12px !important;
+    box-shadow: 0 2px 12px 0 rgba(0,0,0,.05) !important;
+    overflow: hidden; /* Ensure content doesn't bleed */
+}
+
+/* Badges (Layui native) */
+.layui-badge, .layui-badge-dot, .layui-badge-rim {
+    border-radius: 4px !important;
+}
+
+/* Modals (Layers) */
+.layui-layer {
+    border-radius: 12px !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.15) !important;
+}
+.layui-layer-title {
+    border-radius: 12px 12px 0 0 !important;
+}
+.layui-layer-btn {
+    border-radius: 0 0 12px 12px !important;
+}
+
+/* Tables */
+/* Optional: Rounded corners for tables are tricky in standard HTML tables without separate containers, 
+   but we can soften the container if needed. For now, standard tables are fine. */
+
+/* Nav Sidebar */
+.layui-nav-tree .layui-nav-item a {
+    /* Optional: spacing or rounded hover effects */
+}
