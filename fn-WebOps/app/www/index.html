@@ -108,8 +108,20 @@
                     <button type="button" class="layui-btn" id="btn-save-upload-limit">保存设置</button>
                   </div>
                 </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="layui-card">
+          <div class="layui-card-header">服务管理</div>
+          <div class="layui-card-body">
+            <form class="layui-form" style="max-width: 600px;">
               <div class="layui-form-item">
-                <label class="layui-form-label">服务管理</label>
+                 <blockquote class="layui-elem-quote" style="font-size:12px;">此操作将重启 Nginx 服务，用于应用配置更改或解决服务异常。</blockquote>
+              </div>
+              <div class="layui-form-item">
+                <label class="layui-form-label">Nginx 服务</label>
                 <div class="layui-input-block">
                   <button type="button" class="layui-btn layui-btn-danger" id="btn-restart-nginx">重启 Nginx 服务</button>
                 </div>
