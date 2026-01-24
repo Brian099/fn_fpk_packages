@@ -100,9 +100,38 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
               });
           }
       }).catch(()=> $('#php-status').text('获取失败'));
+
+      // Database
+      fetch(apiBase+"/api/db/status").then(r=>r.json()).then(data => {
+          var el = $('#db-status');
+          if(data.status === 'running' || data.status === 'installed'){
+              var color = data.status === 'running' ? '#5FB878' : '#FFB800';
+              var icon = data.status === 'running' ? 'layui-icon-ok-circle' : 'layui-icon-about';
+              var html = `<div style="color:${color}"><i class="layui-icon ${icon}"></i> ${data.details}</div>`;
+              if(data.type === 'docker'){
+                 html += '<div style="margin-top:5px;font-size:12px;color:#666">类型: Docker容器 (mysql + phpmyadmin)</div>';
+                 if(data.status === 'running'){
+                     html += '<div style="margin-top:5px"><a href="http://'+window.location.hostname+':8080" target="_blank" class="layui-btn layui-btn-xs layui-btn-normal">打开 phpMyAdmin</a></div>';
+                 }
+              } else {
+                 html += '<div style="margin-top:5px;font-size:12px;color:#666">类型: 系统服务</div>';
+              }
+              el.html(html);
+          } else {
+              el.html('未安装 <button class="layui-btn layui-btn-xs layui-btn-normal" id="btn-install-db">安装 Docker版数据库</button>');
+              $('#btn-install-db').click(function(){
+                  layer.prompt({title: '请设置 MySQL root 密码', formType: 1}, function(pass, index){
+                      layer.close(index);
+                      if(!pass) return;
+                      el.html('<i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 安装中 (Docker compose)...');
+                      apiPost("/api/db/install", "password="+encodeURIComponent(pass), "安装完成", loadStatus);
+                  });
+              });
+          }
+      }).catch(()=> $('#db-status').text('获取失败'));
   }
 
-  // --- Site List ---
+  // --- Site Management ---
   table.render({
     elem: '#site-table',
     url: apiBase + '/api/sites',
@@ -250,18 +279,43 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
 
   // --- Create Site Logic (Keep as is) ---
   $('#btn-create-site').click(function(){
-      form.val('form-create-site', {
-          "name": "", "mode": "port", "domain": "", "port": "", 
-          "https_enabled": false, "port_ssl": "", 
-          "root": "", "rewrite": ""
-      });
-      $('input[name=mode][value=port]').prop('checked', true);
-      $('input[name=https_enabled]').prop('checked', false);
-      form.render();
-      updateCreateSiteVisibility("port", false);
+      // Check Nginx and PHP prerequisites
+      var checkLoading = layer.load(2);
+      Promise.all([
+          fetch(apiBase+"/api/nginx/status").then(r=>r.json()),
+          fetch(apiBase+"/api/php/status").then(r=>r.json())
+      ]).then(results => {
+          layer.close(checkLoading);
+          var nginxData = results[0];
+          var phpData = results[1];
+          
+          if (!nginxData.installed || !phpData.installed) {
+              var msg = "新建网站前必须安装基础环境：<br>";
+              if(!nginxData.installed) msg += "- Nginx <span style='color:#FF5722'>(未安装)</span><br>";
+              if(!phpData.installed) msg += "- PHP <span style='color:#FF5722'>(未安装)</span><br>";
+              msg += "<br>请先在“系统环境”页面完成安装。";
+              layer.alert(msg, {icon: 0, title: '环境缺失'});
+              return;
+          }
 
-      layer.open({
-          type: 1, title: '新建网站', content: $('#tpl-create-site'), area: ['600px', '750px']
+          // Environment OK, proceed to open dialog
+          form.val('form-create-site', {
+              "name": "", "mode": "port", "domain": "", "port": "", 
+              "https_enabled": false, "port_ssl": "", 
+              "root": "", "rewrite": ""
+          });
+          $('input[name=mode][value=port]').prop('checked', true);
+          $('input[name=https_enabled]').prop('checked', false);
+          form.render();
+          updateCreateSiteVisibility("port", false);
+
+          layer.open({
+              type: 1, title: '新建网站', content: $('#tpl-create-site'), area: ['600px', '750px']
+          });
+
+      }).catch(err => {
+          layer.close(checkLoading);
+          layer.alert("环境检测失败，无法继续操作", {icon: 2});
       });
   });
 

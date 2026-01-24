@@ -38,7 +38,7 @@ if [ -z "$REL_PATH" ] || [ "$REL_PATH" = "/" ]; then
   REL_PATH="/index.html"
 fi
 
-if [ "$REL_PATH" = "/api/nginx/status" ] || [ "$REL_PATH" = "/api/sites" ] || [ "$REL_PATH" = "/api/php/status" ] || [ "$REL_PATH" = "/api/nginx/install" ] || [ "$REL_PATH" = "/api/php/install" ] || [ "$REL_PATH" = "/api/php/remove" ] || [ "$REL_PATH" = "/api/php/extensions" ] || [ "$REL_PATH" = "/api/fs/list" ] || [ "$REL_PATH" = "/api/sites/create" ] || [ "$REL_PATH" = "/api/settings/get-upload-limit" ] || [ "$REL_PATH" = "/api/settings/set-upload-limit" ] || [ "$REL_PATH" = "/api/sites/update-port" ] || [ "$REL_PATH" = "/api/sites/delete" ] || [ "$REL_PATH" = "/api/sites/enable" ] || [ "$REL_PATH" = "/api/sites/disable" ] || [ "$REL_PATH" = "/api/sites/fix-permissions" ] || [ "$REL_PATH" = "/api/nginx/restart" ]; then
+if [ "$REL_PATH" = "/api/nginx/status" ] || [ "$REL_PATH" = "/api/sites" ] || [ "$REL_PATH" = "/api/php/status" ] || [ "$REL_PATH" = "/api/nginx/install" ] || [ "$REL_PATH" = "/api/php/install" ] || [ "$REL_PATH" = "/api/php/remove" ] || [ "$REL_PATH" = "/api/php/extensions" ] || [ "$REL_PATH" = "/api/fs/list" ] || [ "$REL_PATH" = "/api/sites/create" ] || [ "$REL_PATH" = "/api/settings/get-upload-limit" ] || [ "$REL_PATH" = "/api/settings/set-upload-limit" ] || [ "$REL_PATH" = "/api/sites/update-port" ] || [ "$REL_PATH" = "/api/sites/delete" ] || [ "$REL_PATH" = "/api/sites/enable" ] || [ "$REL_PATH" = "/api/sites/disable" ] || [ "$REL_PATH" = "/api/sites/fix-permissions" ] || [ "$REL_PATH" = "/api/nginx/restart" ] || [ "$REL_PATH" = "/api/db/status" ] || [ "$REL_PATH" = "/api/db/install" ]; then
   SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
   APP_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
   BACKEND_SCRIPT="$APP_ROOT/server/sites_backend.sh"
@@ -83,6 +83,10 @@ if [ "$REL_PATH" = "/api/nginx/status" ] || [ "$REL_PATH" = "/api/sites" ] || [ 
     ACTION="fix-permissions"
   elif [ "$REL_PATH" = "/api/nginx/restart" ]; then
     ACTION="nginx-restart"
+  elif [ "$REL_PATH" = "/api/db/status" ]; then
+    ACTION="check-db-status"
+  elif [ "$REL_PATH" = "/api/db/install" ]; then
+    ACTION="install-db"
   else
     ACTION="php-remove"
   fi

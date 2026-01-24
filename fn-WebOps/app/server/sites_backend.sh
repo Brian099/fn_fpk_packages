@@ -1051,6 +1051,113 @@ nginx_restart_json() {
   fi
 }
 
+check_db_status_json() {
+  status="not_installed"
+  type="none"
+  details="数据库未安装"
+
+  # 1. Check systemd services
+  if systemctl is-active mariadb --quiet 2>/dev/null || systemctl is-active mysql --quiet 2>/dev/null; then
+      status="running"
+      type="system"
+      details="数据库服务已安装且正在运行"
+  elif dpkg -l | grep -q "mariadb-server\|mysql-server"; then
+      status="installed"
+      type="system"
+      details="数据库已安装但服务未运行"
+  else
+      # 2. Check Docker containers
+      if command -v docker >/dev/null 2>&1; then
+          # Check for running containers with "mysql" in name
+          if docker ps --format '{{.Names}}' | grep -q "mysql"; then
+              status="running"
+              type="docker"
+              details="Docker版数据库正在运行"
+          # Check for stopped containers with "mysql" in name
+          elif docker ps -a --format '{{.Names}}' | grep -q "mysql"; then
+              status="installed"
+              type="docker"
+              details="Docker版数据库已安装但未运行"
+          fi
+      fi
+  fi
+
+  printf '{"ok":true,"status":"%s","type":"%s","details":"%s"}' "$status" "$type" "$details"
+}
+
+install_db_json() {
+  if [ -n "$CONTENT_LENGTH" ] && [ "$CONTENT_LENGTH" -gt 0 ] 2>/dev/null; then
+    input=$(dd bs=1 count="$CONTENT_LENGTH" 2>/dev/null || cat)
+  fi
+  password=$(echo "$input" | grep "^password=" | cut -d= -f2- | tr -d '\r')
+
+  if [ -z "$password" ]; then
+    echo '{"ok":false,"error":"Missing password"}'
+    return 1
+  fi
+
+  if ! command -v docker >/dev/null 2>&1; then
+      echo '{"ok":false,"error":"Docker 未安装，无法部署数据库"}'
+      return 1
+  fi
+
+  DB_DIR="/opt/webops/db"
+  mkdir -p "$DB_DIR"/{data,logs,config}
+
+  # If docker-compose.yml exists, check if we should overwrite or if it's already running
+  if [ -f "$DB_DIR/docker-compose.yml" ]; then
+      # Try to start it if it exists
+      cd "$DB_DIR"
+      if docker compose up -d >/dev/null 2>&1; then
+           echo '{"ok":true,"message":"Existing database stack started"}'
+           return 0
+      fi
+      # If start failed, we might want to overwrite, but for safety let's just proceed to overwrite 
+      # only if the user specifically requested install (which they did by calling this).
+      # But actually, let's just overwrite config with new password as requested.
+  fi
+
+  cat > "$DB_DIR/docker-compose.yml" <<EOF
+services:
+  mysql:
+    image: mysql:latest
+    restart: always
+    ports:
+      - "3306:3306"
+      - "33060:33060"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${password}
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+    volumes:
+      - ./data:/var/lib/mysql
+      - ./logs:/var/log/mysql
+      - ./config:/etc/mysql/conf.d
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: ${password}
+    depends_on:
+      - mysql
+EOF
+
+  cd "$DB_DIR" || return 1
+  
+  if docker compose -p fn-mysql up -d >/dev/null 2>&1; then
+      echo '{"ok":true,"message":"Docker版数据库安装成功"}'
+  else
+      echo '{"ok":false,"error":"Docker compose 启动失败"}'
+  fi
+}
+
 case "$1" in
   list-sites-json)
     list_sites_json
@@ -1096,6 +1203,12 @@ case "$1" in
     ;;
   nginx-install)
     nginx_install_json
+    ;;
+  check-db-status)
+    check_db_status_json
+    ;;
+  install-db)
+    install_db_json
     ;;
   php-install)
     php_install_json
