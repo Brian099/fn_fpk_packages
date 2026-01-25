@@ -71,7 +71,7 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
               html += data.config_exists ? '<div>配置文件: <span style="color:#5FB878">正常</span></div>' : '<div>配置文件: <span style="color:#FF5722">缺失</span></div>';
               el.html(html);
           } else {
-              el.html('<span style="color:#FF5722">未在 /etc 目录下检测到 Nginx</span> <button class="layui-btn layui-btn-xs layui-btn-primary" id="btn-install-nginx">一键安装</button>');
+              el.html('<span style="color:#FF5722">未发现适用的nginx</span> <button class="layui-btn layui-btn-xs layui-btn-primary" id="btn-install-nginx">一键安装</button>');
               $('#btn-install-nginx').click(function(){
                   layer.confirm('确认安装 Nginx?', function(i){
                       layer.close(i);
@@ -90,7 +90,7 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
               html += data.fpm_running ? '<div>FPM状态: <span style="color:#5FB878">运行中</span></div>' : '<div>FPM状态: <span style="color:#FF5722">未运行</span></div>';
               el.html(html);
           } else {
-              el.html('未安装 <button class="layui-btn layui-btn-xs layui-btn-primary" id="btn-install-php">一键安装</button>');
+              el.html('<span style="color:#FF5722">未发现适用的php</span> <button class="layui-btn layui-btn-xs layui-btn-primary" id="btn-install-php">一键安装</button>');
               $('#btn-install-php').click(function(){
                   layer.confirm('确认安装 PHP?', function(i){
                       layer.close(i);
