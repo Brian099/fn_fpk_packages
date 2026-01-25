@@ -406,13 +406,15 @@ list_sites_json() {
 }
 
 nginx_status_json() {
-  if command -v nginx >/dev/null 2>&1; then
+  # Strict check: Must have binary at /usr/sbin/nginx AND config at /etc/nginx/nginx.conf
+  if [ -x "/usr/sbin/nginx" ] && [ -f "/etc/nginx/nginx.conf" ]; then
     installed=true
-    version_raw=$(nginx -v 2>&1 | sed 's/^[^:]*: //')
+    version_raw=$(/usr/sbin/nginx -v 2>&1 | sed 's/^[^:]*: //')
   else
     installed=false
     version_raw=""
   fi
+  
   if [ -f "/etc/nginx/nginx.conf" ]; then
     config_exists=true
   else
@@ -452,8 +454,8 @@ php_status_json() {
 }
 
 nginx_install_json() {
-  if command -v nginx >/dev/null 2>&1; then
-    printf '{"ok":true,"message":"nginx already installed"}'
+  if [ -x "/usr/sbin/nginx" ] && [ -f "/etc/nginx/nginx.conf" ]; then
+    printf '{"ok":true,"message":"nginx already installed (checked /etc/nginx/nginx.conf)"}'
     return 0
   fi
   export DEBIAN_FRONTEND=noninteractive
