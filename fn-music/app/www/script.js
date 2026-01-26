@@ -10,6 +10,9 @@ let isLoop = false; // true = loop one, false = loop all (default) or no loop?
 // Let's make the loop button toggle "Loop One" (Repeat Track).
 let isLoopOne = false;
 
+// API Base Path (Matches installation path)
+const apiBase = "/cgi/ThirdParty/fn-music/index.cgi";
+
 let browserCurrentPath = "/";
 let browserSelectedPath = "";
 
@@ -279,7 +282,7 @@ async function loadBrowserPath(path) {
     container.innerHTML = '<div style="padding:10px;">Loading...</div>';
     
     try {
-        const res = await fetch(`/index.cgi/api/fs/list`, {
+        const res = await fetch(`${apiBase}/api/fs/list`, {
              method: 'POST',
              body: path
         });
