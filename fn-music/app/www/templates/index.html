@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+    <title>2FMusic</title>
+    <link rel="manifest" href="{{ 'manifest.json' | static_url }}" crossorigin="use-credentials">
+
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="2FMusic">
+    <link rel="apple-touch-icon" href="{{ 'images/ICON_256.PNG' | static_url }}">
+
+    <meta name="theme-color" content="#000000">
+
+    <script>
+        (function () {
+            window.applyScale = function () {
+                const saved = localStorage.getItem('2fmusic_ui_scale');
+                if (saved) {
+                    document.documentElement.style.setProperty('--ui-scale', saved);
+                } else if (window.innerWidth > 768) {
+                    let scale = Math.min(Math.max(window.innerWidth / 1440, 0.8), 1.2);
+                    document.documentElement.style.setProperty('--ui-scale', scale.toFixed(3));
+                } else {
+                    document.documentElement.style.setProperty('--ui-scale', '1.0');
+                }
+            };
+            window.applyScale();
+            let rafId;
+            window.addEventListener('resize', () => {
+                if (rafId) cancelAnimationFrame(rafId);
+                rafId = requestAnimationFrame(window.applyScale);
+            });
+        })();
+    </script>
+    
+
+
+    <link rel="icon" href="{{ 'images/ICON_256.PNG' | static_url }}">
+    <script async src="{{ 'js/lib/color-thief.umd.js' | static_url }}"></script>
+    <link rel="stylesheet" href="{{ 'css/font-awesome/all.min.css' | static_url }}">
+    <link rel="stylesheet" href="{{ 'css/style.css' | static_url }}">
+    <link rel="stylesheet" href="{{ 'css/favorites.css' | static_url }}">
+    <link rel="stylesheet" href="{{ 'css/artist-aggregate.css' | static_url }}">
+    <link rel="stylesheet" href="{{ 'css/queue-manager.css' | static_url }}">
+</head>
+
+<body>
+    <script>
+        // 预加载排序状态到全局变量，避免刷新时排序闪烁
+        window.__PRELOAD_SORT_STATE__ = (() => {
+            try {
+                const state = JSON.parse(localStorage.getItem('2fmusic_state') || '{}');
+                return {
+                    currentSort: state.currentSort || 'title',
+                    sortOrder: state.sortOrder || 'asc'
+                };
+            } catch(e) {
+                return { currentSort: 'title', sortOrder: 'asc' };
+            }
+        })();
+    </script>
+    
+    <!-- 立即隐藏复选框和收藏按钮，防止页面刷新时闪现 -->
+    <style>
+        .song-checkbox,
+        .card-fav-btn {
+            display: none !important;
+        }
+    </style>
+
+    <div id="app">
+        <aside id="sidebar" class="glass-panel">
+            <div class="brand">
+                <a href="https://github.com/yuexps/2FMusic" target="_blank" class="icon-btn" title="View on GitHub"
+                    style="color: var(--text-main); display: flex; align-items: center; text-decoration: none;">
+                    <i class="fab fa-github" style="font-size: 2rem;"></i>
+                </a>
+                <span>2FMusic</span>
+            </div>
+            <nav style="flex: 1;">
+                <ul>
+                    <li class="active" id="nav-local"><i class="fas fa-music"></i> <span>本地音乐</span></li>
+                    <li id="nav-fav"><i class="fas fa-heart"></i> <span>我的收藏</span></li>
+                    <li id="nav-hotlist"><i class="fas fa-history"></i> <span>播放记录</span></li>
+                    <li id="nav-mount"><i class="fas fa-network-wired"></i> <span>目录管理</span></li>
+                    <li id="nav-netease"><i class="fas fa-cloud-download-alt"></i> <span>网易下载</span></li>
+                    <li id="nav-upload"><i class="fas fa-cloud-upload-alt"></i> <span>上传音乐</span></li>
+                </ul>
+            </nav>
+            <nav>
+                <ul>
+                    <li id="nav-settings"><i class="fas fa-cog"></i> <span>设置</span></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main id="main-content">
+            <header class="top-bar">
+                <button id="mobile-menu-btn"><i class="fas fa-bars"></i></button>
+                <div id="mobile-page-title" class="mobile-title">本地音乐</div>
+            </header>
+
+            <div class="content-scroll">
+                <div id="view-player">
+                    <div class="content-header">
+                        <div class="section-title" id="list-title">歌曲列表</div>
+                        <div class="header-actions">
+                            <div id="playlist-filter-container" class="playlist-filter-container hidden">
+                                <button id="btn-add-playlist" class="btn-normal btn-add-playlist">
+                                    <i class="fas fa-plus"></i> 添加收藏夹
+                                </button>
+                            </div>
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="search-input" placeholder="搜索本地歌曲...">
+                            </div>
+                            <div class="sort-controls">
+                                <button id="btn-sort" class="btn-normal">
+                                    <i class="fas fa-sort"></i> 标题
+                                </button>
+                                <div id="sort-dropdown" class="sort-dropdown">
+                                    <div class="sort-option" data-sort="title">
+                                        <i class="fas fa-sort-alpha-down"></i> 音乐标题
+                                    </div>
+                                    <div class="sort-option" data-sort="artist">
+                                        <i class="fas fa-user"></i> 音乐歌手
+                                    </div>
+                                    <div class="sort-option" data-sort="album">
+                                        <i class="fas fa-compact-disc"></i> 音乐专辑
+                                    </div>
+                                    <div class="sort-option" data-sort="size">
+                                        <i class="fas fa-database"></i> 文件大小
+                                    </div>
+                                    <div class="sort-option" data-sort="mtime">
+                                        <i class="fas fa-clock"></i> 入库时间
+                                    </div>
+                                    <div class="sort-option" data-sort="playCount">
+                                        <i class="fas fa-play"></i> 播放频率
+                                    </div>
+                                </div>
+                            </div>
+                            <script>
+                                // 在btn-sort加载完成后立即应用预加载的排序状态
+                                if (window.__PRELOAD_SORT_STATE__) {
+                                    const sortState = window.__PRELOAD_SORT_STATE__;
+                                    const SORT_CONFIG = {
+                                        'title': { label: '标题', icon: 'fa-sort-alpha-down' },
+                                        'artist': { label: '歌手', icon: 'fa-user' },
+                                        'album': { label: '专辑', icon: 'fa-compact-disc' },
+                                        'mtime': { label: '时间', icon: 'fa-clock' },
+                                        'size': { label: '大小', icon: 'fa-database' },
+                                        'playCount': { label: '频率', icon: 'fa-play' }
+                                    };
+                                    const config = SORT_CONFIG[sortState.currentSort] || SORT_CONFIG['title'];
+                                    
+                                    const btnSort = document.getElementById('btn-sort');
+                                    if (btnSort) {
+                                        btnSort.innerHTML = `<i class="fas ${config.icon}"></i> ${config.label}`;
+                                    }
+                                    
+                                    const sortDropdown = document.getElementById('sort-dropdown');
+                                    if (sortDropdown) {
+                                        sortDropdown.querySelectorAll('.sort-option').forEach(option => {
+                                            option.classList.toggle('active', option.dataset.sort === sortState.currentSort);
+                                        });
+                                    }
+                                }
+                            </script>
+                        </div>
+                    </div>
+                    <!-- 右键菜单 -->
+                    <div class="batch-context-menu hidden" id="batch-context-menu">
+                        <div class="context-menu-item" id="batch-context-select-one">
+                            <i class="fas fa-square"></i> 单选
+                        </div>
+                        <div class="context-menu-item" id="batch-context-select-all">
+                            <i class="fas fa-check-square"></i> 全选
+                        </div>
+                        <div class="context-menu-divider"></div>
+                        <div class="context-menu-item" id="batch-context-add">
+                            <i class="fas fa-plus"></i> 添加到收藏夹
+                        </div>
+                        <div class="context-menu-item" id="batch-context-remove">
+                            <i class="fas fa-trash"></i> 从收藏夹移除
+                        </div>
+                        <div class="context-menu-item" id="batch-context-move">
+                            <i class="fas fa-arrows"></i> 移动到收藏夹
+                        </div>
+                        <div class="context-menu-divider"></div>
+                        <div class="context-menu-item" id="batch-context-clear">
+                            <i class="fas fa-times"></i> 取消选择
+                        </div>
+                    </div>
+                    <div class="song-list" id="song-list-container">
+                        <div class="loading">
+                            <div class="loading-box">
+                                <div class="loading-spinner"></div>
+                                <div class="loading-text">Loading...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-mount" class="hidden">
+                    <div class="section-title">音乐目录管理</div>
+
+                    <div class="mount-add-section glass-panel">
+                        <h3><i class="fas fa-folder-plus"></i> 添加服务器目录</h3>
+                        <p class="mount-hint">输入服务器上的文件夹绝对路径（例:/vol1/1000/music）自动监控并导入。</p>
+                        <div class="mount-input-group">
+                            <input type="text" id="mount-path-input" placeholder="输入绝对路径...">
+                            <button id="btn-add-mount" class="btn-primary">添加</button>
+                        </div>
+                    </div>
+
+                    <div class="section-subtitle">已添加目录</div>
+
+                    <div id="mount-list-container">
+                        <div class="loading">
+                            <div class="loading-spinner"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-netease" class="hidden">
+                    <div class="netease-gate glass-panel hidden" id="netease-config-gate">
+                        <div class="gate-header-block">
+                            <div class="gate-title">配置网易云 API</div>
+                            <div class="gate-desc">请选择一种方式连接网易云音乐 API 服务</div>
+                        </div>
+
+                        <div class="gate-options-container">
+                            <!-- 方式 1: 自动安装 -->
+                            <div class="gate-option-card active-card">
+                                <div class="option-icon-box"><i class="fab fa-docker"></i></div>
+                                <div class="option-content">
+                                    <div class="option-title">自动安装 (推荐)</div>
+                                    <div class="option-desc">服务器必须已安装 Docker 服务。我们将自动为您拉取镜像并启动服务。<br>无需手动操作，自动完成安装
+                                    </div>
+                                </div>
+                                <button id="netease-api-install-btn" class="btn-primary full-width-btn">
+                                    <i class="fas fa-magic"></i> 一键安装 & 连接
+                                </button>
+
+                                <div id="install-progress-container" class="hidden"
+                                    style="width: 100%; margin-top: 1rem;">
+                                    <div
+                                        style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.3rem; color: rgba(255,255,255,0.8);">
+                                        <span id="install-step-text">准备就绪</span>
+                                        <span id="install-percent-text">0%</span>
+                                    </div>
+                                    <div
+                                        style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+                                        <div id="install-progress-bar"
+                                            style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease;">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 方式 2: 手动配置 -->
+                            <div class="gate-option-card">
+                                <div class="option-icon-box"><i class="fas fa-network-wired"></i></div>
+                                <div class="option-content">
+                                    <div class="option-title">手动连接</div>
+                                    <div class="option-desc">如果无法自动安装，请在 FnDepot 添加源 https://github.com/yuexps/FnDepot
+                                        <br>手动下载
+                                        网易云API 应用，然后输入地址连接。
+                                    </div>
+                                </div>
+                                <div class="gate-manual-form">
+                                    <input type="text" id="netease-api-gate-input" placeholder="http://localhost:23236"
+                                        value="http://localhost:23236">
+                                    <button id="netease-api-gate-btn" class="btn-normal full-width-btn">检测并连接</button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    <div class="netease-container-new" id="netease-content">
+                        <header class="netease-header">
+                            <div class="netease-title-large">网易云下载</div>
+                            <div class="netease-header-right">
+                                <div id="netease-user-display" class="netease-user-display hidden">
+                                    <div class="user-text">
+                                        <div id="netease-user-name" class="user-name">User</div>
+                                        <div class="user-tag">VIP</div>
+                                    </div>
+                                    <div class="vip-avatar-ring-wrapper">
+                                        <div class="vip-badge-icon hidden" id="netease-vip-badge">V</div>
+                                        <div class="" id="netease-avatar-wrapper">
+                                            <img id="netease-user-avatar" src="" alt="Avatar">
+                                        </div>
+                                    </div>
+                                    <i class="fas fa-chevron-down user-dropdown-caret"></i>
+                                    <div class="netease-user-menu hidden" id="netease-user-menu">
+                                        <button id="netease-menu-logout" class="menu-btn danger"><i
+                                                class="fas fa-sign-out-alt"></i> 退出登录</button>
+                                    </div>
+                                </div>
+                                <button id="netease-login-btn-top" class="btn-primary-small">登录</button>
+                                <button id="netease-download-floating" class="icon-btn" title="下载管理"><i
+                                        class="fas fa-tasks"></i></button>
+                            </div>
+                        </header>
+
+                        <!-- Download Panel (Overlay) -->
+                        <div class="netease-download-panel hidden" id="netease-download-panel">
+                            <div class="netease-download-header">
+                                <div>
+                                    <div class="netease-download-title">下载管理</div>
+                                </div>
+                                <button id="netease-download-toggle" class="icon-btn" title="关闭"><i
+                                        class="fas fa-times"></i></button>
+                            </div>
+                            <div class="netease-download-list" id="netease-download-list">
+                                <div class="loading-text">暂无下载</div>
+                            </div>
+                        </div>
+
+                        <div class="netease-search-hero">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="netease-global-input" placeholder="搜索歌曲或粘贴歌曲/歌单链接 (Enter搜索)">
+                            </div>
+                        </div>
+
+                        <div class="netease-results-area">
+
+
+                            <div class="netease-bulk-actions hidden" id="netease-bulk-actions">
+                                <label class="netease-check">
+                                    <input type="checkbox" id="netease-select-all">
+                                    <span>全选</span>
+                                </label>
+                                <button id="netease-bulk-download" class="btn-mini"><i class="fas fa-download"></i>
+                                    下载选中</button>
+                            </div>
+
+                            <div id="netease-result-list" class="netease-result-list">
+                                <!-- Empty State -->
+                                <div class="netease-empty-state">
+                                    <div class="empty-title">等待搜索...</div>
+                                    <div class="empty-desc">请输入关键词开始</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-settings" class="hidden">
+                    <div class="settings-page">
+                        <h3><i class="fas fa-cog"></i> 系统设置</h3>
+
+                        <div class="settings-section glass-panel">
+                            <h4>登录与维护</h4>
+                            <div class="setting-row">
+                                <label>清理缓存</label>
+                                <button id="setting-clear-cache" class="btn-normal"
+                                    title="若遇到显示异常或加载问题，请尝试点击此按钮">清除应用缓存</button>
+                            </div>
+                            <div class="setting-row">
+                                <label>退出登录</label>
+                                <button id="setting-logout" class="btn-glass-danger">退出当前登录</button>
+                            </div>
+                        </div>
+
+                        <div class="settings-section glass-panel">
+                            <h4>外观设置</h4>
+                            <div class="setting-row">
+                                <label>全局缩放 (当前: <span id="setting-scale-value">自动</span>)</label>
+                                <div style="display: flex; align-items: center; gap: 0.8rem;">
+                                    <i class="fas fa-text-height" style="font-size: 0.8rem; opacity: 0.6;"></i>
+                                    <input type="range" id="setting-scale-input" min="0.6" max="1.4" step="0.05"
+                                        style="flex:1;">
+                                    <i class="fas fa-text-height" style="font-size: 1.2rem; opacity: 0.9;"></i>
+                                    <button id="setting-scale-reset" class="btn-mini"
+                                        style="margin-left: 0.5rem;">重置</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-section glass-panel">
+                            <h4>缓存设置</h4>
+                            <div class="setting-row">
+                                <div class="setting-label-switch">
+                                    <label>离线支持</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-offline-support">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <span style="font-size: 0.9rem; color: #999; margin-left: 0.5rem;">启用后应用可离线运行</span>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-label-switch">
+                                    <label>缓存封面</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-cache-covers">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <span style="font-size: 0.9rem; color: #999; margin-left: 0.5rem;">启用后可离线查看封面</span>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-label-switch">
+                                    <label>缓存歌词</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-cache-lyrics">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <span style="font-size: 0.9rem; color: #999; margin-left: 0.5rem;">启用后可离线查看歌词</span>
+                            </div>
+                        </div>
+
+                        <div class="settings-section glass-panel">
+                            <h4>网易云音乐配置</h4>
+                            <div class="setting-row">
+                                <label>API 地址</label>
+                                <input type="text" id="netease-api-settings-input" placeholder="http://localhost:23236">
+                            </div>
+                            <div class="setting-row">
+                                <label>保存目录</label>
+                                <input type="text" id="netease-download-dir" placeholder="下载保存目录">
+                            </div>
+                            <div class="settings-actions" style="margin-top: 1.5rem;">
+                                <button id="netease-disconnect-btn" class="btn-danger">断开 API 连接</button>
+                                <button id="netease-save-settings-btn" class="btn-primary">保存网易云设置</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-upload" class="hidden">
+                    <div class="upload-page glass-panel">
+                        <h3>上传音乐</h3>
+                        <p class="upload-desc">点击或拖拽文件到下方区域，可选择保存目录。</p>
+                        <div class="upload-target">
+                            <label for="upload-target-input">保存目录（仅可选择已添加的目录或默认库）</label>
+                            <div class="upload-select" id="upload-target-select">
+                                <div class="upload-select-current" id="upload-target-current" data-value="">默认音乐库
+                                </div>
+                                <div class="upload-select-list hidden" id="upload-target-list"></div>
+                            </div>
+                            <input type="hidden" id="upload-target-input" value="">
+                        </div>
+                        <div id="upload-dropzone" class="upload-dropzone">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <div>拖拽文件到此，或点击选择</div>
+                            <input type="file" id="file-upload" accept=".mp3,.flac,.wav,.ogg,.m4a" hidden>
+                            <button id="upload-choose-btn" class="btn-primary">选择文件</button>
+                        </div>
+                        <div id="upload-status" class="upload-status"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer id="player-bar">
+            <div class="player-info" id="open-detail-view" title="点击查看歌词">
+                <img src="{{ 'images/ICON_256.PNG' | static_url }}" id="current-cover" alt="Cover">
+                <div class="info-text">
+                    <div id="current-title">等待播放</div>
+                    <div id="current-artist">2FMusic</div>
+                </div>
+            </div>
+
+            <div class="player-controls">
+                <div class="buttons">
+                    <button class="icon-btn" id="btn-prev"><i class="fas fa-step-backward"></i></button>
+                    <button class="play-btn" id="btn-play"><i class="fas fa-play"></i></button>
+                    <button class="icon-btn" id="btn-next"><i class="fas fa-step-forward"></i></button>
+                </div>
+                <div class="progress-container">
+                    <span id="time-current">0:00</span>
+                    <input type="range" id="progress-bar" value="0" min="0" max="100" step="0.1">
+                    <span id="time-total">0:00</span>
+                </div>
+            </div>
+
+            <div class="player-extra">
+                <button class="icon-btn" id="btn-queue" style="width: 2rem; text-align: center;" title="播放队列">
+                    <i class="fas fa-list"></i>
+                </button>
+                <button class="icon-btn" id="btn-mute" style="width: 2rem; text-align: center;">
+                    <i class="fas fa-volume-up" id="vol-icon"></i>
+                </button>
+                <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1">
+            </div>
+
+            <button id="mobile-mini-play" class="icon-btn" style="display: none; font-size: 1.5rem; padding: 1rem;">
+                <i class="fas fa-play"></i>
+            </button>
+        </footer>
+
+        <div id="full-player-overlay">
+            <div class="fp-header">
+                <button id="close-detail-view"><i class="fas fa-chevron-down"></i></button>
+                <span id="fp-playing-label" style="display:none;">正在播放</span>
+                <span id="fp-paused-label" style="display:none;">已暂停</span>
+                <div class="fp-header-right">
+                    <button id="fp-menu-btn" class="icon-btn"><i class="fas fa-ellipsis-h"></i></button>
+                </div>
+            </div>
+
+            <div class="fp-content">
+                <div class="fp-art-area">
+                    <img src="{{ 'images/ICON_256.PNG' | static_url }}" id="fp-cover" alt="Cover">
+                    <div class="fp-info">
+                        <h2 id="fp-title">歌曲标题</h2>
+                        <p id="fp-artist">歌手</p>
+                    </div>
+                </div>
+
+                <div class="fp-lyrics-area no-lyrics" id="lyrics-container">
+                    <p class="lyric-line active">暂无歌词</p>
+                </div>
+            </div>
+
+            <div class="fp-controls">
+                <div class="fp-progress-bar">
+                    <span id="fp-time-current">0:00</span>
+                    <input type="range" id="fp-progress-bar" value="0" min="0" max="100" step="0.1">
+                    <span id="fp-time-total">0:00</span>
+                </div>
+                <div class="fp-buttons">
+                    <button class="icon-btn" id="fp-btn-mode" title="切换模式"><i class="fas fa-redo"></i></button>
+                    <button class="icon-btn" id="fp-btn-prev"><i class="fas fa-step-backward"></i></button>
+                    <button class="play-btn play-huge" id="fp-btn-play"><i class="fas fa-play"></i></button>
+                    <button class="icon-btn" id="fp-btn-next"><i class="fas fa-step-forward"></i></button>
+                    <button class="icon-btn" id="fp-btn-fav" title="收藏"><i class="far fa-heart"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div id="upload-modal">
+            <div class="upload-box glass-panel">
+                <h3><i class="fas fa-cloud-upload-alt"></i> 上传文件</h3>
+                <p id="upload-filename">filename.mp3</p>
+                <div class="upload-progress-track">
+                    <div class="upload-progress-fill" id="upload-progress-fill"></div>
+                </div>
+                <div class="upload-status">
+                    <span id="upload-percent">0%</span>
+                    <span id="upload-msg">准备中...</span>
+                </div>
+                <button id="close-upload-modal" class="icon-btn" style="margin-top: 1rem; display: none;">关闭</button>
+            </div>
+        </div>
+
+        <div id="action-menu-overlay" class="custom-overlay">
+            <div class="action-sheet glass-panel">
+                <button class="action-item" id="action-rematch">
+                    <i class="fas fa-sync-alt"></i> 刷新数据
+                </button>
+                <button class="action-item" id="action-download">
+                    <i class="fas fa-download"></i> 本地下载
+                </button>
+                <button class="action-item delete" id="action-delete">
+                    <i class="fas fa-trash-alt"></i> 永久删除
+                </button>
+                <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 0.5rem 0;"></div>
+                <button class="action-item cancel" id="action-cancel">取消</button>
+            </div>
+        </div>
+
+        <div id="confirm-modal-overlay" class="custom-overlay">
+            <div class="confirm-box glass-panel">
+                <h3><i class="fas fa-exclamation-triangle"></i> 确认操作</h3>
+                <p>确定要执行此操作吗？</p>
+                <div class="confirm-buttons">
+                    <button id="confirm-yes" class="btn-danger">确认</button>
+                    <button id="confirm-no" class="btn-normal">取消</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="netease-qr-modal" class="custom-overlay centered">
+            <div class="qr-box glass-panel">
+                <h3>扫码登录网易云</h3>
+                <div class="netease-qr-box">
+                    <img id="netease-qr-img" alt="扫码登录" src="" />
+                    <div class="netease-qr-hint" id="netease-qr-hint">使用网易云音乐扫码</div>
+                </div>
+                <button id="close-qr-modal" class="btn-normal"
+                    style="margin-top: 1rem; padding: 0.6rem 1.5rem; border-radius: 2rem;">取消</button>
+            </div>
+        </div>
+
+        <div id="toast-container"></div>
+        <input type="file" id="file-upload" accept=".mp3,.flac,.wav,.ogg,.m4a" style="display: none;">
+
+    </div>
+
+    <audio id="audio-player"></audio>
+    <script>
+        (function () {
+            try {
+                const saved = localStorage.getItem('2fmusic_state');
+                const state = saved ? JSON.parse(saved) : {};
+                const tab = state.tab || 'local';
+
+                // 1. Restore FullScreen Overlay
+                if (state.isFullScreen) {
+                    const overlay = document.getElementById('full-player-overlay');
+                    if (overlay) overlay.classList.add('active');
+                }
+
+                // 2. Tab & View
+                document.querySelectorAll('nav li').forEach(el => el.classList.remove('active'));
+                const targetNav = document.getElementById('nav-' + tab);
+                if (targetNav) targetNav.classList.add('active');
+
+                const vp = document.getElementById('view-player');
+                const vm = document.getElementById('view-mount');
+                const vn = document.getElementById('view-netease');
+                const vu = document.getElementById('view-upload');
+                const vs = document.getElementById('view-settings');
+
+                // 隐藏所有视图
+                if (vp) vp.classList.add('hidden');
+                if (vm) vm.classList.add('hidden');
+                if (vn) vn.classList.add('hidden');
+                if (vu) vu.classList.add('hidden');
+                if (vs) vs.classList.add('hidden');
+
+                // 根据标签显示对应的视图
+                if (tab === 'mount') { if (vm) vm.classList.remove('hidden'); }
+                else if (tab === 'netease') { if (vn) vn.classList.remove('hidden'); }
+                else if (tab === 'upload') { if (vu) vu.classList.remove('hidden'); }
+                else if (tab === 'settings') { if (vs) vs.classList.remove('hidden'); }
+                else {
+                    // local or fav
+                    if (vp) {
+                        vp.classList.remove('hidden');
+                        vp.setAttribute('data-tab', tab);
+
+                        // Styling hooks for CSS
+                        if (tab === 'fav') {
+                            vp.classList.add('tab-fav');
+                            vp.classList.remove('tab-local');
+                        } else {
+                            vp.classList.add('tab-local');
+                            vp.classList.remove('tab-fav');
+                        }
+                    }
+                }
+
+                // 3. Search Box logic
+                const searchBox = document.querySelector('.search-box');
+                if (searchBox) {
+                    if (tab === 'local') {
+                        searchBox.style.display = 'flex';
+                        searchBox.style.opacity = '1';
+                    } else {
+                        searchBox.style.display = 'none';
+                        searchBox.style.opacity = '0';
+                    }
+                }
+
+                // 4. Volume
+                if (state.volume !== undefined) {
+                    const volSlider = document.getElementById('volume-slider');
+                    if (volSlider) {
+                        volSlider.value = state.volume;
+                        volSlider.style.backgroundSize = (state.volume * 100) + '% 100%';
+                    }
+                }
+
+                // 5. Prepare Sort State (will be used by main.js to update button)
+                const savedState = JSON.parse(localStorage.getItem('2fmusic_state') || '{}');
+                const currentSort = savedState.currentSort || 'title';
+                const sortOrder = savedState.sortOrder || 'asc';
+                
+                // Mark sort state for main.js to use immediately
+                window._sortStateReady = { currentSort, sortOrder };
+
+                // 6. Pre-render Song List (Minimize Flicker)
+                if (tab === 'local' || tab === 'fav') {
+                    const container = document.getElementById('song-list-container');
+                    const playlist = JSON.parse(localStorage.getItem('2fmusic_playlist') || '[]');
+                    const favs = new Set(JSON.parse(localStorage.getItem('2fmusic_favs') || '[]'));
+
+                    if (container && playlist.length > 0) {
+                        let displayList = playlist;
+
+                        // Apply sorting to the playlist - same logic as in player.js
+                        displayList = [...playlist].sort((a, b) => {
+                            let valueA, valueB;
+
+                            switch (currentSort) {
+                                case 'title':
+                                    valueA = (a.title || '').toLowerCase();
+                                    valueB = (b.title || '').toLowerCase();
+                                    break;
+                                case 'artist':
+                                    valueA = (a.artist || '').toLowerCase();
+                                    valueB = (b.artist || '').toLowerCase();
+                                    break;
+                                case 'album':
+                                    valueA = (a.album || '').toLowerCase();
+                                    valueB = (b.album || '').toLowerCase();
+                                    break;
+                                case 'mtime':
+                                    valueA = a.mtime || 0;
+                                    valueB = b.mtime || 0;
+                                    break;
+                                default:
+                                    valueA = (a.title || '').toLowerCase();
+                                    valueB = (b.title || '').toLowerCase();
+                            }
+
+                            if (typeof valueA === 'string' && typeof valueB === 'string') {
+                                if (sortOrder === 'asc') {
+                                    return valueA > valueB ? 1 : valueA < valueB ? -1 : 0;
+                                } else {
+                                    return valueB > valueA ? 1 : valueB < valueA ? -1 : 0;
+                                }
+                            } else {
+                                if (sortOrder === 'asc') {
+                                    return valueA - valueB;
+                                } else {
+                                    return valueB - valueA;
+                                }
+                            }
+                        });
+
+                        // If Tab is Favorite, filter it
+                        if (tab === 'fav') {
+                            // 检查是否在收藏夹详情页
+                            // 直接从localStorage获取，避免state.js未加载完成的问题
+                            const savedState = JSON.parse(localStorage.getItem('2fmusic_state') || '{}');
+                            const selectedPlaylistId = savedState.selectedPlaylistId;
+                            if (selectedPlaylistId) {
+                                // 在快速初始化阶段，我们设置基本状态并添加必要的UI元素
+                                state.currentTab = 'fav';
+                                const titleEl = document.getElementById('list-title');
+                                const contentHeader = document.querySelector('.content-header');
+
+                                // 立即更新收藏夹标题，避免显示默认文本
+                                if (titleEl) {
+                                    // 查找对应收藏夹名称
+                                    const playlists = JSON.parse(localStorage.getItem('2fmusic_cached_playlists') || '[]');
+                                    const currentPlaylist = playlists.find(p => String(p.id) === String(selectedPlaylistId));
+                                    titleEl.innerText = currentPlaylist ? currentPlaylist.name : '收藏夹详情';
+                                }
+
+                                // 立即隐藏添加收藏夹按钮：在收藏夹详情页隐藏
+                                const playlistFilterContainer = document.getElementById('playlist-filter-container');
+                                if (playlistFilterContainer) {
+                                    playlistFilterContainer.classList.add('hidden');
+                                }
+
+                                // 立即隐藏排序按钮：在收藏夹详情页隐藏排序功能
+                                const sortControls = document.querySelector('.sort-controls');
+                                if (sortControls) {
+                                    sortControls.classList.add('hidden');
+                                }
+
+                                // 添加返回按钮
+                                if (contentHeader) {
+                                    // 检查是否已存在返回按钮
+                                    let backBtn = document.querySelector('.back-to-favorites-btn');
+                                    if (!backBtn) {
+                                        backBtn = document.createElement('button');
+                                        backBtn.className = 'back-to-favorites-btn';
+                                        backBtn.innerHTML = '<i class="fas fa-arrow-left"></i> 返回';
+
+                                        // 在标题前添加返回按钮
+                                        const sectionTitle = contentHeader.querySelector('.section-title');
+                                        if (sectionTitle) {
+                                            contentHeader.insertBefore(backBtn, sectionTitle);
+                                        }
+                                    }
+                                }
+                            } else {
+                                state.currentTab = 'fav';
+                                const titleEl = document.getElementById('list-title');
+                                if (titleEl) titleEl.innerText = '收藏列表';
+                            }
+                            return; // 提前返回，避免执行下面的通用渲染逻辑
+                        } else {
+                            const titleEl = document.getElementById('list-title');
+                            if (titleEl) titleEl.innerText = '歌曲列表';
+                        }
+
+                        if (displayList.length > 0) {
+                            let html = '';
+                            displayList.forEach((song, index) => {
+                                const isFav = favs.has(song.id);
+                                const isExt = song.isExternal;
+                                let favHtml = `<button class="card-fav-btn ${isFav ? 'active' : ''}">${isFav ? '<i class="fas fa-heart"></i>' : '<i class="far fa-heart"></i>'}</button>`;
+                                if (isExt) favHtml = '';
+                                const borderStyle = isExt ? 'border:1px dashed var(--primary);' : '';
+                                const checkboxHtml = `<input type="checkbox" class="song-checkbox" aria-label="选择歌曲">`;
+
+                                html += `<div class="song-card" data-index="${index}" style="${borderStyle}">
+                                    ${checkboxHtml}
+                                    ${favHtml}
+                                    <img src="${song.cover || '/static/images/ICON_256.PNG'}" loading="lazy">
+                                    <div class="card-info">
+                                        <div class="title">${song.title || song.filename}</div>
+                                        <div class="artist">${song.artist || '未知艺术家'}</div>
+                                    </div>
+                                </div>`;
+                            });
+                            container.innerHTML = html;
+                        } else if (tab === 'fav') {
+                            container.innerHTML = `<div class="loading-text" style="grid-column: 1/-1; padding: 4rem 0; font-size: 1.1rem; opacity: 0.6;">暂无收藏歌曲</div>`;
+                        } else {
+                            container.innerHTML = `<div class="loading-text" style="grid-column: 1/-1; padding: 4rem 0; font-size: 1.1rem; opacity: 0.6;">暂无歌曲</div>`;
+                        }
+                    }
+                }
+
+                // 6. Current Song Info
+                if (state.currentFilename) {
+                    const playlist = JSON.parse(localStorage.getItem('2fmusic_playlist') || '[]');
+                    const song = playlist.find(s => s.filename === state.currentFilename);
+                    if (song) {
+                        const title = song.title || song.filename;
+                        const artist = song.artist || '未知艺术家';
+                        const cover = song.album_art || song.cover || "{{ 'images/ICON_256.PNG' | static_url }}";
+
+                        ['current-title', 'fp-title'].forEach(id => {
+                            const el = document.getElementById(id);
+                            if (el) el.innerText = title;
+                        });
+                        ['current-artist', 'fp-artist'].forEach(id => {
+                            const el = document.getElementById(id);
+                            if (el) el.innerText = artist;
+                        });
+                        ['current-cover', 'fp-cover'].forEach(id => {
+                            const el = document.getElementById(id);
+                            if (el) el.src = cover;
+                        });
+                    }
+                }
+
+                // 7. Restore Netease User Info (Optimistic UI)
+                try {
+                    const neteaseUserSaved = localStorage.getItem('2fmusic_netease_user');
+                    if (neteaseUserSaved) {
+                        const user = JSON.parse(neteaseUserSaved);
+                        if (user && user.nickname) {
+                            // Show user display section
+                            const userDisplay = document.getElementById('netease-user-display');
+                            const loginBtn = document.getElementById('netease-login-btn-top');
+                            if (userDisplay) userDisplay.classList.remove('hidden');
+                            if (loginBtn) loginBtn.classList.add('hidden');
+
+                            // Restore user info
+                            const userNameEl = document.getElementById('netease-user-name');
+                            const userAvatarEl = document.getElementById('netease-user-avatar');
+                            const vipBadgeEl = document.getElementById('netease-vip-badge');
+                            if (userNameEl) userNameEl.innerText = user.nickname || 'User';
+                            if (userAvatarEl) userAvatarEl.src = user.avatar || '';
+                            if (vipBadgeEl && user.isVip) vipBadgeEl.classList.remove('hidden');
+                        }
+                    }
+                } catch (e) { console.error('Netease user preload error', e); }
+
+                // 8. Restore Cached Playlists (for favorites tab)
+                try {
+                    if (tab === 'fav') {
+                        const playlistsCache = JSON.parse(localStorage.getItem('2fmusic_cached_playlists') || '[]');
+                        const playlistSongsCache = JSON.parse(localStorage.getItem('2fmusic_cached_playlist_songs') || '{}');
+                        
+                        // If viewing a specific playlist, try to preload its cached songs
+                        if (state.selectedPlaylistId && playlistSongsCache[state.selectedPlaylistId]) {
+                            // Cache available, can be rendered faster when main.js loads
+                            // Store flag to signal preload was available
+                            window._playlistPreloadReady = true;
+                        }
+                        
+                        // If cache is empty, at least ensure UI is ready for loading
+                        if (playlistsCache.length === 0 && !state.selectedPlaylistId) {
+                            const titleEl = document.getElementById('list-title');
+                            if (titleEl) titleEl.innerText = '收藏列表';
+                        }
+                    }
+                } catch (e) { console.error('Playlist cache preload error', e); }
+
+                // 9. Pre-render Mount Points skeleton (if on mount tab)
+                try {
+                    if (tab === 'mount') {
+                        const mountContainer = document.getElementById('mount-list-container');
+                        if (mountContainer) {
+                            // Try to load cached mount points for faster display
+                            const savedScraped = localStorage.getItem('scrapedPaths');
+                            if (savedScraped) {
+                                try {
+                                    const scrapedPaths = JSON.parse(savedScraped);
+                                    if (Array.isArray(scrapedPaths) && scrapedPaths.length > 0) {
+                                        // Preload mount points from cache (array of [path, data])
+                                        let html = '';
+                                        scrapedPaths.forEach(([path]) => {
+                                            html += `
+                                                <div class="mount-card" data-mount-path="${path}">
+                                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                        <div class="mount-info">
+                                                            <i class="fas fa-folder mount-icon"></i>
+                                                            <span class="mount-path-text">${path}</span>
+                                                        </div>
+                                                        <div style="display: flex; gap: 0.5rem;">
+                                                            <button class="btn-update-mount">更新</button>
+                                                            <button class="btn-remove-mount">移除</button>
+                                                        </div>
+                                                    </div>
+                                                    <div class="mount-card-progress" style="margin-top: 0.8rem;">
+                                                        <div class="progress-bar"></div>
+                                                    </div>
+                                                </div>
+                                            `;
+                                        });
+                                        if (html) {
+                                            mountContainer.innerHTML = html;
+                                        }
+                                    } else if (mountContainer.querySelector('.loading')) {
+                                        // Keep loading state if cache is empty
+                                    }
+                                } catch (e) {
+                                    console.warn('Failed to parse scrapedPaths cache:', e);
+                                }
+                            }
+                        }
+                    }
+                } catch (e) { console.error('Mount preload error', e); }
+
+            } catch (e) { console.error('Fast init error', e); }
+        })();
+    </script>
+    <script type="module" src="{{ 'js/main.js' | static_url }}"></script>
+</body>
+
+</html>

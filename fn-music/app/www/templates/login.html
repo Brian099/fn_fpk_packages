@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>登录 - 2FMusic</title>
+  <link rel="stylesheet" href="{{ 'css/style.css' | static_url }}">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: radial-gradient(circle at 50% 20%, rgba(108, 92, 231, 0.25), transparent 45%),
+        linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    }
+
+    .login-card {
+      width: min(420px, 90vw);
+      padding: 2rem;
+      border-radius: 1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      color: #fff;
+      text-align: center;
+    }
+
+    .login-card h1 {
+      margin-bottom: 0.5rem;
+      font-size: 1.6rem;
+      letter-spacing: 0.6px;
+    }
+
+    .login-card p {
+      margin-bottom: 1.5rem;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .login-card form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .login-card input[type="password"] {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      border-radius: 0.7rem;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      outline: none;
+    }
+
+    .login-card .btn {
+      padding: 0.9rem;
+      border: none;
+      border-radius: 0.8rem;
+      background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .login-card .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(108, 92, 231, 0.35);
+    }
+
+    .login-card .btn:active {
+      transform: scale(0.98);
+    }
+
+    .login-card .error {
+      color: #ffb4b4;
+      font-size: 0.95rem;
+    }
+
+    .remember-me {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      color: rgba(255, 255, 255, 0.8);
+      cursor: pointer;
+      user-select: none;
+      width: fit-content;
+    }
+
+    .remember-me input {
+      width: 1.1em;
+      height: 1.1em;
+      accent-color: #6c5ce7;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="login-card">
+    <h1>2FMusic</h1>
+    <p>请输入访问密码</p>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <form method="POST" action="{{ url_for('login', next=next_path) }}">
+      <input type="password" name="password" placeholder="密码" autocomplete="current-password" required>
+      <label class="remember-me">
+        <input type="checkbox" name="remember">
+        <span>保持登录</span>
+      </label>
+      <button type="submit" class="btn">登录</button>
+    </form>
+  </div>
+
+  <script>
+    async function sha256(message) {
+      const msgBuffer = new TextEncoder().encode(message);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    document.querySelector('form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const pwdInput = this.querySelector('input[name="password"]');
+      const plain = pwdInput.value;
+
+      // Calculate hash
+      try {
+        const hashed = await sha256(plain);
+        pwdInput.value = hashed; // Replace with hash
+        this.submit();
+      } catch (err) {
+        console.error("Hashing failed, falling back to plaintext", err);
+        this.submit();
+      }
+    });
+  </script>
+
+</body>
+
+</html>

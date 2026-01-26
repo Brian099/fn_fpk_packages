@@ -1,27 +1,5 @@
 #!/bin/bash
-APP_DIR="/usr/local/apps/musicplayer"
-DESKTOP_FILE="$APP_DIR/musicplayer.desktop"
-TARGET_DIR="/usr/share/applications"
 
-# Ensure executable
-if [ -f "$APP_DIR/open_file.sh" ]; then
-    chmod +x "$APP_DIR/open_file.sh"
-fi
-
-if [ -f "$APP_DIR/cmd/main" ]; then
-    chmod +x "$APP_DIR/cmd/main"
-fi
-
-if [ -f "$APP_DIR/app/server/server.py" ]; then
-    chmod +x "$APP_DIR/app/server/server.py"
-fi
-
-# Install desktop file
-if [ -d "$TARGET_DIR" ]; then
-    cp "$DESKTOP_FILE" "$TARGET_DIR/"
-    if command -v update-desktop-database >/dev/null 2>&1; then
-        update-desktop-database "$TARGET_DIR" || true
-    fi
-fi
+### This script is called after the user installs the application.
 
 exit 0

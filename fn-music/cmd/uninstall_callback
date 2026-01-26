@@ -1,6 +1,7 @@
 #!/bin/bash
-rm -f "/usr/share/applications/musicplayer.desktop"
-if command -v update-desktop-database >/dev/null 2>&1; then
-    update-desktop-database "/usr/share/applications" || true
-fi
+
+### This script is called after the user uninstalls the application.
+
+[ "${wizard_data_action:-}" == "delete" ] && rm -rf "${TRIM_PKGVAR}"
+
 exit 0

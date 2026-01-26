@@ -1,0 +1,24 @@
+{
+    ".url": {
+        "2fmusic.play": {
+            "title": "播放音乐 (2FMusic)",
+            "icon": "static/images/ICON_{0}.PNG",
+            "type": "window",
+            "url": "/",
+            "allUsers": true,
+            "fileTypes": [
+                "mp3",
+                "flac",
+                "wav",
+                "ogg",
+                "m4a",
+                "ape"
+            ],
+            "control": {
+                "fullUrlPerm": "readonly",
+                "pathPerm": "readonly"
+            },
+            "noDisplay": false
+        }
+    }
+}
