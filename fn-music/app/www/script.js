@@ -12,6 +12,9 @@ const btnNext = document.getElementById('btn-next');
 const btnMode = document.getElementById('btn-mode');
 const btnUp = document.getElementById('btn-up');
 const btnClear = document.getElementById('btn-clear');
+const btnAddDir = document.getElementById('btn-add-dir');
+const btnGo = document.getElementById('btn-go');
+const pathInput = document.getElementById('path-input');
 
 let currentPath = '/';
 let playlist = [];
@@ -21,15 +24,23 @@ let playMode = 'loop'; // loop, random, single
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {
-    loadDir(currentPath);
-    
     // Check for file param in URL (from double click)
     const urlParams = new URLSearchParams(window.location.search);
     const fileParam = urlParams.get('path') || urlParams.get('file');
     if (fileParam) {
+        // If file param exists, try to load its directory
+        // Hack: remove filename to get dir
+        const lastSlash = fileParam.lastIndexOf('/');
+        if (lastSlash > 0) {
+            currentPath = fileParam.substring(0, lastSlash);
+        }
+        loadDir(currentPath);
+
         // Add to playlist and play
         addToPlaylist(fileParam);
         play(playlist.length - 1);
+    } else {
+        loadDir(currentPath);
     }
 });
 
@@ -38,6 +49,41 @@ btnUp.addEventListener('click', () => {
     if (currentPath === '/') return;
     const parent = currentPath.split('/').slice(0, -1).join('/') || '/';
     loadDir(parent);
+});
+
+btnGo.addEventListener('click', () => {
+    const val = pathInput.value.trim();
+    if (val) loadDir(val);
+});
+
+pathInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        const val = pathInput.value.trim();
+        if (val) loadDir(val);
+    }
+});
+
+btnAddDir.addEventListener('click', async () => {
+    if (!currentPath) return;
+    try {
+        const res = await fetch(`${API_BASE}/playlist`, {
+            method: 'POST',
+            body: JSON.stringify({ paths: [currentPath] })
+        }).then(r => r.json());
+        
+        if (res.playlist && res.playlist.length > 0) {
+            res.playlist.forEach(item => {
+                // Avoid duplicates? Or just allow
+                playlist.push(item);
+            });
+            renderPlaylist();
+            if (currentIndex === -1 && playlist.length > 0) {
+                // Don't auto play, just ready
+            }
+        }
+    } catch (e) {
+        console.error("Add dir failed", e);
+    }
 });
 
 btnPlay.addEventListener('click', togglePlay);
@@ -90,7 +136,6 @@ seekBar.addEventListener('input', () => {
 
 // API Functions
 async function loadDir(path) {
-    currentPath = path;
     try {
         // Load dirs
         const resDirs = await fetch(`${API_BASE}/dirs`, {
@@ -104,6 +149,14 @@ async function loadDir(path) {
             body: JSON.stringify({ path })
         }).then(r => r.json());
 
+        if (resDirs.error) {
+            // alert('Error: ' + resDirs.error);
+            console.error(resDirs.error);
+            return;
+        }
+
+        currentPath = resDirs.current || path;
+        pathInput.value = currentPath;
         renderBrowser(resDirs.dirs || [], resFiles.files || []);
     } catch (e) {
         console.error("Load failed", e);

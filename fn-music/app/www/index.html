@@ -13,7 +13,17 @@
         </header>
         <div class="content">
             <div class="browser-panel">
-                <div class="section-title">Browser <button id="btn-up">Up</button></div>
+                <div class="section-title">
+                    <span>Browser</span>
+                    <div class="browser-controls">
+                        <button id="btn-add-dir" title="Add Current Dir to Playlist">➕ Folder</button>
+                        <button id="btn-up" title="Go Up">⬆️</button>
+                    </div>
+                </div>
+                <div class="path-bar">
+                    <input type="text" id="path-input" placeholder="/path/to/music">
+                    <button id="btn-go">Go</button>
+                </div>
                 <div class="browser-content">
                     <ul id="dir-list"></ul>
                     <ul id="file-list"></ul>

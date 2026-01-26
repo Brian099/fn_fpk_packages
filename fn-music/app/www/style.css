@@ -55,6 +55,32 @@ header h1 {
     align-items: center;
 }
 
+.browser-controls button {
+    padding: 2px 8px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.path-bar {
+    display: flex;
+    padding: 5px;
+    border-bottom: 1px solid #eee;
+    background: #f9f9f9;
+}
+
+#path-input {
+    flex: 1;
+    padding: 4px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    margin-right: 5px;
+}
+
+#btn-go {
+    padding: 4px 10px;
+    cursor: pointer;
+}
+
 .browser-content, #playlist {
     flex: 1;
     overflow-y: auto;
