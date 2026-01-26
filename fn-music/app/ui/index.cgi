@@ -154,6 +154,100 @@ elif [ "$REL_PATH" = "/api/music/stream" ]; then
     cat "$FILE_PATH"
     rm -f "$INPUT_TMP"
     exit 0
+
+elif [ "$REL_PATH" = "/api/music/cover" ]; then
+    # Parse path from query string
+    FILE_PATH=""
+    if command -v php >/dev/null 2>&1; then
+        FILE_PATH=$(php -r "parse_str(\$argv[1], \$output); echo \$output['path'] ?? '';" -- "$QUERY_STRING")
+    elif command -v python3 >/dev/null 2>&1; then
+         FILE_PATH=$(python3 -c "import sys, urllib.parse; q=urllib.parse.parse_qs(sys.argv[1]); print(q.get('path', [''])[0])" "$QUERY_STRING")
+    else
+         FILE_PATH=$(echo "$QUERY_STRING" | grep -o "path=[^&]*" | cut -d= -f2-)
+         FILE_PATH=$(echo "$FILE_PATH" | sed -e 's/%/\\x/g' -e 's/+/ /g')
+         FILE_PATH=$(echo -e "$FILE_PATH")
+    fi
+
+    if [ -z "$FILE_PATH" ]; then
+         echo "Status: 400 Bad Request"
+         echo "Content-Type: text/plain"
+         echo ""
+         echo "Missing path parameter"
+         exit 0
+    fi
+
+    # Write path to temp input for backend
+    echo -n "$FILE_PATH" > "$INPUT_TMP"
+    
+    TMP_OUTPUT=$(mktemp)
+    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "get-cover" >"$TMP_OUTPUT" 2>/dev/null; then
+        if [ -s "$TMP_OUTPUT" ]; then
+            echo "Status: 200 OK"
+            echo "Content-Type: image/jpeg"
+            echo ""
+            cat "$TMP_OUTPUT"
+        else
+            echo "Status: 404 Not Found"
+            echo "Content-Type: text/plain"
+            echo ""
+            echo "Cover not found"
+        fi
+    else
+        echo "Status: 500 Internal Server Error"
+        echo "Content-Type: application/json"
+        echo ""
+        echo '{"error":"Internal script error"}'
+    fi
+    rm -f "$TMP_OUTPUT"
+    rm -f "$INPUT_TMP"
+    exit 0
+
+elif [ "$REL_PATH" = "/api/music/lyrics" ]; then
+    # Parse path from query string
+    FILE_PATH=""
+    if command -v php >/dev/null 2>&1; then
+        FILE_PATH=$(php -r "parse_str(\$argv[1], \$output); echo \$output['path'] ?? '';" -- "$QUERY_STRING")
+    elif command -v python3 >/dev/null 2>&1; then
+         FILE_PATH=$(python3 -c "import sys, urllib.parse; q=urllib.parse.parse_qs(sys.argv[1]); print(q.get('path', [''])[0])" "$QUERY_STRING")
+    else
+         FILE_PATH=$(echo "$QUERY_STRING" | grep -o "path=[^&]*" | cut -d= -f2-)
+         FILE_PATH=$(echo "$FILE_PATH" | sed -e 's/%/\\x/g' -e 's/+/ /g')
+         FILE_PATH=$(echo -e "$FILE_PATH")
+    fi
+
+    if [ -z "$FILE_PATH" ]; then
+         echo "Status: 400 Bad Request"
+         echo "Content-Type: text/plain"
+         echo ""
+         echo "Missing path parameter"
+         exit 0
+    fi
+
+    # Write path to temp input for backend
+    echo -n "$FILE_PATH" > "$INPUT_TMP"
+    
+    TMP_OUTPUT=$(mktemp)
+    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "get-lyrics" >"$TMP_OUTPUT" 2>/dev/null; then
+        if [ -s "$TMP_OUTPUT" ]; then
+            echo "Status: 200 OK"
+            echo "Content-Type: text/plain; charset=utf-8"
+            echo ""
+            cat "$TMP_OUTPUT"
+        else
+            echo "Status: 404 Not Found"
+            echo "Content-Type: text/plain"
+            echo ""
+            echo "Lyrics not found"
+        fi
+    else
+        echo "Status: 500 Internal Server Error"
+        echo "Content-Type: application/json"
+        echo ""
+        echo '{"error":"Internal script error"}'
+    fi
+    rm -f "$TMP_OUTPUT"
+    rm -f "$INPUT_TMP"
+    exit 0
 fi
 
 rm -f "$INPUT_TMP"

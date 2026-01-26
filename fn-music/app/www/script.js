@@ -179,6 +179,9 @@ function renderPlaylist() {
     });
 }
 
+let lyricsData = [];
+let lyricsTimer = null;
+
 // Player Logic
 function play(index) {
     if (index < 0 || index >= playlist.length) return;
@@ -189,11 +192,88 @@ function play(index) {
     // Highlight active
     renderPlaylist();
     
+    // Update Track Info
+    document.getElementById('track-name').innerText = song.name;
+    document.getElementById('track-lyrics').innerText = 'Loading lyrics...';
+    
+    // Update Cover
+    const coverImg = document.getElementById('cover-art');
+    // Add timestamp to prevent caching if cover changes for same path (unlikely but safe)
+    coverImg.src = `${apiBase}?api_route=/api/music/cover&path=${encodeURIComponent(song.path)}&t=${Date.now()}`;
+    coverImg.onerror = () => {
+        coverImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; // transparent placeholder or default icon
+    };
+
+    // Fetch Lyrics
+    fetchLyrics(song.path);
+
     // Play
     const streamUrl = `${apiBase}?api_route=/api/music/stream&path=${encodeURIComponent(song.path)}`;
     audio.src = streamUrl;
     audio.play();
     updatePlayPauseIcon(true);
+}
+
+async function fetchLyrics(path) {
+    lyricsData = [];
+    document.getElementById('track-lyrics').innerText = '';
+    
+    try {
+        const res = await fetch(`${apiBase}?api_route=/api/music/lyrics&path=${encodeURIComponent(path)}`);
+        if (res.ok) {
+            const text = await res.text();
+            parseLyrics(text);
+        } else {
+            document.getElementById('track-lyrics').innerText = 'No lyrics found';
+        }
+    } catch (e) {
+        console.error('Failed to fetch lyrics', e);
+        document.getElementById('track-lyrics').innerText = '';
+    }
+}
+
+function parseLyrics(text) {
+    const lines = text.split('\n');
+    const regex = /^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/;
+    
+    lyricsData = [];
+    
+    for (const line of lines) {
+        const match = line.match(regex);
+        if (match) {
+            const min = parseInt(match[1]);
+            const sec = parseInt(match[2]);
+            const ms = parseInt(match[3].padEnd(3, '0')); // Handle 2 or 3 digit ms
+            const time = min * 60 + sec + ms / 1000;
+            const text = match[4].trim();
+            if (text) {
+                lyricsData.push({ time, text });
+            }
+        }
+    }
+    
+    if (lyricsData.length === 0) {
+        document.getElementById('track-lyrics').innerText = 'No lyrics available';
+    }
+}
+
+function updateLyricsDisplay() {
+    if (lyricsData.length === 0) return;
+    
+    const currentTime = audio.currentTime;
+    // Find current line
+    let currentLineIndex = -1;
+    for (let i = 0; i < lyricsData.length; i++) {
+        if (currentTime >= lyricsData[i].time) {
+            currentLineIndex = i;
+        } else {
+            break;
+        }
+    }
+    
+    if (currentLineIndex !== -1) {
+        document.getElementById('track-lyrics').innerText = lyricsData[currentLineIndex].text;
+    }
 }
 
 function togglePlay() {
@@ -274,6 +354,7 @@ function setupPlayerEvents() {
             timeCurrent.innerText = formatTime(cur);
             timeTotal.innerText = formatTime(dur);
         }
+        updateLyricsDisplay();
     });
     
     audio.addEventListener('ended', () => {

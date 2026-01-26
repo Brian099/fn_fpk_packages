@@ -76,12 +76,45 @@ list_dirs_json() {
   echo ' ]}'
 }
 
+get_cover() {
+  file_path=$(cat)
+  file_path=$(printf '%s' "$file_path" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+  if [ -f "$file_path" ]; then
+    # Try ffmpeg to extract cover
+    if command -v ffmpeg >/dev/null 2>&1; then
+       ffmpeg -loglevel quiet -i "$file_path" -an -vcodec copy -f image2 pipe:1
+    fi
+  fi
+}
+
+get_lyrics() {
+  file_path=$(cat)
+  file_path=$(printf '%s' "$file_path" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  
+  lrc_file="${file_path%.*}.lrc"
+  if [ -f "$lrc_file" ]; then
+    cat "$lrc_file"
+  else
+    # Try ffmpeg metadata
+    if command -v ffmpeg >/dev/null 2>&1; then
+       ffmpeg -loglevel quiet -i "$file_path" -f ffmetadata pipe:1 | grep "lyrics=" | cut -d= -f2-
+    fi
+  fi
+}
+
 case "$1" in
   scan-music)
     scan_music_json
     ;;
   list-dirs)
     list_dirs_json
+    ;;
+  get-cover)
+    get_cover
+    ;;
+  get-lyrics)
+    get_lyrics
     ;;
   *)
     echo '{"error":"unsupported action"}'
