@@ -19,12 +19,19 @@ QUERY_STRING="${REQUEST_URI#*\?}"
 # Default Path Logic
 REL_PATH="/"
 
-# Priority 2: Fallback to PATH_INFO style routing
-case "$URI_NO_QUERY" in
-  *index.cgi*)
-    REL_PATH="${URI_NO_QUERY#*index.cgi}"
-    ;;
-esac
+# Priority 1: Check for api_route in query string (for avoiding 404 on some servers)
+API_ROUTE=$(echo "$QUERY_STRING" | sed -n 's/.*api_route=\([^&]*\).*/\1/p')
+if [ -n "$API_ROUTE" ]; then
+    # Simple URL decode for / (%2F)
+    REL_PATH=$(echo "$API_ROUTE" | sed 's/%2F/\//g')
+else
+    # Priority 2: Fallback to PATH_INFO style routing
+    case "$URI_NO_QUERY" in
+      *index.cgi*)
+        REL_PATH="${URI_NO_QUERY#*index.cgi}"
+        ;;
+    esac
+fi
 
 if [ -z "$REL_PATH" ] || [ "$REL_PATH" = "/" ]; then
   REL_PATH="/index.html"

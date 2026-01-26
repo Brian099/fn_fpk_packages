@@ -108,7 +108,7 @@ async function rescanAll() {
     
     for (const dir of directories) {
         try {
-            const res = await fetch(`/index.cgi/api/music/scan`, {
+            const res = await fetch(`${apiBase}?api_route=/api/music/scan`, {
                 method: 'POST',
                 body: dir
             });
@@ -156,7 +156,7 @@ function play(index) {
     renderPlaylist();
     
     // Play
-    const streamUrl = `${apiBase}/api/music/stream?path=${encodeURIComponent(song.path)}`;
+    const streamUrl = `${apiBase}?api_route=/api/music/stream&path=${encodeURIComponent(song.path)}`;
     audio.src = streamUrl;
     audio.play();
     updatePlayPauseIcon(true);
