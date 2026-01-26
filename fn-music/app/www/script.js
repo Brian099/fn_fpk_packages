@@ -107,8 +107,7 @@ async function rescanAll() {
         try {
             const res = await fetch(`/index.cgi/api/music/scan`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: `path=${encodeURIComponent(dir)}`
+                body: dir
             });
             const data = await res.json();
             if (data.ok && data.files) {

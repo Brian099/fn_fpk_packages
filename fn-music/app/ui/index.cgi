@@ -41,17 +41,35 @@ if [ "$REL_PATH" = "/api/music/scan" ]; then
         exit 0
     fi
     
-    echo "Status: 200 OK"
-    echo "Content-Type: application/json; charset=utf-8"
-    echo ""
-    bash "$BACKEND_SCRIPT" "scan-music"
+    TMP_OUTPUT=$(mktemp)
+    if bash "$BACKEND_SCRIPT" "scan-music" >"$TMP_OUTPUT" 2>/dev/null; then
+        echo "Status: 200 OK"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        cat "$TMP_OUTPUT"
+    else
+        echo "Status: 500 Internal Server Error"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        echo '{"ok":false,"error":"Internal script error"}'
+    fi
+    rm -f "$TMP_OUTPUT"
     exit 0
 
 elif [ "$REL_PATH" = "/api/fs/list" ]; then
-    echo "Status: 200 OK"
-    echo "Content-Type: application/json; charset=utf-8"
-    echo ""
-    bash "$BACKEND_SCRIPT" "list-dirs"
+    TMP_OUTPUT=$(mktemp)
+    if bash "$BACKEND_SCRIPT" "list-dirs" >"$TMP_OUTPUT" 2>/dev/null; then
+        echo "Status: 200 OK"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        cat "$TMP_OUTPUT"
+    else
+        echo "Status: 500 Internal Server Error"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        echo '{"ok":false,"error":"Internal script error"}'
+    fi
+    rm -f "$TMP_OUTPUT"
     exit 0
 
 elif [ "$REL_PATH" = "/api/music/stream" ]; then
