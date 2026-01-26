@@ -4,7 +4,7 @@
     "items": [
       {
         "type": "tips",
-        "helpText": "通过WebOps，您可以轻松创建和管理您的网站，以供个人和企业使用。"
+        "helpText": "FnMusic 是一个简单的 NAS 音乐播放器，支持多目录管理和流式播放。"
       }
     ]
   }

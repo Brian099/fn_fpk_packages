@@ -1,10 +1,10 @@
 {
   ".url": {
-    "webops.Application": {
-      "title": "webops",
+    "fn-music.Application": {
+      "title": "FnMusic",
       "icon": "images/icon_{0}.png",
       "type": "iframe",
-      "url": "/cgi/ThirdParty/webops/index.cgi/",
+      "url": "/cgi/ThirdParty/fn-music/index.cgi/",
       "allUsers": false,
       "control": {
         "accessPerm": "readonly",
