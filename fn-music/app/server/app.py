@@ -49,8 +49,8 @@ except ImportError as e:
     sys.exit(1)
 
 # 计算 www 的绝对路径
-TEMPLATE_DIR = os.path.abspath(os.path.join(BASE_DIR, '../www/templates'))
-STATIC_DIR = os.path.abspath(os.path.join(BASE_DIR, '../www/static'))
+TEMPLATE_DIR = os.path.abspath(os.path.join(BASE_DIR, '../ui/templates'))
+STATIC_DIR = os.path.abspath(os.path.join(BASE_DIR, '../ui/static'))
 
 # --- 环境配置 ---
 os.environ['PYTHONIOENCODING'] = 'utf-8'
