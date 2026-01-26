@@ -71,6 +71,11 @@ btnAddDir.addEventListener('click', async () => {
             body: JSON.stringify({ paths: [currentPath] })
         }).then(r => r.json());
         
+        if (res.error) {
+            alert("Error adding directory: " + res.error);
+            return;
+        }
+
         if (res.playlist && res.playlist.length > 0) {
             res.playlist.forEach(item => {
                 // Avoid duplicates? Or just allow
@@ -80,9 +85,12 @@ btnAddDir.addEventListener('click', async () => {
             if (currentIndex === -1 && playlist.length > 0) {
                 // Don't auto play, just ready
             }
+        } else {
+            alert("No music files found in " + currentPath);
         }
     } catch (e) {
         console.error("Add dir failed", e);
+        alert("Add dir failed: " + e);
     }
 });
 

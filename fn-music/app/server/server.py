@@ -95,14 +95,17 @@ class MusicPlayerHandler(http.server.SimpleHTTPRequestHandler):
         if isinstance(paths, str): paths = [paths]
         
         for p in paths:
-            if os.path.isfile(p):
-                 if os.path.splitext(p)[1].lower() in MUSIC_EXTS:
-                     playlist.append({"name": os.path.basename(p), "path": p})
-            elif os.path.isdir(p):
-                for root, dirs, files in os.walk(p):
-                    for f in sorted(files):
-                        if os.path.splitext(f)[1].lower() in MUSIC_EXTS:
-                            playlist.append({"name": f, "path": os.path.join(root, f)})
+            try:
+                if os.path.isfile(p):
+                     if os.path.splitext(p)[1].lower() in MUSIC_EXTS:
+                         playlist.append({"name": os.path.basename(p), "path": p})
+                elif os.path.isdir(p):
+                    for root, dirs, files in os.walk(p):
+                        for f in sorted(files):
+                            if os.path.splitext(f)[1].lower() in MUSIC_EXTS:
+                                playlist.append({"name": f, "path": os.path.join(root, f)})
+            except Exception as e:
+                print(f"Error scanning {p}: {e}")
         return {"playlist": playlist}
 
     def handle_stream(self):
@@ -110,7 +113,10 @@ class MusicPlayerHandler(http.server.SimpleHTTPRequestHandler):
         params = urllib.parse.parse_qs(query)
         path = params.get('path', [''])[0]
         
+        print(f"Stream request: {path}")
+
         if not path or not os.path.exists(path):
+            print(f"File not found: {path}")
             self.send_error(404, "File not found")
             return
 

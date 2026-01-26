@@ -82,12 +82,17 @@ if [[ $REL_PATH == /api* ]]; then
   esac
 
   # 代理请求
+  QUERY_PART=""
+  if [[ "$REQUEST_URI" == *'?'* ]]; then
+      QUERY_PART="?${REQUEST_URI#*\?}"
+  fi
+
   if [ -n "$BACKEND_UNIX_SOCKET" ] && [ -S "$BACKEND_UNIX_SOCKET" ]; then
-    BACKEND_URL="http://localhost${REL_PATH}"
+    BACKEND_URL="http://localhost${REL_PATH}${QUERY_PART}"
     curl --unix-socket "$BACKEND_UNIX_SOCKET" "${curl_args[@]}" "$BACKEND_URL"
     CURL_EXIT=$?
   else
-    BACKEND_URL="http://${BACKEND_HOST}:${BACKEND_PORT}${REL_PATH}"
+    BACKEND_URL="http://${BACKEND_HOST}:${BACKEND_PORT}${REL_PATH}${QUERY_PART}"
     curl "${curl_args[@]}" "$BACKEND_URL"
     CURL_EXIT=$?
   fi
