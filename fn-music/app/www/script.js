@@ -324,9 +324,13 @@ async function loadBrowserPath(path) {
             
             // Update selected path display to current path by default
             selectBrowserItem(null, null); // Clear selection
+        } else {
+            // Handle error from backend
+            container.innerHTML = `<div style="padding:10px; color:#FF5722;">Error: ${data.error || 'Unknown error'}</div>`;
         }
     } catch (e) {
-        container.innerText = "Error loading directory.";
+        console.error(e);
+        container.innerHTML = '<div style="padding:10px; color:#FF5722;">Error loading directory. (Network or JSON Parse Error)</div>';
     }
 }
 
