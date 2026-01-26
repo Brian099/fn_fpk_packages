@@ -16,17 +16,62 @@ scan_music_json() {
   echo '{"ok":true,"files":['
   
   first=1
+  has_ffprobe=0
+  if command -v ffprobe >/dev/null 2>&1; then has_ffprobe=1; fi
   
   # Find music files
   find "$target_path" -maxdepth 3 -type f \( -iname "*.mp3" -o -iname "*.wav" -o -iname "*.ogg" -o -iname "*.flac" -o -iname "*.m4a" \) 2>/dev/null | while read -r file; do
     filename=$(basename "$file")
     filepath="$file"
     
+    # Defaults
+    title="$filename"
+    artist="Unknown Artist"
+    album="Unknown Album"
+    duration="0"
+    size="0"
+    
+    if [ $has_ffprobe -eq 1 ]; then
+       # Extract metadata using ffprobe
+       # -of flat returns keys like format.tags.title="Value"
+       metadata=$(ffprobe -v quiet -show_entries format=duration,size:format_tags=title,artist,album -of flat "$file")
+       
+       # Extract fields
+       d_val=$(echo "$metadata" | grep 'format.duration=' | cut -d= -f2 | tr -d '"')
+       if [ -n "$d_val" ] && [ "$d_val" != "N/A" ]; then duration="$d_val"; fi
+       
+       s_val=$(echo "$metadata" | grep 'format.size=' | cut -d= -f2 | tr -d '"')
+       if [ -n "$s_val" ] && [ "$s_val" != "N/A" ]; then size="$s_val"; fi
+       
+       t_val=$(echo "$metadata" | grep 'format.tags.title=' | cut -d= -f2-)
+       if [ -n "$t_val" ]; then 
+            title=$(echo "$t_val" | sed 's/^"//;s/"$//')
+       fi
+       
+       a_val=$(echo "$metadata" | grep 'format.tags.artist=' | cut -d= -f2-)
+       if [ -n "$a_val" ]; then 
+            artist=$(echo "$a_val" | sed 's/^"//;s/"$//')
+       fi
+       
+       al_val=$(echo "$metadata" | grep 'format.tags.album=' | cut -d= -f2-)
+       if [ -n "$al_val" ]; then 
+            album=$(echo "$al_val" | sed 's/^"//;s/"$//')
+       fi
+    else
+       # Fallback size
+       size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null || echo 0)
+    fi
+    
     # Escape for JSON
+    # Use python for reliable escaping if available, otherwise sed
+    # Using sed for simplicity and speed in this context
     esc_name=$(echo "$filename" | sed 's/\\/\\\\/g; s/"/\\"/g')
     esc_path=$(echo "$filepath" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    esc_title=$(echo "$title" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    esc_artist=$(echo "$artist" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    esc_album=$(echo "$album" | sed 's/\\/\\\\/g; s/"/\\"/g')
     
-    echo "{\"name\":\"$esc_name\",\"path\":\"$esc_path\"}"
+    echo "{\"name\":\"$esc_name\",\"path\":\"$esc_path\",\"title\":\"$esc_title\",\"artist\":\"$esc_artist\",\"album\":\"$esc_album\",\"size\":$size,\"duration\":$duration}"
   done > /tmp/fn_music_scan_tmp
   
   # Post-process to add commas

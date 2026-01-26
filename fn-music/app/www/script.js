@@ -182,8 +182,11 @@ function onSearchInput(query) {
         playlist = [...allTracks];
     } else {
         playlist = allTracks.filter(song => 
-            song.name.toLowerCase().includes(term) || 
-            song.path.toLowerCase().includes(term)
+            (song.name && song.name.toLowerCase().includes(term)) || 
+            (song.path && song.path.toLowerCase().includes(term)) ||
+            (song.title && song.title.toLowerCase().includes(term)) ||
+            (song.artist && song.artist.toLowerCase().includes(term)) ||
+            (song.album && song.album.toLowerCase().includes(term))
         );
     }
     
@@ -199,6 +202,39 @@ function onSearchInput(query) {
     renderPlaylist();
 }
 
+function formatTime(seconds) {
+    if (!seconds || isNaN(seconds)) return '';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function formatSize(bytes) {
+    if (!bytes || isNaN(bytes)) return '';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+function filterBy(field, value) {
+    const searchInput = document.getElementById('search-input');
+    searchInput.value = value;
+    onSearchInput(value);
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function escapeJs(str) {
+    if (!str) return '';
+    return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
 function renderPlaylist() {
     const container = document.getElementById('playlist-container');
     if (playlist.length === 0) {
@@ -209,11 +245,36 @@ function renderPlaylist() {
     container.innerHTML = '';
     playlist.forEach((song, index) => {
         const div = document.createElement('div');
-        div.className = 'song-item' + (index === currentIndex ? ' active' : '');
-        div.onclick = () => play(index);
+        div.className = 'playlist-item' + (index === currentIndex ? ' active' : '');
+        div.onclick = (e) => {
+            // Prevent play if clicking on a link
+            if (e.target.tagName === 'A' || e.target.closest('a')) return;
+            play(index);
+        };
+        
+        const title = song.title || song.name;
+        const artist = song.artist || 'Unknown Artist';
+        const album = song.album || 'Unknown Album';
+        const duration = formatTime(song.duration);
+        const size = formatSize(song.size);
+        
+        const safeTitle = escapeHtml(title);
+        const safeArtist = escapeHtml(artist);
+        const safeAlbum = escapeHtml(album);
+        
+        const jsArtist = escapeJs(artist);
+        const jsAlbum = escapeJs(album);
+        
         div.innerHTML = `
-            <span>${index + 1}. ${song.name}</span>
-            <span style="font-size:12px; color:#666;">${song.path}</span>
+            <div class="col-name" title="${safeTitle}">${safeTitle}</div>
+            <div class="col-artist" title="${safeArtist}">
+                <a href="#" class="clickable-link" onclick="event.preventDefault(); filterBy('artist', '${jsArtist}')">${safeArtist}</a>
+            </div>
+            <div class="col-album" title="${safeAlbum}">
+                <a href="#" class="clickable-link" onclick="event.preventDefault(); filterBy('album', '${jsAlbum}')">${safeAlbum}</a>
+            </div>
+            <div class="col-size">${size}</div>
+            <div class="col-duration">${duration}</div>
         `;
         container.appendChild(div);
     });

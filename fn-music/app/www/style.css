@@ -93,9 +93,57 @@ button:hover {
   background-color: #0060a0;
 }
 
-button.secondary {
-  background-color: transparent;
-  border: 1px solid var(--border-color);
+/* Playlist Grid */
+.playlist-header {
+  display: flex;
+  padding: 10px;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: bold;
+  color: #888;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+
+.playlist-item {
+  display: flex;
+  padding: 8px 10px;
+  border-bottom: 1px solid #2a2d2e;
+  cursor: pointer;
+  font-size: 13px;
+  align-items: center;
+  transition: background-color 0.2s;
+}
+
+.playlist-item:hover {
+  background-color: var(--hover-color);
+}
+
+.playlist-item.active {
+  background-color: #37373d;
+  color: var(--accent-color);
+  border-left: 3px solid var(--accent-color);
+  padding-left: 7px; /* Compensate for border */
+}
+
+.col-name { flex: 3; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding-right: 10px; }
+.col-artist { flex: 1.5; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding-right: 10px; }
+.col-album { flex: 1.5; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding-right: 10px; }
+.col-size { width: 80px; text-align: right; flex-shrink: 0; padding-right: 10px; font-variant-numeric: tabular-nums; }
+.col-duration { width: 60px; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+.clickable-link {
+    color: inherit;
+    text-decoration: none;
+}
+.clickable-link:hover {
+    text-decoration: underline;
+    color: white;
+}
+.playlist-item.active .clickable-link {
+    color: var(--accent-color);
+}
+.playlist-item.active .clickable-link:hover {
+    color: #66b3ff;
 }
 
 /* Search Input */
