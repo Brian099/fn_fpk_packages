@@ -2,12 +2,8 @@
 
 # Music Scanning Function
 scan_music_json() {
-  if [ -n "$CONTENT_LENGTH" ] && [ "$CONTENT_LENGTH" -gt 0 ] 2>/dev/null; then
-    # Read raw body
-    target_path=$(dd bs=1 count="$CONTENT_LENGTH" 2>/dev/null || cat)
-  else
-    target_path=""
-  fi
+  # Read raw body from stdin
+  target_path=$(cat)
   
   # Trim whitespace
   target_path=$(printf '%s' "$target_path" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
@@ -44,14 +40,10 @@ scan_music_json() {
 }
 
 list_dirs_json() {
-  if [ -n "$CONTENT_LENGTH" ] && [ "$CONTENT_LENGTH" -gt 0 ] 2>/dev/null; then
-    # Read raw body
-    input_path=$(dd bs=1 count="$CONTENT_LENGTH" 2>/dev/null || cat)
-  else
-    input_path="/"
-  fi
+  # Read raw body from stdin
+  input_path=$(cat)
 
-  # Trim whitespace (Original Logic)
+  # Trim whitespace
   target_path=$(printf '%s' "$input_path" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
   
   if [ -z "$target_path" ]; then target_path="/"; fi

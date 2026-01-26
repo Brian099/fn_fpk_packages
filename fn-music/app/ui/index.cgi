@@ -2,7 +2,7 @@
 
 # ============================================================================
 # File Name       : index.cgi
-# Version         : 1.0.0
+# Version         : 1.0.1
 # Description     : CGI script for FnMusic static files and API.
 # ============================================================================
 
@@ -28,6 +28,10 @@ if [ -z "$REL_PATH" ] || [ "$REL_PATH" = "/" ]; then
   REL_PATH="/index.html"
 fi
 
+# Capture POST Data (Standard Input) for API calls
+INPUT_TMP=$(mktemp)
+cat > "$INPUT_TMP"
+
 # ============================================================================
 # API Routing
 # ============================================================================
@@ -38,15 +42,24 @@ if [ "$REL_PATH" = "/api/music/scan" ]; then
         echo "Content-Type: application/json"
         echo ""
         echo '{"error":"backend script missing"}'
+        rm -f "$INPUT_TMP"
         exit 0
     fi
     
     TMP_OUTPUT=$(mktemp)
-    if bash "$BACKEND_SCRIPT" "scan-music" >"$TMP_OUTPUT" 2>/dev/null; then
-        echo "Status: 200 OK"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        cat "$TMP_OUTPUT"
+    # Pass input to backend
+    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "scan-music" >"$TMP_OUTPUT" 2>/dev/null; then
+        if [ -s "$TMP_OUTPUT" ]; then
+            echo "Status: 200 OK"
+            echo "Content-Type: application/json; charset=utf-8"
+            echo ""
+            cat "$TMP_OUTPUT"
+        else
+            echo "Status: 200 OK"
+            echo "Content-Type: application/json; charset=utf-8"
+            echo ""
+            echo '{"ok":false,"error":"Empty response from scanner"}'
+        fi
     else
         echo "Status: 500 Internal Server Error"
         echo "Content-Type: application/json; charset=utf-8"
@@ -54,15 +67,24 @@ if [ "$REL_PATH" = "/api/music/scan" ]; then
         echo '{"ok":false,"error":"Internal script error"}'
     fi
     rm -f "$TMP_OUTPUT"
+    rm -f "$INPUT_TMP"
     exit 0
 
 elif [ "$REL_PATH" = "/api/fs/list" ]; then
     TMP_OUTPUT=$(mktemp)
-    if bash "$BACKEND_SCRIPT" "list-dirs" >"$TMP_OUTPUT" 2>/dev/null; then
-        echo "Status: 200 OK"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        cat "$TMP_OUTPUT"
+    # Pass input to backend
+    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "list-dirs" >"$TMP_OUTPUT" 2>/dev/null; then
+        if [ -s "$TMP_OUTPUT" ]; then
+            echo "Status: 200 OK"
+            echo "Content-Type: application/json; charset=utf-8"
+            echo ""
+            cat "$TMP_OUTPUT"
+        else
+            echo "Status: 200 OK"
+            echo "Content-Type: application/json; charset=utf-8"
+            echo ""
+            echo '{"ok":false,"error":"Empty response from directory lister"}'
+        fi
     else
         echo "Status: 500 Internal Server Error"
         echo "Content-Type: application/json; charset=utf-8"
@@ -70,19 +92,14 @@ elif [ "$REL_PATH" = "/api/fs/list" ]; then
         echo '{"ok":false,"error":"Internal script error"}'
     fi
     rm -f "$TMP_OUTPUT"
+    rm -f "$INPUT_TMP"
     exit 0
 
 elif [ "$REL_PATH" = "/api/music/stream" ]; then
     # Parse path from query string
-    # Simple parsing: assume ?path=/foo/bar
-    # Better: use python or php to parse if available, or sed
-    
     FILE_PATH=""
-    # Extract path parameter
-    # Handling URL decoding is tricky in pure bash, let's try a simple approach
-    # assuming the browser sends encoded params in QUERY_STRING
     
-    # Use python/php for robust decoding
+    # Use python/php for robust decoding if available
     if command -v php >/dev/null 2>&1; then
         FILE_PATH=$(php -r "parse_str(\$argv[1], \$output); echo \$output['path'] ?? '';" -- "$QUERY_STRING")
     elif command -v python3 >/dev/null 2>&1; then
@@ -90,6 +107,9 @@ elif [ "$REL_PATH" = "/api/music/stream" ]; then
     else
          # Fallback (unsafe for special chars)
          FILE_PATH=$(echo "$QUERY_STRING" | grep -o "path=[^&]*" | cut -d= -f2-)
+         # Basic URL decode for fallback
+         FILE_PATH=$(echo "$FILE_PATH" | sed -e 's/%/\\x/g' -e 's/+/ /g')
+         FILE_PATH=$(echo -e "$FILE_PATH")
     fi
 
     if [ -z "$FILE_PATH" ] || [ ! -f "$FILE_PATH" ]; then
@@ -97,6 +117,7 @@ elif [ "$REL_PATH" = "/api/music/stream" ]; then
         echo "Content-Type: text/plain"
         echo ""
         echo "File not found: $FILE_PATH"
+        rm -f "$INPUT_TMP"
         exit 0
     fi
     
@@ -122,8 +143,11 @@ elif [ "$REL_PATH" = "/api/music/stream" ]; then
     echo "Accept-Ranges: bytes"
     echo ""
     cat "$FILE_PATH"
+    rm -f "$INPUT_TMP"
     exit 0
 fi
+
+rm -f "$INPUT_TMP"
 
 # ============================================================================
 # Static File Serving (Fallback)
@@ -131,11 +155,6 @@ fi
 
 # Map REL_PATH to local file
 LOCAL_FILE="${BASE_PATH}${REL_PATH}"
-
-# Prevent directory traversal
-# Realpath is not always available, but we can assume BASE_PATH is safe
-# and REL_PATH comes from logic that strips prefix. 
-# For extra safety, check if file exists inside BASE_PATH.
 
 if [ -f "$LOCAL_FILE" ]; then
   # Determine Content-Type
