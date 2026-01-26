@@ -38,15 +38,33 @@ window.onload = function() {
     
     if (targetFile) {
         // Direct play mode
-        // Create a temporary playlist with just this file
-        // Or better: add its directory to library? No, just play it.
-        const name = targetFile.split('/').pop();
-        playlist = [{
-            name: name,
-            path: targetFile
-        }];
-        renderPlaylist();
-        play(0);
+        const lastSlashIndex = targetFile.lastIndexOf('/');
+        const dirPath = targetFile.substring(0, lastSlashIndex);
+        
+        // Scan directory for all music files
+        scanDirectory(dirPath).then(files => {
+             if (files && files.length > 0) {
+                 playlist = files;
+                 renderPlaylist();
+                 
+                 // Find index of target file
+                 const index = playlist.findIndex(p => p.path === targetFile);
+                 if (index !== -1) {
+                     play(index);
+                 } else {
+                     play(0);
+                 }
+             } else {
+                 // Fallback if scan fails
+                 const name = targetFile.split('/').pop();
+                 playlist = [{
+                     name: name,
+                     path: targetFile
+                 }];
+                 renderPlaylist();
+                 play(0);
+             }
+        });
     } else {
         // Normal mode
         if (directories.length > 0) {
@@ -54,6 +72,22 @@ window.onload = function() {
         }
     }
 };
+
+async function scanDirectory(dir) {
+    try {
+        const res = await fetch(`${apiBase}?api_route=/api/music/scan`, {
+            method: 'POST',
+            body: dir
+        });
+        const data = await res.json();
+        if (data.ok && data.files) {
+            return data.files;
+        }
+    } catch (e) {
+        console.error('Scan failed for', dir, e);
+    }
+    return [];
+}
 
 function loadSettings() {
     const savedDirs = localStorage.getItem('fn_music_dirs');
