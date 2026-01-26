@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FnMusic</title>
+  <link rel="stylesheet" href="layui.css">
+  <link rel="stylesheet" href="style.css">
+  <!-- Use layui icons since we have them -->
+</head>
+<body>
+  <div id="app">
+    <div class="layout-body">
+      <div id="sidebar">
+        <div class="brand">FnMusic</div>
+        <div class="menu-item active" onclick="showSection('library')">
+          <i class="layui-icon layui-icon-headset"></i> 我的音乐库
+        </div>
+        <div class="menu-item" onclick="showSection('settings')">
+          <i class="layui-icon layui-icon-set"></i> 管理目录
+        </div>
+      </div>
+      
+      <div id="main">
+        <!-- Library View -->
+        <div id="section-library" class="section">
+          <div class="toolbar">
+             <button onclick="playAll()"><i class="layui-icon layui-icon-play"></i> 播放全部</button>
+             <button class="secondary" onclick="shufflePlay()"><i class="layui-icon layui-icon-refresh"></i> 随机播放</button>
+             <span id="library-status" style="margin-left: 20px; color: #888;"></span>
+          </div>
+          <div id="playlist-container">
+             <!-- List of songs -->
+             <div style="text-align:center; margin-top: 50px; color: #666;">
+               暂无音乐，请去“管理目录”添加文件夹。
+             </div>
+          </div>
+        </div>
+        
+        <!-- Settings View -->
+        <div id="section-settings" class="section" style="display:none;">
+           <h2>音乐目录</h2>
+           <p style="color:#888; margin-bottom: 20px;">添加包含音乐文件的文件夹，系统将自动扫描。</p>
+           
+           <div id="dir-list-container">
+              <!-- Directory List -->
+           </div>
+           
+           <div style="margin-top: 20px;">
+             <button onclick="openDirBrowser()"><i class="layui-icon layui-icon-add-1"></i> 添加目录</button>
+             <button class="secondary" onclick="rescanAll()"><i class="layui-icon layui-icon-refresh-3"></i> 重新扫描</button>
+           </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Player Bar -->
+    <div id="player-bar">
+       <div class="controls">
+          <button class="control-btn" onclick="playPrev()"><i class="layui-icon layui-icon-prev"></i></button>
+          <button class="control-btn" id="btn-play-pause" onclick="togglePlay()"><i class="layui-icon layui-icon-play"></i></button>
+          <button class="control-btn" onclick="playNext()"><i class="layui-icon layui-icon-next"></i></button>
+       </div>
+       
+       <div class="progress-container">
+          <span id="time-current">0:00</span>
+          <input type="range" id="seek-bar" min="0" value="0" step="1">
+          <span id="time-total">0:00</span>
+       </div>
+       
+       <div class="controls">
+          <button class="control-btn" onclick="toggleLoop()" id="btn-loop" title="循环模式"><i class="layui-icon layui-icon-refresh-1"></i></button>
+          <div style="width: 100px; display:flex; align-items:center;">
+            <i class="layui-icon layui-icon-speaker"></i>
+            <input type="range" id="volume-bar" min="0" max="1" step="0.1" value="1" style="margin-left:5px;">
+          </div>
+       </div>
+    </div>
+  </div>
+  
+  <!-- Dir Browser Modal -->
+  <div id="modal-browser" class="modal" style="display:none;">
+     <div class="modal-content">
+        <div class="modal-header">
+           <span>选择目录</span>
+           <span style="cursor:pointer;" onclick="closeModal()">✕</span>
+        </div>
+        <div class="modal-body" id="browser-list">
+           <!-- Files -->
+        </div>
+        <div class="modal-footer">
+           <span id="selected-path-display" style="float:left; font-size:12px; color:#888; max-width: 250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; line-height: 30px;"></span>
+           <button class="secondary" onclick="closeModal()">取消</button>
+           <button onclick="confirmDirSelection()">确定</button>
+        </div>
+     </div>
+  </div>
+
+  <audio id="audio-player"></audio>
+  <script src="script.js"></script>
+</body>
+</html>

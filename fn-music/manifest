@@ -1,0 +1,14 @@
+appname               = fn-music
+version               = 1.0.0
+display_name          = FnMusic
+desc                  = 简单的NAS音乐播放器，支持多目录管理。
+platform              = all
+source                = thirdparty
+desktop_uidir         = ui
+desktop_applaunchname = fn-music.Application
+maintainer            = User
+maintainer_url        = https://example.com
+distributor           = User
+distributor_url       = https://example.com
+install_type          = root
+reloadui              = yes
