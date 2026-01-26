@@ -10,6 +10,15 @@
         "accessPerm": "readonly",
         "fullUrlPerm": "readonly"
       }
+    },
+    "fn-music.player": {
+      "title": "播放音乐",
+      "icon": "images/icon_{0}.png",
+      "type": "iframe",
+      "url": "/cgi/ThirdParty/fn-music/index.cgi/",
+      "allUsers": true,
+      "fileTypes": ["mp3", "flac", "wav", "ogg", "m4a", "wma", "aac"],
+      "noDisplay": true
     }
   }
 }
