@@ -19,9 +19,6 @@ scan_music_json() {
   
   # Find music files
   find "$target_path" -maxdepth 3 -type f \( -iname "*.mp3" -o -iname "*.wav" -o -iname "*.ogg" -o -iname "*.flac" -o -iname "*.m4a" \) 2>/dev/null | while read -r file; do
-    if [ $first -eq 0 ]; then echo ','; fi
-    first=0
-    
     filename=$(basename "$file")
     filepath="$file"
     
@@ -33,7 +30,9 @@ scan_music_json() {
   done > /tmp/fn_music_scan_tmp
   
   # Post-process to add commas
-  awk 'NR > 1 { print "," } { print }' /tmp/fn_music_scan_tmp
+  if [ -s /tmp/fn_music_scan_tmp ]; then
+    sed '$!s/$/,/' /tmp/fn_music_scan_tmp
+  fi
   
   echo ']}'
   rm -f /tmp/fn_music_scan_tmp
