@@ -153,7 +153,7 @@ function play(index) {
     renderPlaylist();
     
     // Play
-    const streamUrl = `/index.cgi?api_route=/api/music/stream&path=${encodeURIComponent(song.path)}`;
+    const streamUrl = `?api_route=/api/music/stream&path=${encodeURIComponent(song.path)}`;
     audio.src = streamUrl;
     audio.play();
     updatePlayPauseIcon(true);
