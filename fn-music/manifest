@@ -1,0 +1,14 @@
+appname               = musicplayer
+version               = 1.0.0
+display_name          = Simple Music Player
+desc                  = A simple music player supporting multiple formats and playlists.
+platform              = all
+source                = local
+desktop_uidir         = ui
+desktop_applaunchname = musicplayer.Application
+maintainer            = User
+maintainer_url        = 
+distributor           = User
+distributor_url       = 
+install_type          = root
+reloadui              = yes

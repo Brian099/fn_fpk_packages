@@ -1,0 +1,6 @@
+#!/bin/bash
+rm -f "/usr/share/applications/musicplayer.desktop"
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "/usr/share/applications" || true
+fi
+exit 0

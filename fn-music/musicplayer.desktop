@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Simple Music Player
+Name[zh_CN]=简易音乐播放器
+Exec=/usr/local/apps/musicplayer/open_file.sh %f
+Icon=/usr/local/apps/musicplayer/ICON.PNG
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+MimeType=audio/mpeg;audio/x-wav;audio/flac;audio/ogg;audio/aac;audio/mp4;
