@@ -14,7 +14,7 @@ scan_music_json() {
 
   if [ -z "$target_path" ] || [ ! -d "$target_path" ]; then
     echo '{"ok":false,"error":"Invalid directory"}'
-    return 1
+    return 0
   fi
 
   echo '{"ok":true,"files":['
@@ -58,7 +58,7 @@ list_dirs_json() {
   
   if [ ! -d "$target_path" ]; then
     echo '{"ok":false,"error":"path not found"}'
-    return 1
+    return 0
   fi
   
   parent_path=$(dirname "$target_path")
@@ -68,7 +68,7 @@ list_dirs_json() {
   # Check permission before cd
   if ! cd "$target_path" 2>/dev/null; then
       echo "{\"ok\":false,\"error\":\"Access denied to $esc_current\"}"
-      return 1
+      return 0
   fi
 
   echo "{\"ok\":true,\"current\":\"$esc_current\",\"parent\":\"$esc_parent\",\"dirs\":["

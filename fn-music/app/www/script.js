@@ -281,8 +281,7 @@ async function loadBrowserPath(path) {
     try {
         const res = await fetch(`/index.cgi/api/fs/list`, {
              method: 'POST',
-             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-             body: `path=${encodeURIComponent(path)}`
+             body: path
         });
         const data = await res.json();
         
@@ -298,34 +297,31 @@ async function loadBrowserPath(path) {
                  container.appendChild(div);
             }
             
-            data.dirs.forEach(d => {
-                 const div = document.createElement('div');
-                 div.className = 'file-item';
-                 div.innerHTML = `<i class="layui-icon layui-icon-folder"></i> ${d}`;
-                 div.onclick = () => {
-                     // Click to enter, or Select?
-                     // Standard browser: click to enter.
-                     // How to select "Current Dir"?
-                     // Let's assume clicking a folder enters it.
-                     // To select a folder, you navigate INTO it (or parent of it).
-                     // Requirement: "Select a Directory".
-                     // Usually: Navigate to target, click "OK" means "Add Current Path".
-                     // Or: Select a folder item (highlight it).
-                     // Let's do: Single click selects (highlight), Double click enters.
-                     selectBrowserItem(div, d);
-                 };
-                 div.ondblclick = () => {
-                     const newPath = data.current === '/' ? '/' + d : data.current + '/' + d;
-                     loadBrowserPath(newPath);
-                 };
-                 container.appendChild(div);
-            });
-            
-            // Update selected path display to current path by default
-            selectBrowserItem(null, null); // Clear selection
+            // Directories
+            if (data.dirs) {
+                data.dirs.forEach(dir => {
+                    const div = document.createElement('div');
+                    div.className = 'file-item';
+                    div.innerHTML = `<i class="layui-icon layui-icon-folder"></i> ${dir}`;
+                    // Click to enter
+                    div.onclick = () => loadBrowserPath(data.current === '/' ? `/${dir}` : `${data.current}/${dir}`);
+                    
+                    // Add Button (right aligned)
+                    const btn = document.createElement('button');
+                    btn.className = 'layui-btn layui-btn-xs layui-btn-normal';
+                    btn.style.float = 'right';
+                    btn.innerText = 'Select';
+                    btn.onclick = (e) => {
+                        e.stopPropagation();
+                        addDirectory(data.current === '/' ? `/${dir}` : `${data.current}/${dir}`);
+                    };
+                    div.appendChild(btn);
+                    
+                    container.appendChild(div);
+                });
+            }
         } else {
-            // Handle error from backend
-            container.innerHTML = `<div style="padding:10px; color:#FF5722;">Error: ${data.error || 'Unknown error'}</div>`;
+             container.innerHTML = `<div style="padding:10px; color:#FF5722;">Error: ${data.error || 'Unknown error'}</div>`;
         }
     } catch (e) {
         console.error(e);
@@ -333,26 +329,13 @@ async function loadBrowserPath(path) {
     }
 }
 
-function selectBrowserItem(el, dirName) {
-    document.querySelectorAll('.file-item').forEach(e => e.classList.remove('selected'));
-    if (el) {
-        el.classList.add('selected');
-        const fullPath = browserCurrentPath === '/' ? '/' + dirName : browserCurrentPath + '/' + dirName;
-        browserSelectedPath = fullPath;
-    } else {
-        // If nothing selected, maybe default to current path?
-        browserSelectedPath = browserCurrentPath;
+function addDirectory(path) {
+    if (!directories.includes(path)) {
+        directories.push(path);
+        saveSettings();
+        rescanAll();
     }
-    document.getElementById('selected-path-display').innerText = browserSelectedPath;
+    closeModal();
 }
 
-function confirmDirSelection() {
-    if (browserSelectedPath) {
-        if (!directories.includes(browserSelectedPath)) {
-            directories.push(browserSelectedPath);
-            saveSettings();
-            rescanAll(); // Auto rescan
-        }
-        closeModal();
-    }
-}
+
