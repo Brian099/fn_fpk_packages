@@ -14,7 +14,7 @@
 # ============================================================================
 
 # 【注意】修改你自己的静态文件根目录，以本应用为例：
-BASE_PATH="/var/apps/fn-scheduler/target/www"
+BASE_PATH="/usr/local/apps/musicplayer/app/www"
 
 # 1. 从 REQUEST_URI 里拿到 index.cgi 后面的路径
 #    例如：/cgi/ThirdParty/fn-scheduler/index.cgi/index.html?foo=bar
