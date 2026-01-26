@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Check for file param in URL (from double click)
     const urlParams = new URLSearchParams(window.location.search);
-    const fileParam = urlParams.get('file');
+    const fileParam = urlParams.get('path') || urlParams.get('file');
     if (fileParam) {
         // Add to playlist and play
         addToPlaylist(fileParam);

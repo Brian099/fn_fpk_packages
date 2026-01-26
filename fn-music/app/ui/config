@@ -9,7 +9,8 @@
       "control": {
         "accessPerm": "readonly",
         "fullUrlPerm": "readonly"
-      }
+      },
+      "fileTypes": ["mp3", "wav", "flac", "ogg", "m4a", "aac", "wma", "webm"]
     }
   }
 }
