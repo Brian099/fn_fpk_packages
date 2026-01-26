@@ -98,6 +98,15 @@ button.secondary {
   border: 1px solid var(--border-color);
 }
 
+/* Search Input */
+#search-input {
+  transition: border-color 0.2s;
+}
+
+#search-input:focus {
+  border-color: var(--accent-color) !important;
+}
+
 /* Playlist */
 .song-item {
   display: flex;

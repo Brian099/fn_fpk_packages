@@ -24,10 +24,11 @@
       <div id="main">
         <!-- Library View -->
         <div id="section-library" class="section">
-          <div class="toolbar">
+          <div class="toolbar" style="display: flex; align-items: center; gap: 10px;">
              <button onclick="playAll()"><i class="layui-icon layui-icon-play"></i> 播放全部</button>
              <button class="secondary" onclick="shufflePlay()"><i class="layui-icon layui-icon-refresh"></i> 随机播放</button>
-             <span id="library-status" style="margin-left: 20px; color: #888;"></span>
+             <input type="text" id="search-input" placeholder="搜索音乐..." oninput="onSearchInput(this.value)" style="flex: 1; max-width: 200px; padding: 6px 10px; border-radius: 4px; border: 1px solid #3e3e42; background-color: #252526; color: #cccccc; outline: none;">
+             <span id="library-status" style="margin-left: 10px; color: #888;"></span>
           </div>
           <div id="playlist-container">
              <!-- List of songs -->

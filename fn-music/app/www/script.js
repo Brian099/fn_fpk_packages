@@ -1,5 +1,6 @@
 // State
-let playlist = [];
+let allTracks = []; // Store all scanned tracks
+let playlist = []; // Currently displayed/playing list
 let directories = [];
 let currentIndex = -1;
 let isShuffle = false;
@@ -44,7 +45,8 @@ window.onload = function() {
         // Scan directory for all music files
         scanDirectory(dirPath).then(files => {
              if (files && files.length > 0) {
-                 playlist = files;
+                 allTracks = files;
+                 playlist = [...allTracks];
                  renderPlaylist();
                  
                  // Find index of target file
@@ -57,10 +59,11 @@ window.onload = function() {
              } else {
                  // Fallback if scan fails
                  const name = targetFile.split('/').pop();
-                 playlist = [{
+                 allTracks = [{
                      name: name,
                      path: targetFile
                  }];
+                 playlist = [...allTracks];
                  renderPlaylist();
                  play(0);
              }
@@ -138,7 +141,7 @@ function removeDir(index) {
 
 async function rescanAll() {
     document.getElementById('library-status').innerText = '正在扫描...';
-    playlist = [];
+    allTracks = [];
     
     for (const dir of directories) {
         try {
@@ -148,11 +151,48 @@ async function rescanAll() {
             });
             const data = await res.json();
             if (data.ok && data.files) {
-                playlist = playlist.concat(data.files);
+                allTracks = allTracks.concat(data.files);
             }
         } catch (e) {
             console.error('Scan failed for', dir, e);
         }
+    }
+    
+    playlist = [...allTracks];
+    // Re-apply search filter if any
+    const searchInput = document.getElementById('search-input');
+    if (searchInput && searchInput.value) {
+        onSearchInput(searchInput.value);
+    } else {
+        document.getElementById('library-status').innerText = `共 ${playlist.length} 首歌曲`;
+        renderPlaylist();
+    }
+}
+
+function onSearchInput(query) {
+    const term = query.toLowerCase().trim();
+    
+    // Store current playing song info before filtering
+    let currentSongPath = null;
+    if (currentIndex >= 0 && currentIndex < playlist.length) {
+        currentSongPath = playlist[currentIndex].path;
+    }
+    
+    if (!term) {
+        playlist = [...allTracks];
+    } else {
+        playlist = allTracks.filter(song => 
+            song.name.toLowerCase().includes(term) || 
+            song.path.toLowerCase().includes(term)
+        );
+    }
+    
+    // Update currentIndex to match the new playlist
+    if (currentSongPath) {
+        currentIndex = playlist.findIndex(p => p.path === currentSongPath);
+        // If not found in filtered list, currentIndex becomes -1, which stops playback flow effectively
+    } else {
+        currentIndex = -1;
     }
     
     document.getElementById('library-status').innerText = `共 ${playlist.length} 首歌曲`;
