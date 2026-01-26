@@ -156,7 +156,7 @@ function play(index) {
     renderPlaylist();
     
     // Play
-    const streamUrl = `?api_route=/api/music/stream&path=${encodeURIComponent(song.path)}`;
+    const streamUrl = `${apiBase}/api/music/stream?path=${encodeURIComponent(song.path)}`;
     audio.src = streamUrl;
     audio.play();
     updatePlayPauseIcon(true);
@@ -282,7 +282,7 @@ async function loadBrowserPath(path) {
     container.innerHTML = '<div style="padding:10px;">Loading...</div>';
     
     try {
-        const res = await fetch(`${apiBase}/api/fs/list`, {
+        const res = await fetch(`${apiBase}?api_route=/api/fs/list`, {
              method: 'POST',
              body: path
         });
