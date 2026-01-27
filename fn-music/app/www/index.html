@@ -68,7 +68,12 @@
            </div>
            
            <div style="margin-top: 20px;">
-             <button onclick="openDirBrowser()"><i class="layui-icon layui-icon-add-1"></i> 添加目录</button>
+             <div style="display:flex; gap:10px; margin-bottom: 10px;">
+                <input type="text" id="manual-dir-input" placeholder="输入目录路径 (例如 /media/Music)" style="flex:1; padding: 8px; background: #252526; border: 1px solid #3e3e42; color: #ccc; border-radius: 4px;">
+                <button onclick="addManualDir()"><i class="layui-icon layui-icon-addition"></i> 添加</button>
+             </div>
+             
+             <button class="secondary" onclick="openDirBrowser()"><i class="layui-icon layui-icon-folder-open"></i> 浏览目录</button>
              <button class="secondary" onclick="rescanAll()"><i class="layui-icon layui-icon-refresh-3"></i> 重新扫描</button>
            </div>
         </div>

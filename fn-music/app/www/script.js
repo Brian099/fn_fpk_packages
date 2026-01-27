@@ -191,6 +191,25 @@ function removeDir(index) {
     saveSettings();
 }
 
+function addManualDir() {
+    const input = document.getElementById('manual-dir-input');
+    const path = input.value.trim();
+    
+    if (!path) return;
+    
+    if (directories.includes(path)) {
+        alert('该目录已存在');
+        return;
+    }
+    
+    directories.push(path);
+    saveSettings();
+    input.value = '';
+    
+    // Auto scan
+    rescanAll();
+}
+
 async function rescanAll() {
     document.getElementById('library-status').innerText = '正在扫描...';
     allTracks = [];
