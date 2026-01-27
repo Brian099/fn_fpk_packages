@@ -11,12 +11,44 @@ start_process() {
     return 0
   fi
 
-  log_msg "Starting process skipped (waves has no background service)"
+  log_msg "Starting process skipped (musicwave has no background service)"
   return 0
 }
 
 stop_process() {
-  log_msg "Stopping process skipped (waves has no background service)"
+  log_msg "Stopping musicwave..."
+
+  # Find running instances of sites_backend.sh
+  # Using pgrep -f to match the command line including arguments/script path
+  PIDS=$(pgrep -f "sites_backend.sh")
+
+  if [ -n "$PIDS" ]; then
+    log_msg "Found active backend tasks (PIDs: $PIDS). Terminating..."
+
+    # Iterate over PIDs to kill children (ffmpeg/ffprobe) first
+    for PID in $PIDS; do
+        # Kill child processes (ffmpeg, ffprobe started by this script)
+        pkill -P "$PID"
+    done
+
+    # Kill the scripts themselves
+    kill -TERM $PIDS 2>/dev/null
+    
+    # Wait briefly
+    sleep 1
+    
+    # Force kill if still running
+    # Re-check PIDs to avoid errors
+    REMAINING=$(pgrep -f "sites_backend.sh")
+    if [ -n "$REMAINING" ]; then
+        echo "$REMAINING" | xargs kill -9 2>/dev/null
+    fi
+
+    log_msg "Backend tasks terminated."
+  else
+    log_msg "No active backend tasks found."
+  fi
+
   return 0
 }
 

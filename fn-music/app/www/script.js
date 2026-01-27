@@ -324,26 +324,49 @@ function addManualDir() {
     rescanAll();
 }
 
+const ITEMS_PER_PAGE = 50;
+let currentPage = 1;
+
 async function rescanAll() {
-    document.getElementById('library-status').innerText = '正在扫描...';
-    allTracks = [];
+    document.getElementById('library-status').innerText = '正在快速扫描文件...';
+    
+    // Create a map of existing tracks to preserve metadata
+    const existingMap = new Map();
+    allTracks.forEach(t => existingMap.set(t.path, t));
+    
+    let newAllTracks = [];
     
     for (const dir of directories) {
         try {
-            const res = await fetch(`${apiBase}?api_route=/api/music/scan`, {
+            // Use scan-fast instead of scan
+            const res = await fetch(`${apiBase}?api_route=/api/music/scan-fast`, {
                 method: 'POST',
                 body: dir
             });
             const data = await res.json();
             if (data.ok && data.files) {
-                allTracks = allTracks.concat(data.files);
+                // Merge: Use existing metadata if available, otherwise use new file info
+                const merged = data.files.map(f => {
+                    if (existingMap.has(f.path)) {
+                        // Keep existing metadata, but maybe update name if needed? 
+                        // For now just keep the existing object to preserve duration/artist/etc.
+                        return existingMap.get(f.path);
+                    }
+                    return f;
+                });
+                newAllTracks = newAllTracks.concat(merged);
             }
         } catch (e) {
             console.error('Scan failed for', dir, e);
         }
     }
     
+    allTracks = newAllTracks;
     playlist = [...allTracks];
+    
+    // Reset to page 1
+    currentPage = 1;
+    
     // Re-apply search filter if any
     const searchInput = document.getElementById('search-input');
     if (searchInput && searchInput.value) {
@@ -356,6 +379,72 @@ async function rescanAll() {
     // Refresh artists view if active
     if (document.getElementById('section-artists').style.display === 'flex') {
         renderArtists();
+    }
+    
+    // Save to cache (even if partial)
+    saveLibrary();
+}
+
+async function fetchMetadataBatch(tracksToFetch) {
+    if (!tracksToFetch || tracksToFetch.length === 0) return;
+    
+    const paths = tracksToFetch.map(t => t.path);
+    
+    try {
+        const res = await fetch(`${apiBase}?api_route=/api/music/meta-batch`, {
+            method: 'POST',
+            body: JSON.stringify(paths)
+        });
+        const data = await res.json();
+        
+        if (data.ok && data.data) {
+            let updatedCount = 0;
+            data.data.forEach(meta => {
+                // Find track in allTracks and update it
+                // We need to update both allTracks and playlist objects (they reference same objects usually, but let's be safe)
+                // Note: playlist is a shallow copy array of objects from allTracks. Modifying the object works for both.
+                
+                // However, if we filter/sort, we rely on references.
+                // Let's find by path.
+                const track = allTracks.find(t => t.path === meta.path);
+                if (track) {
+                    if (meta.error) {
+                        // Mark as scanned but failed? Or just leave it.
+                        // Maybe set a flag so we don't retry immediately?
+                        track._scanned = true; 
+                    } else {
+                        Object.assign(track, meta);
+                        track._scanned = true;
+                        updatedCount++;
+                    }
+                }
+            });
+            
+            if (updatedCount > 0) {
+                // Refresh current view to show new metadata
+                // We only need to re-render if we are still looking at these tracks
+                renderPlaylist(); // This might be too aggressive if user is scrolling?
+                // But since we batch per page, it should be fine.
+                saveLibrary();
+            }
+        }
+    } catch (e) {
+        console.error('Batch metadata fetch failed', e);
+    }
+}
+
+async function saveLibrary() {
+    try {
+        const res = await fetch(`${apiBase}?api_route=/api/music/library/save`, {
+            method: 'POST',
+            body: JSON.stringify({ ok: true, tracks: allTracks })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+            console.error('Failed to save library:', data.error);
+        }
+    } catch (e) {
+        console.error('Failed to save library', e);
     }
 }
 
@@ -379,6 +468,9 @@ function onSearchInput(query) {
             (song.album && song.album.toLowerCase().includes(term))
         );
     }
+    
+    // Reset to page 1 on search
+    currentPage = 1;
     
     // Update currentIndex to match the new playlist
     if (currentSongPath) {
@@ -432,8 +524,30 @@ function renderPlaylist() {
         return;
     }
     
+    // Pagination Logic
+    const totalPages = Math.ceil(playlist.length / ITEMS_PER_PAGE);
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+    
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, playlist.length);
+    
+    const pageItems = playlist.slice(startIndex, endIndex);
+    
+    // Check for missing metadata
+    const missingMeta = pageItems.filter(s => !s.duration && !s._scanned);
+    if (missingMeta.length > 0) {
+        // Mark as pending to avoid duplicate requests
+        missingMeta.forEach(s => s._scanned = 'pending');
+        // Fetch in background
+        fetchMetadataBatch(missingMeta);
+    }
+
     container.innerHTML = '';
-    playlist.forEach((song, index) => {
+    
+    // Render Items
+    pageItems.forEach((song, i) => {
+        const index = startIndex + i;
         const div = document.createElement('div');
         div.className = 'playlist-item' + (index === currentIndex ? ' active' : '');
         div.onclick = (e) => {
@@ -443,31 +557,81 @@ function renderPlaylist() {
         };
         
         const title = song.title || song.name;
-        const artist = song.artist || 'Unknown Artist';
-        const album = song.album || 'Unknown Album';
-        const duration = formatTime(song.duration);
-        const size = formatSize(song.size);
+        // Show "Loading..." if not scanned yet
+        const artist = song.artist || (song._scanned ? 'Unknown Artist' : 'Loading...');
+        const album = song.album || (song._scanned ? 'Unknown Album' : 'Loading...');
+        const duration = song.duration ? formatTime(song.duration) : (song._scanned ? '--:--' : 'Loading...');
+        const size = song.size ? formatSize(song.size) : (song._scanned ? '' : '');
         
         const safeTitle = escapeHtml(title);
         const safeArtist = escapeHtml(artist);
         const safeAlbum = escapeHtml(album);
         
-        const jsArtist = escapeJs(artist);
-        const jsAlbum = escapeJs(album);
+        const jsArtist = escapeJs(song.artist || '');
+        const jsAlbum = escapeJs(song.album || '');
+        
+        let artistHtml = `<div class="col-artist" title="${safeArtist}">${safeArtist}</div>`;
+        if (song.artist) {
+            artistHtml = `<div class="col-artist" title="${safeArtist}">
+                <a href="#" class="clickable-link" onclick="event.preventDefault(); filterBy('artist', '${jsArtist}')">${safeArtist}</a>
+            </div>`;
+        }
+        
+        let albumHtml = `<div class="col-album" title="${safeAlbum}">${safeAlbum}</div>`;
+        if (song.album) {
+             albumHtml = `<div class="col-album" title="${safeAlbum}">
+                <a href="#" class="clickable-link" onclick="event.preventDefault(); filterBy('album', '${jsAlbum}')">${safeAlbum}</a>
+            </div>`;
+        }
         
         div.innerHTML = `
             <div class="col-name" title="${safeTitle}">${safeTitle}</div>
-            <div class="col-artist" title="${safeArtist}">
-                <a href="#" class="clickable-link" onclick="event.preventDefault(); filterBy('artist', '${jsArtist}')">${safeArtist}</a>
-            </div>
-            <div class="col-album" title="${safeAlbum}">
-                <a href="#" class="clickable-link" onclick="event.preventDefault(); filterBy('album', '${jsAlbum}')">${safeAlbum}</a>
-            </div>
+            ${artistHtml}
+            ${albumHtml}
             <div class="col-size">${size}</div>
             <div class="col-duration">${duration}</div>
         `;
         container.appendChild(div);
     });
+    
+    // Render Pagination Controls
+    if (totalPages > 1) {
+        const paginationDiv = document.createElement('div');
+        paginationDiv.className = 'pagination-controls';
+        paginationDiv.style.cssText = 'display: flex; justify-content: center; align-items: center; padding: 20px; gap: 10px; color: #fff;';
+        
+        const prevBtn = document.createElement('button');
+        prevBtn.innerText = '上一页';
+        prevBtn.disabled = currentPage === 1;
+        prevBtn.onclick = () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderPlaylist();
+                // Scroll to top of list
+                document.querySelector('.main-content').scrollTop = 0;
+            }
+        };
+        
+        const nextBtn = document.createElement('button');
+        nextBtn.innerText = '下一页';
+        nextBtn.disabled = currentPage === totalPages;
+        nextBtn.onclick = () => {
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderPlaylist();
+                document.querySelector('.main-content').scrollTop = 0;
+            }
+        };
+        
+        const info = document.createElement('span');
+        info.innerText = `第 ${currentPage} / ${totalPages} 页`;
+        
+        paginationDiv.appendChild(prevBtn);
+        paginationDiv.appendChild(info);
+        paginationDiv.appendChild(nextBtn);
+        
+        container.appendChild(paginationDiv);
+    }
 }
 
 let lyricsData = [];

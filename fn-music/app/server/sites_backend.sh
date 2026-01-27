@@ -83,6 +83,94 @@ scan_music_json() {
   rm -f /tmp/waves_scan_tmp
 }
 
+scan_fast() {
+  # Read raw body from stdin
+  target_path=$(cat)
+  
+  # Trim whitespace
+  target_path=$(printf '%s' "$target_path" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+  if [ -z "$target_path" ] || [ ! -d "$target_path" ]; then
+    echo '{"ok":false,"error":"Invalid directory"}'
+    return 0
+  fi
+
+  echo '{"ok":true,"files":['
+  
+  # Find music files
+  # Use find to get paths, then format as JSON
+  # We only provide name and path initially
+  find "$target_path" -maxdepth 3 -type f \( -iname "*.mp3" -o -iname "*.wav" -o -iname "*.ogg" -o -iname "*.flac" -o -iname "*.m4a" \) 2>/dev/null | while read -r file; do
+    filename=$(basename "$file")
+    filepath="$file"
+    
+    # Escape for JSON
+    esc_name=$(echo "$filename" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    esc_path=$(echo "$filepath" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    
+    echo "{\"name\":\"$esc_name\",\"path\":\"$esc_path\"},"
+  done > /tmp/waves_scan_fast_tmp
+  
+  # Remove trailing comma if file is not empty
+  if [ -s /tmp/waves_scan_fast_tmp ]; then
+    sed '$s/,$//' /tmp/waves_scan_fast_tmp
+  fi
+  
+  echo ']}'
+  rm -f /tmp/waves_scan_fast_tmp
+}
+
+get_meta_batch() {
+    # Expects a JSON array of file paths from stdin
+    # Example: ["/path/to/1.mp3", "/path/to/2.mp3"]
+    # We will parse this using python if available, or a simple hack if not.
+    # Given the environment, let's assume we might need a robust way or a simple way.
+    # Simple way: Assume the input is just a list of paths? 
+    # The user might send a JSON body. 
+    
+    # Let's try to handle JSON array input using python to parse, or just line-separated if we control the frontend.
+    # To keep it standard JSON, let's use python to parse the input array.
+    
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c "
+import sys, json, subprocess, os
+
+def get_meta(path):
+    try:
+        cmd = ['ffprobe', '-v', 'quiet', '-show_entries', 'format=duration,size:format_tags=title,artist,album', '-of', 'json', path]
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        data = json.loads(res.stdout)
+        fmt = data.get('format', {})
+        tags = fmt.get('tags', {})
+        
+        return {
+            'path': path,
+            'duration': fmt.get('duration', '0'),
+            'size': fmt.get('size', '0'),
+            'title': tags.get('title', os.path.basename(path)),
+            'artist': tags.get('artist', 'Unknown Artist'),
+            'album': tags.get('album', 'Unknown Album')
+        }
+    except Exception as e:
+        return {'path': path, 'error': str(e)}
+
+try:
+    paths = json.load(sys.stdin)
+    results = []
+    for p in paths:
+        results.append(get_meta(p))
+    print(json.dumps({'ok': True, 'data': results}))
+except Exception as e:
+    print(json.dumps({'ok': False, 'error': str(e)}))
+"
+    else
+        # Fallback if no python: expect line separated paths?
+        # Or just fail. Python is usually available in this env (FnOS).
+        # But let's write a simple shell loop just in case.
+        echo '{"ok":false,"error":"Python3 required for batch metadata"}'
+    fi
+}
+
 list_dirs_json() {
   # Read raw body from stdin
   input_path=$(cat)
@@ -191,12 +279,34 @@ APP_ROOT="$(dirname "$SCRIPT_DIR")"
 # Force use of app-local config directory as requested
 CONFIG_DIR="$APP_ROOT/config"
 CONFIG_FILE="$CONFIG_DIR/config.json"
+LIBRARY_FILE="$CONFIG_DIR/library.json"
 
 get_config() {
   if [ -f "$CONFIG_FILE" ]; then
     cat "$CONFIG_FILE"
   else
     echo '{"dirs":[]}'
+  fi
+}
+
+get_library() {
+  if [ -f "$LIBRARY_FILE" ]; then
+    cat "$LIBRARY_FILE"
+  else
+    echo '{"ok":true, "tracks":[]}'
+  fi
+}
+
+save_library() {
+  content=$(cat)
+  if [ ! -d "$CONFIG_DIR" ]; then
+    mkdir -p "$CONFIG_DIR"
+  fi
+  
+  if echo "$content" > "$LIBRARY_FILE"; then
+     echo '{"ok":true}'
+  else
+     echo '{"ok":false,"error":"Failed to save library"}'
   fi
 }
 
@@ -299,6 +409,18 @@ case "$1" in
     ;;
   search-artist)
     search_artist
+    ;;
+  scan-fast)
+    scan_fast
+    ;;
+  get-meta-batch)
+    get_meta_batch
+    ;;
+  get-library)
+    get_library
+    ;;
+  save-library)
+    save_library
     ;;
   *)
     echo '{"error":"unsupported action"}'

@@ -97,6 +97,40 @@ elif [ "$REL_PATH" = "/api/music/config/get" ]; then
     rm -f "$INPUT_TMP"
     exit 0
 
+elif [ "$REL_PATH" = "/api/music/library/get" ]; then
+    TMP_OUTPUT=$(mktemp)
+    if bash "$BACKEND_SCRIPT" "get-library" >"$TMP_OUTPUT" 2>/dev/null; then
+        echo "Status: 200 OK"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        cat "$TMP_OUTPUT"
+    else
+        echo "Status: 500 Internal Server Error"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        echo '{"ok":false,"error":"Failed to get library"}'
+    fi
+    rm -f "$TMP_OUTPUT"
+    rm -f "$INPUT_TMP"
+    exit 0
+
+elif [ "$REL_PATH" = "/api/music/library/save" ]; then
+    TMP_OUTPUT=$(mktemp)
+    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "save-library" >"$TMP_OUTPUT" 2>/dev/null; then
+        echo "Status: 200 OK"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        cat "$TMP_OUTPUT"
+    else
+        echo "Status: 500 Internal Server Error"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        echo '{"ok":false,"error":"Failed to save library"}'
+    fi
+    rm -f "$TMP_OUTPUT"
+    rm -f "$INPUT_TMP"
+    exit 0
+
 elif [ "$REL_PATH" = "/api/music/config/save" ]; then
     # Save Config
     TMP_OUTPUT=$(mktemp)
@@ -114,6 +148,47 @@ elif [ "$REL_PATH" = "/api/music/config/save" ]; then
         echo "{\"ok\":false,\"error\":\"Failed to save config. Script error: $ERR_MSG\"}"
     fi
     rm -f "$STDERR_TMP"
+    rm -f "$TMP_OUTPUT"
+    rm -f "$INPUT_TMP"
+    exit 0
+
+elif [ "$REL_PATH" = "/api/music/scan-fast" ]; then
+    TMP_OUTPUT=$(mktemp)
+    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "scan-fast" >"$TMP_OUTPUT" 2>/dev/null; then
+        if [ -s "$TMP_OUTPUT" ]; then
+            echo "Status: 200 OK"
+            echo "Content-Type: application/json; charset=utf-8"
+            echo ""
+            cat "$TMP_OUTPUT"
+        else
+            echo "Status: 200 OK"
+            echo "Content-Type: application/json; charset=utf-8"
+            echo ""
+            echo '{"ok":false,"error":"Empty response from fast scanner"}'
+        fi
+    else
+        echo "Status: 500 Internal Server Error"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        echo '{"ok":false,"error":"Internal script error"}'
+    fi
+    rm -f "$TMP_OUTPUT"
+    rm -f "$INPUT_TMP"
+    exit 0
+
+elif [ "$REL_PATH" = "/api/music/meta-batch" ]; then
+    TMP_OUTPUT=$(mktemp)
+    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "get-meta-batch" >"$TMP_OUTPUT" 2>/dev/null; then
+        echo "Status: 200 OK"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        cat "$TMP_OUTPUT"
+    else
+        echo "Status: 500 Internal Server Error"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        echo '{"ok":false,"error":"Internal script error"}'
+    fi
     rm -f "$TMP_OUTPUT"
     rm -f "$INPUT_TMP"
     exit 0
