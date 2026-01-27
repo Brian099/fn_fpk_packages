@@ -559,7 +559,7 @@ function parseLyrics(text) {
     
     if (lyricsData.length === 0) {
         document.getElementById('large-lyrics').innerHTML = `
-            <div class="current-line" style="font-size:20px; color:#aaa;">纯音乐，请欣赏</div>
+            <div class="current-line" style="font-size:20px; color:#aaa;">音符自成诗行，邀您沉浸聆听</div>
         `;
     }
 }
@@ -567,7 +567,7 @@ function parseLyrics(text) {
 function updateLyricsDisplay() {
     if (lyricsData.length === 0) {
         document.getElementById('large-lyrics').innerHTML = `
-            <div class="current-line" style="font-size:20px; color:#aaa;">纯音乐，请欣赏</div>
+            <div class="current-line" style="font-size:20px; color:#aaa;">音符自成诗行，邀您沉浸聆听</div>
         `;
         return;
     }
@@ -700,50 +700,45 @@ function initVisualizer() {
 function drawVisualizer() {
     animationId = requestAnimationFrame(drawVisualizer);
     
-    // Check if canvas is visible (lyrics active)
     if (!document.body.classList.contains('lyrics-active') || !canvas) return;
     
     analyser.getByteFrequencyData(dataArray);
     
     const width = canvas.width;
     const height = canvas.height;
+    const centerX = width / 2;
     
     canvasCtx.clearRect(0, 0, width, height);
     
-    // Draw Smooth Ribbon
-    canvasCtx.beginPath();
-    canvasCtx.moveTo(0, height);
-    
-    const sliceWidth = width * 1.0 / (dataArray.length - 1);
-    let x = 0;
-    
-    // Start Point
-    let v0 = dataArray[0] / 255.0;
-    let y0 = height - (v0 * height * 0.6); // Scale 0.6 to keep it subtle
-    canvasCtx.lineTo(0, y0);
-    
-    for (let i = 0; i < dataArray.length - 1; i++) {
-        const v1 = dataArray[i] / 255.0;
-        const v2 = dataArray[i + 1] / 255.0;
-        
-        const y1 = height - (v1 * height * 0.6);
-        const y2 = height - (v2 * height * 0.6);
-        
-        const x1 = i * sliceWidth;
-        const x2 = (i + 1) * sliceWidth;
-        
-        const xMid = (x1 + x2) / 2;
-        const yMid = (y1 + y2) / 2;
-        
-        // Quadratic curve to midpoint ensures smoothness
-        canvasCtx.quadraticCurveTo(x1, y1, xMid, yMid);
+    const halfWidth = width / 2;
+    const len = dataArray.length;
+    if (!len) return;
+    const sliceWidth = halfWidth / (len - 1);
+
+    const points = [];
+    for (let i = 0; i < len; i++) {
+        const v = dataArray[i] / 255.0;
+        const y = height - (v * height * 0.6);
+        const x = centerX + i * sliceWidth;
+        points.push({ x, y });
     }
-    
-    // End Path
-    canvasCtx.lineTo(width, height);
+
+    canvasCtx.beginPath();
+    canvasCtx.moveTo(centerX, height);
+
+    for (let i = 0; i < points.length; i++) {
+        canvasCtx.lineTo(points[i].x, points[i].y);
+    }
+
+    for (let i = points.length - 1; i >= 0; i--) {
+        const dx = points[i].x - centerX;
+        const mx = centerX - dx;
+        canvasCtx.lineTo(mx, points[i].y);
+    }
+
+    canvasCtx.lineTo(centerX, height);
     canvasCtx.closePath();
     
-    // Fill Gradient
     const gradient = canvasCtx.createLinearGradient(0, height, 0, 0);
     gradient.addColorStop(0, 'rgba(255, 255, 255, 0.1)');
     gradient.addColorStop(1, 'rgba(255, 255, 255, 0.4)');
@@ -751,7 +746,6 @@ function drawVisualizer() {
     canvasCtx.fillStyle = gradient;
     canvasCtx.fill();
     
-    // Add a stroke line on top
     canvasCtx.lineWidth = 2;
     canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
     canvasCtx.stroke();
@@ -873,5 +867,4 @@ function addDirectory(path) {
     }
     closeModal();
 }
-
 
