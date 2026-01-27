@@ -712,12 +712,13 @@ function drawVisualizer() {
     
     const halfWidth = width / 2;
     const len = dataArray.length;
-    if (!len) return;
+    if (len < 2) return;
     const sliceWidth = halfWidth / (len - 1);
 
     const points = [];
     for (let i = 0; i < len; i++) {
-        const v = dataArray[i] / 255.0;
+        const idx = len - 1 - i; // reverse index: high freq在中间, 低频在两侧
+        const v = dataArray[idx] / 255.0;
         const y = height - (v * height * 0.6);
         const x = centerX + i * sliceWidth;
         points.push({ x, y });
@@ -867,4 +868,3 @@ function addDirectory(path) {
     }
     closeModal();
 }
-
