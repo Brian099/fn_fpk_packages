@@ -149,7 +149,15 @@ get_lyrics() {
 }
 
 # Config Management
-CONFIG_DIR="/usr/local/apps/@appconf/fn-music"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Priority: TRIM_PKGVAR > Local config dir
+if [ -n "$TRIM_PKGVAR" ]; then
+    CONFIG_DIR="$TRIM_PKGVAR"
+else
+    CONFIG_DIR="$APP_ROOT/config"
+fi
 CONFIG_FILE="$CONFIG_DIR/config.json"
 
 get_config() {
@@ -168,7 +176,7 @@ save_config() {
   if [ ! -d "$CONFIG_DIR" ]; then
     if ! mkdir -p "$CONFIG_DIR"; then
         echo "{\"ok\":false,\"error\":\"Failed to create directory $CONFIG_DIR\"}"
-        return 1
+        return 0
     fi
   fi
   
