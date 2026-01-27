@@ -480,10 +480,18 @@ function play(index) {
     // Update Cover
     const coverImg = document.getElementById('cover-art');
     // Add timestamp to prevent caching if cover changes for same path (unlikely but safe)
-    coverImg.src = `${apiBase}?api_route=/api/music/cover&path=${encodeURIComponent(song.path)}&t=${Date.now()}`;
+    const coverUrl = `${apiBase}?api_route=/api/music/cover&path=${encodeURIComponent(song.path)}&t=${Date.now()}`;
+    coverImg.src = coverUrl;
     coverImg.onerror = () => {
         coverImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; // transparent placeholder or default icon
+        document.getElementById('lyrics-bg').style.backgroundImage = 'none';
     };
+    
+    // Update lyrics background
+    document.getElementById('lyrics-bg').style.backgroundImage = `url('${coverUrl}')`;
+    
+    // Activate lyrics panel mode
+    document.body.classList.add('lyrics-active');
 
     // Fetch Lyrics
     fetchLyrics(song.path);
@@ -539,7 +547,12 @@ function parseLyrics(text) {
 }
 
 function updateLyricsDisplay() {
-    if (lyricsData.length === 0) return;
+    if (lyricsData.length === 0) {
+        document.getElementById('large-lyrics').innerHTML = `
+            <div class="current-line" style="font-size:20px; color:#aaa;">纯音乐，请欣赏</div>
+        `;
+        return;
+    }
     
     const currentTime = audio.currentTime;
     // Find current line
@@ -553,7 +566,20 @@ function updateLyricsDisplay() {
     }
     
     if (currentLineIndex !== -1) {
-        document.getElementById('track-lyrics').innerText = lyricsData[currentLineIndex].text;
+        const currentText = lyricsData[currentLineIndex].text;
+        document.getElementById('track-lyrics').innerText = currentText;
+        
+        // Update large lyrics
+        const nextText = lyricsData[currentLineIndex + 1] ? lyricsData[currentLineIndex + 1].text : '';
+        const largeContainer = document.getElementById('large-lyrics');
+        // Only update if changed to avoid flickering/reflow (simple check)
+        const newHTML = `
+            <div class="current-line">${escapeHtml(currentText)}</div>
+            <div class="next-line">${escapeHtml(nextText)}</div>
+        `;
+        if (largeContainer.innerHTML !== newHTML) {
+             largeContainer.innerHTML = newHTML;
+        }
     }
 }
 
