@@ -99,6 +99,7 @@ elif [ "$REL_PATH" = "/api/music/config/get" ]; then
 
 elif [ "$REL_PATH" = "/api/music/config/save" ]; then
     # Save Config
+    TMP_OUTPUT=$(mktemp)
     STDERR_TMP=$(mktemp)
     if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "save-config" >"$TMP_OUTPUT" 2>"$STDERR_TMP"; then
         echo "Status: 200 OK"
