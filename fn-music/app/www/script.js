@@ -719,24 +719,26 @@ function drawVisualizer() {
     for (let i = 0; i < len; i++) {
         const v = dataArray[i] / 255.0;
         const y = height - (v * height * 0.6);
-        const x = centerX - i * sliceWidth;
+        // Bass (i=0) at Left Edge, Treble (i=len) at Center
+        const x = i * sliceWidth;
         points.push({ x, y });
     }
 
     canvasCtx.beginPath();
-    canvasCtx.moveTo(centerX, height);
+    canvasCtx.moveTo(0, height);
 
+    // Draw Left Half: Left -> Center
     for (let i = 0; i < points.length; i++) {
         canvasCtx.lineTo(points[i].x, points[i].y);
     }
 
+    // Draw Right Half: Center -> Right (Mirror)
     for (let i = points.length - 1; i >= 0; i--) {
-        const dx = centerX - points[i].x;
-        const mx = centerX + dx;
-        canvasCtx.lineTo(mx, points[i].y);
+        const x = width - points[i].x;
+        canvasCtx.lineTo(x, points[i].y);
     }
 
-    canvasCtx.lineTo(centerX, height);
+    canvasCtx.lineTo(width, height);
     canvasCtx.closePath();
     
     const gradient = canvasCtx.createLinearGradient(0, height, 0, 0);
