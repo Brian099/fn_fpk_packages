@@ -256,7 +256,7 @@ function renderArtists() {
         div.innerHTML = `
             <div class="artist-icon">
                 <i class="layui-icon layui-icon-username" id="${imgId}-icon"></i>
-                <img id="${imgId}" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:50%;" alt="${safeName}" />
+                <img id="${imgId}" style="display:none; width:100%; height:100%; object-fit:cover;" alt="${safeName}" />
             </div>
             <div class="artist-name" title="${safeName}">${safeName}</div>
             <div class="artist-count">${count} 首歌曲</div>

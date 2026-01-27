@@ -197,9 +197,17 @@ button:hover {
 }
 
 .artist-icon {
-  font-size: 40px;
+  width: 100px;
+  height: 100px;
+  margin: 0 auto 10px;
+  font-size: 50px;
   color: #666;
-  margin-bottom: 10px;
+  background-color: #3e4142;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
 .artist-card:hover .artist-icon {
