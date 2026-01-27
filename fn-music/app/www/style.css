@@ -232,13 +232,9 @@ button:hover {
   height: 0;
   overflow: hidden;
   position: relative;
-  transition: height 0.3s;
+  transition: height 0.3s ease-in-out;
   background: #1e1e1e;
   flex-shrink: 0;
-}
-
-body.lyrics-active #main-content {
-  /* Let it shrink, handled by flex */
 }
 
 body.lyrics-active #lyrics-panel {
