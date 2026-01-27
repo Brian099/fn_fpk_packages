@@ -477,8 +477,7 @@ input[type=range] {
   }
 
   .brand {
-    padding: 10px 16px;
-    font-size: 16px;
+    display: none;
   }
 
   .menu-item {
@@ -503,10 +502,23 @@ input[type=range] {
     gap: 8px;
   }
 
+  .toolbar button {
+    font-size: 0;
+    padding: 6px 8px;
+  }
+
+  .toolbar button i {
+    font-size: 18px;
+  }
+
   #search-input {
     flex: 1;
     max-width: none;
     min-width: 140px;
+  }
+
+  #library-status {
+    display: none;
   }
 
   .playlist-header,
@@ -561,11 +573,11 @@ input[type=range] {
   }
 
   .volume-control {
-    width: 120px;
+    display: none;
   }
 
   body.lyrics-active #lyrics-panel {
-    height: 40%;
+    height: 20%;
   }
 
   .current-line {
