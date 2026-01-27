@@ -219,6 +219,11 @@ async function rescanAll() {
         document.getElementById('library-status').innerText = `共 ${playlist.length} 首歌曲`;
         renderPlaylist();
     }
+    
+    // Refresh artists view if active
+    if (document.getElementById('section-artists').style.display === 'flex') {
+        renderArtists();
+    }
 }
 
 function onSearchInput(query) {
