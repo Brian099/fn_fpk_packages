@@ -72,6 +72,11 @@ body {
   display: flex;
   flex-direction: column;
   padding: 20px;
+  overflow: hidden;
+}
+
+#playlist-container {
+  flex: 1;
   overflow-y: auto;
 }
 
@@ -178,6 +183,8 @@ button:hover {
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 15px;
   padding-top: 20px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .artist-card {
