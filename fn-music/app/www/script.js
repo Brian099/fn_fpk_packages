@@ -27,7 +27,7 @@ const btnPlayPause = document.getElementById('btn-play-pause');
 
 // Initialization
 window.onload = function() {
-    loadSettings();
+    // loadSettings is async now, so we don't call it here directly in the same way
     setupPlayerEvents();
     
     // Check for direct file play (Double click from system)

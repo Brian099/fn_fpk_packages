@@ -148,6 +148,33 @@ get_lyrics() {
   fi
 }
 
+# Config Management
+CONFIG_DIR="/usr/local/apps/@appconf/fn-music"
+CONFIG_FILE="$CONFIG_DIR/config.json"
+
+get_config() {
+  if [ -f "$CONFIG_FILE" ]; then
+    cat "$CONFIG_FILE"
+  else
+    echo '{"dirs":[]}'
+  fi
+}
+
+save_config() {
+  content=$(cat)
+  if [ ! -d "$CONFIG_DIR" ]; then
+    mkdir -p "$CONFIG_DIR"
+  fi
+  
+  # Basic validation: ensure it looks like JSON
+  if echo "$content" | grep -q "^{.*}$"; then
+     echo "$content" > "$CONFIG_FILE"
+     echo '{"ok":true}'
+  else
+     echo '{"ok":false,"error":"Invalid JSON"}'
+  fi
+}
+
 case "$1" in
   scan-music)
     scan_music_json
@@ -160,6 +187,12 @@ case "$1" in
     ;;
   get-lyrics)
     get_lyrics
+    ;;
+  get-config)
+    get_config
+    ;;
+  save-config)
+    save_config
     ;;
   *)
     echo '{"error":"unsupported action"}'
