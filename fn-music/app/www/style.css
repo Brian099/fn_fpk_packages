@@ -256,8 +256,12 @@ body.lyrics-active #lyrics-panel {
 .lyrics-mask {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(to bottom, var(--main-bg) 0%, transparent 20%, transparent 100%);
+  /* Top gradient for blending with list area, radial gradient for vignette */
+  background: 
+    linear-gradient(to bottom, var(--bg-color) 0%, rgba(30,30,30,0) 25%),
+    radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0.6) 100%);
   z-index: 1;
+  pointer-events: none;
 }
 
 .lyrics-content {
