@@ -581,11 +581,14 @@ input[type=range] {
   }
 
   .current-line {
-    font-size: 22px;
+    font-size: 20px;
+    margin-bottom: 6px;
+    line-height: 1.2;
   }
 
   .next-line {
-    font-size: 14px;
+    font-size: 13px;
+    line-height: 1.2;
   }
 
   #visualizer {
