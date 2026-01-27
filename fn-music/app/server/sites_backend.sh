@@ -140,11 +140,47 @@ get_lyrics() {
   lrc_file="${file_path%.*}.lrc"
   if [ -f "$lrc_file" ]; then
     cat "$lrc_file"
-  else
-    # Try ffmpeg metadata
-    if command -v ffmpeg >/dev/null 2>&1; then
-       ffmpeg -loglevel quiet -i "$file_path" -f ffmetadata pipe:1 | grep "lyrics=" | cut -d= -f2-
-    fi
+    return
+  fi
+
+  if command -v ffprobe >/dev/null 2>&1; then
+      # Use python for robust extraction if available
+      if command -v python3 >/dev/null 2>&1; then
+          ffprobe -v quiet -print_format json -show_entries format_tags "$file_path" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    tags = data.get('format', {}).get('tags', {})
+    lyrics = ''
+    keys = list(tags.keys())
+    found = False
+    
+    # Priority 1: UNSYNCEDLYRICS (ID3v2)
+    for k in keys:
+        if k.upper() == 'UNSYNCEDLYRICS':
+            lyrics = tags[k]
+            found = True
+            break
+    
+    # Priority 2: LYRICS (Vorbis/generic)
+    if not found:
+        for k in keys:
+            if 'LYRICS' in k.upper():
+                lyrics = tags[k]
+                found = True
+                break
+                
+    print(lyrics)
+except Exception:
+    pass
+"
+      else
+          # Fallback to grep/sed
+          val=$(ffprobe -v quiet -show_entries format_tags -of flat "$file_path" | grep -iE "lyrics|unsyncedlyrics" | head -n 1 | cut -d= -f2-)
+          if [ -n "$val" ]; then
+             echo "$val" | sed 's/^"//;s/"$//' | sed 's/\\n/\n/g' | sed 's/\\r//g'
+          fi
+      fi
   fi
 }
 

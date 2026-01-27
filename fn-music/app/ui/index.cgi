@@ -161,6 +161,34 @@ elif [ "$REL_PATH" = "/api/fs/list" ]; then
     rm -f "$INPUT_TMP"
     exit 0
 
+elif [ "$REL_PATH" = "/api/music/lyrics" ]; then
+    # Get Lyrics
+    # Parse path from query string
+    FILE_PATH=""
+    if command -v php >/dev/null 2>&1; then
+        FILE_PATH=$(php -r "parse_str(\$argv[1], \$output); echo \$output['path'] ?? '';" -- "$QUERY_STRING")
+    elif command -v python3 >/dev/null 2>&1; then
+         FILE_PATH=$(python3 -c "import sys, urllib.parse; q=urllib.parse.parse_qs(sys.argv[1]); print(q.get('path', [''])[0])" "$QUERY_STRING")
+    else
+         # Fallback
+         FILE_PATH=$(echo "$QUERY_STRING" | grep -o "path=[^&]*" | cut -d= -f2-)
+         FILE_PATH=$(echo "$FILE_PATH" | sed -e 's/%/\\x/g' -e 's/+/ /g')
+         FILE_PATH=$(echo -e "$FILE_PATH")
+    fi
+    
+    if [ -n "$FILE_PATH" ]; then
+        echo "Status: 200 OK"
+        echo "Content-Type: text/plain; charset=utf-8"
+        echo ""
+        echo "$FILE_PATH" | bash "$BACKEND_SCRIPT" "get-lyrics"
+    else
+        echo "Status: 400 Bad Request"
+        echo "Content-Type: text/plain"
+        echo ""
+        echo "Missing path parameter"
+    fi
+    exit 0
+
 elif [ "$REL_PATH" = "/api/music/stream" ]; then
     # Parse path from query string
     FILE_PATH=""
