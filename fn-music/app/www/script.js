@@ -12,7 +12,7 @@ let isLoop = false; // true = loop one, false = loop all (default) or no loop?
 let isLoopOne = false;
 
 // API Base Path (Matches installation path)
-const apiBase = "/cgi/ThirdParty/fn-music/index.cgi";
+const apiBase = "/cgi/ThirdParty/waves/index.cgi";
 
 let browserCurrentPath = "/";
 let browserSelectedPath = "";
@@ -114,7 +114,7 @@ async function loadSettings() {
         
         // Fallback to localStorage if server has no config
         if (!loaded) {
-            const savedDirs = localStorage.getItem('fn_music_dirs');
+            const savedDirs = localStorage.getItem('waves_dirs');
             if (savedDirs) {
                 directories = JSON.parse(savedDirs);
                 // Migrate to server
@@ -138,7 +138,7 @@ async function loadSettings() {
 
 async function saveSettings() {
     // Keep localStorage as backup
-    localStorage.setItem('fn_music_dirs', JSON.stringify(directories));
+    localStorage.setItem('waves_dirs', JSON.stringify(directories));
     renderDirList();
     
     try {

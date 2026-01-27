@@ -7,7 +7,7 @@
 # ============================================================================
 
 # Configuration
-BASE_PATH="/var/apps/fn-music/target/www"
+BASE_PATH="/var/apps/waves/target/www"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 BACKEND_SCRIPT="$APP_ROOT/server/sites_backend.sh"

@@ -72,15 +72,15 @@ scan_music_json() {
     esc_album=$(echo "$album" | sed 's/\\/\\\\/g; s/"/\\"/g')
     
     echo "{\"name\":\"$esc_name\",\"path\":\"$esc_path\",\"title\":\"$esc_title\",\"artist\":\"$esc_artist\",\"album\":\"$esc_album\",\"size\":$size,\"duration\":$duration}"
-  done > /tmp/fn_music_scan_tmp
+  done > /tmp/waves_scan_tmp
   
   # Post-process to add commas
-  if [ -s /tmp/fn_music_scan_tmp ]; then
-    sed '$!s/$/,/' /tmp/fn_music_scan_tmp
+  if [ -s /tmp/waves_scan_tmp ]; then
+    sed '$!s/$/,/' /tmp/waves_scan_tmp
   fi
   
   echo ']}'
-  rm -f /tmp/fn_music_scan_tmp
+  rm -f /tmp/waves_scan_tmp
 }
 
 list_dirs_json() {

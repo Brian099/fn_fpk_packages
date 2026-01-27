@@ -1,11 +1,11 @@
-appname               = Waves
+appname               = waves
 version               = 1.0.0
 display_name          = Waves
-desc                  = 简单的NAS音乐播放器，支持多目录管理，应用开发中，暂无法使用。
+desc                  = 简单的NAS音乐播放器，支持多目录管理。
 platform              = all
 source                = thirdparty
 desktop_uidir         = ui
-desktop_applaunchname = fn-music.Application
+desktop_applaunchname = waves.Application
 maintainer            = User
 maintainer_url        = https://example.com
 distributor           = User

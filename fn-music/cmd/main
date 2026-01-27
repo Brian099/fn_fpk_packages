@@ -11,12 +11,12 @@ start_process() {
     return 0
   fi
 
-  log_msg "Starting process skipped (fn-music has no background service)"
+  log_msg "Starting process skipped (waves has no background service)"
   return 0
 }
 
 stop_process() {
-  log_msg "Stopping process skipped (fn-music has no background service)"
+  log_msg "Stopping process skipped (waves has no background service)"
   return 0
 }
 
