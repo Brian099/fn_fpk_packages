@@ -4,7 +4,7 @@
     "items": [
       {
         "type": "tips",
-        "helpText": "FnMusic 是一个简单的 NAS 音乐播放器，支持多目录管理和流式播放。"
+        "helpText": "Waves 是一个简单的 NAS 音乐播放器，支持多目录管理和流式播放。"
       }
     ]
   }

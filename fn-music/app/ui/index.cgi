@@ -3,7 +3,7 @@
 # ============================================================================
 # File Name       : index.cgi
 # Version         : 1.0.1
-# Description     : CGI script for FnMusic static files and API.
+# Description     : CGI script for Waves static files and API.
 # ============================================================================
 
 # Configuration
