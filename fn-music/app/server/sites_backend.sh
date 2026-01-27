@@ -194,6 +194,54 @@ save_config() {
   esac
 }
 
+search_artist() {
+  artist_name=$(cat)
+  # Clean input
+  artist_name=$(echo "$artist_name" | tr -d '\r\n')
+  
+  if [ -z "$artist_name" ]; then
+      echo '{"ok":false, "error":"Empty artist name"}'
+      return
+  fi
+
+  # URL encode artist_name using python
+  encoded_name=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$artist_name")
+  url="https://music.163.com/api/search/get?s=${encoded_name}&type=100"
+  
+  # Fetch JSON with timeout
+  json_response=$(curl -s --max-time 5 "$url")
+  
+  if [ -z "$json_response" ]; then
+      echo '{"ok":false, "error":"No response from music api"}'
+      return
+  fi
+
+  # Extract first picUrl using python
+  pic_url=$(echo "$json_response" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    artists = data.get('result', {}).get('artists', [])
+    pic_url = None
+    for artist in artists:
+        if artist.get('picUrl'):
+            pic_url = artist['picUrl']
+            break
+    if pic_url:
+        print(pic_url)
+    else:
+        print('')
+except Exception as e:
+    print('')
+")
+  
+  if [ -n "$pic_url" ]; then
+      echo "{\"ok\":true, \"url\":\"$pic_url\"}"
+  else
+      echo "{\"ok\":false, \"error\":\"No image found\"}"
+  fi
+}
+
 case "$1" in
   scan-music)
     scan_music_json
@@ -212,6 +260,9 @@ case "$1" in
     ;;
   save-config)
     save_config
+    ;;
+  search-artist)
+    search_artist
     ;;
   *)
     echo '{"error":"unsupported action"}'

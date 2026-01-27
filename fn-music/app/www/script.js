@@ -165,6 +165,51 @@ function showSection(id) {
     }
 }
 
+// Queue system for artist images
+const imageQueue = [];
+let activeRequests = 0;
+const MAX_CONCURRENT = 3;
+
+function queueArtistImage(artist, imgId) {
+    imageQueue.push({ artist, imgId });
+    processQueue();
+}
+
+async function processQueue() {
+    if (activeRequests >= MAX_CONCURRENT || imageQueue.length === 0) return;
+    
+    activeRequests++;
+    const { artist, imgId } = imageQueue.shift();
+    
+    await fetchArtistImage(artist, imgId);
+    
+    activeRequests--;
+    processQueue();
+}
+
+async function fetchArtistImage(artist, imgId) {
+    try {
+        const res = await fetch(`${apiBase}?api_route=/api/music/artist/search`, {
+            method: 'POST',
+            body: artist
+        });
+        const data = await res.json();
+        if (data.ok && data.url) {
+            const img = document.getElementById(imgId);
+            const icon = document.getElementById(imgId + '-icon');
+            if (img && icon) {
+                img.src = data.url;
+                img.onload = () => {
+                    img.style.display = 'block';
+                    icon.style.display = 'none';
+                };
+            }
+        }
+    } catch (e) {
+        // console.warn('Failed to load artist image for', artist);
+    }
+}
+
 function renderArtists() {
     const container = document.getElementById('artists-container');
     
@@ -187,20 +232,32 @@ function renderArtists() {
     
     container.innerHTML = '';
     if (sortedArtists.length === 0) {
-        container.innerHTML = '<div style="color:#666; text-align:center; grid-column: 1/-1;">暂无歌手数据，请先扫描音乐。</div>';
+        container.innerHTML = `
+            <div style="color:#666; text-align:center; grid-column: 1/-1;">
+                <p>暂无歌手数据，请先扫描音乐。</p>
+                <button onclick="rescanAll()" class="layui-btn layui-btn-normal layui-btn-sm" style="margin-top:10px;">
+                    <i class="layui-icon layui-icon-refresh"></i> 重新扫描
+                </button>
+            </div>`;
         return;
     }
     
-    sortedArtists.forEach(name => {
+    // Clear queue when re-rendering
+    imageQueue.length = 0;
+    
+    sortedArtists.forEach((name, index) => {
         const count = artists[name];
         const div = document.createElement('div');
         div.className = 'artist-card';
         
         const safeName = escapeHtml(name);
-        const jsName = escapeJs(name);
+        const imgId = 'artist-img-' + index;
         
         div.innerHTML = `
-            <div class="artist-icon"><i class="layui-icon layui-icon-username"></i></div>
+            <div class="artist-icon">
+                <i class="layui-icon layui-icon-username" id="${imgId}-icon"></i>
+                <img id="${imgId}" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:50%;" alt="${safeName}" />
+            </div>
             <div class="artist-name" title="${safeName}">${safeName}</div>
             <div class="artist-count">${count} 首歌曲</div>
         `;
@@ -209,6 +266,11 @@ function renderArtists() {
             filterBy('artist', name);
         };
         container.appendChild(div);
+        
+        // Trigger image load
+        if (name !== 'Unknown Artist') {
+            queueArtistImage(name, imgId);
+        }
     });
 }
 

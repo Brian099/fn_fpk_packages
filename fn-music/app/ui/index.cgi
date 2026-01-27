@@ -118,6 +118,24 @@ elif [ "$REL_PATH" = "/api/music/config/save" ]; then
     rm -f "$INPUT_TMP"
     exit 0
 
+elif [ "$REL_PATH" = "/api/music/artist/search" ]; then
+    # Search Artist Image
+    TMP_OUTPUT=$(mktemp)
+    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "search-artist" >"$TMP_OUTPUT" 2>/dev/null; then
+        echo "Status: 200 OK"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        cat "$TMP_OUTPUT"
+    else
+        echo "Status: 500 Internal Server Error"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        echo '{"ok":false,"error":"Failed to search artist"}'
+    fi
+    rm -f "$TMP_OUTPUT"
+    rm -f "$INPUT_TMP"
+    exit 0
+
 elif [ "$REL_PATH" = "/api/fs/list" ]; then
     TMP_OUTPUT=$(mktemp)
     # Pass input to backend
