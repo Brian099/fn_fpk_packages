@@ -162,17 +162,29 @@ get_config() {
 
 save_config() {
   content=$(cat)
+  # Trim whitespace (including newlines)
+  content=$(echo "$content" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+  
   if [ ! -d "$CONFIG_DIR" ]; then
-    mkdir -p "$CONFIG_DIR"
+    if ! mkdir -p "$CONFIG_DIR"; then
+        echo "{\"ok\":false,\"error\":\"Failed to create directory $CONFIG_DIR\"}"
+        return 1
+    fi
   fi
   
-  # Basic validation: ensure it looks like JSON
-  if echo "$content" | grep -q "^{.*}$"; then
-     echo "$content" > "$CONFIG_FILE"
-     echo '{"ok":true}'
-  else
-     echo '{"ok":false,"error":"Invalid JSON"}'
-  fi
+  # Basic validation: starts with { and ends with }
+  case "$content" in
+    \{*\})
+       if echo "$content" > "$CONFIG_FILE"; then
+          echo '{"ok":true}'
+       else
+          echo "{\"ok\":false,\"error\":\"Failed to write to $CONFIG_FILE\"}"
+       fi
+       ;;
+    *)
+       echo "{\"ok\":false,\"error\":\"Invalid JSON format (received: ${content:0:20}...)\"}"
+       ;;
+  esac
 }
 
 case "$1" in

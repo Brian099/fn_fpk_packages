@@ -133,10 +133,15 @@ async function saveSettings() {
     
     try {
         const config = { dirs: directories };
-        await fetch(`${apiBase}?api_route=/api/music/config/save`, {
+        const res = await fetch(`${apiBase}?api_route=/api/music/config/save`, {
             method: 'POST',
             body: JSON.stringify(config)
         });
+        const data = await res.json();
+        if (!data.ok) {
+            console.error('Server failed to save config:', data.error);
+            alert('警告：无法保存设置到服务器: ' + (data.error || '未知错误'));
+        }
     } catch (e) {
         console.error('Failed to save settings to server', e);
     }
