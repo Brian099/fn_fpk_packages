@@ -25,10 +25,20 @@ const timeCurrent = document.getElementById('time-current');
 const timeTotal = document.getElementById('time-total');
 const btnPlayPause = document.getElementById('btn-play-pause');
 
+// Visualizer State
+let audioContext;
+let analyser;
+let dataArray;
+let canvas, canvasCtx;
+let animationId;
+
 // Initialization
 window.onload = function() {
     loadSettings();
     setupPlayerEvents();
+    
+    // Set crossOrigin for audio visualization
+    audio.crossOrigin = "anonymous";
     
     // Check for direct file play (Double click from system)
     const urlParams = new URLSearchParams(window.location.search);
@@ -467,6 +477,12 @@ let lyricsTimer = null;
 function play(index) {
     if (index < 0 || index >= playlist.length) return;
     
+    // Init Visualizer on first play
+    initVisualizer();
+    if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
+    
     currentIndex = index;
     const song = playlist[index];
     
@@ -586,6 +602,12 @@ function updateLyricsDisplay() {
 }
 
 function togglePlay() {
+    // Init Visualizer on play
+    initVisualizer();
+    if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
+
     if (audio.paused) {
         audio.play();
         updatePlayPauseIcon(true);
@@ -645,6 +667,63 @@ function toggleLoop() {
     } else {
         btn.style.color = 'white';
         btn.title = "列表循环";
+    }
+}
+
+// Visualizer Functions
+function initVisualizer() {
+    if (audioContext) return; // Already initialized
+
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioContext = new AudioContext();
+        analyser = audioContext.createAnalyser();
+        
+        // Connect audio element
+        const source = audioContext.createMediaElementSource(audio);
+        source.connect(analyser);
+        analyser.connect(audioContext.destination);
+        
+        analyser.fftSize = 128; // Lower size for thicker bars
+        const bufferLength = analyser.frequencyBinCount;
+        dataArray = new Uint8Array(bufferLength);
+        
+        canvas = document.getElementById('visualizer');
+        canvasCtx = canvas.getContext('2d');
+        
+        drawVisualizer();
+    } catch (e) {
+        console.error("Web Audio API not supported or error:", e);
+    }
+}
+
+function drawVisualizer() {
+    animationId = requestAnimationFrame(drawVisualizer);
+    
+    // Check if canvas is visible (lyrics active)
+    if (!document.body.classList.contains('lyrics-active') || !canvas) return;
+    
+    analyser.getByteFrequencyData(dataArray);
+    
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    canvasCtx.clearRect(0, 0, width, height);
+    
+    const barWidth = (width / dataArray.length);
+    let barHeight;
+    let x = 0;
+    
+    for(let i = 0; i < dataArray.length; i++) {
+        barHeight = (dataArray[i] / 255) * height; 
+        
+        // Gradient or solid color
+        canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        
+        // Rounded caps (simulated by just rect for now)
+        canvasCtx.fillRect(x, height - barHeight, barWidth - 2, barHeight);
+        
+        x += barWidth;
     }
 }
 

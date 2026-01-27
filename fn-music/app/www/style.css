@@ -285,6 +285,17 @@ body.lyrics-active #lyrics-panel {
   text-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 
+#visualizer {
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  width: 100%;
+  height: 100px;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
 .current-line {
   font-size: 28px;
   font-weight: bold;
