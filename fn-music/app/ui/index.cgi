@@ -81,6 +81,7 @@ if [ "$REL_PATH" = "/api/music/scan" ]; then
 
 elif [ "$REL_PATH" = "/api/music/config/get" ]; then
     # Get Config
+    TMP_OUTPUT=$(mktemp)
     if bash "$BACKEND_SCRIPT" "get-config" >"$TMP_OUTPUT" 2>/dev/null; then
         echo "Status: 200 OK"
         echo "Content-Type: application/json; charset=utf-8"
