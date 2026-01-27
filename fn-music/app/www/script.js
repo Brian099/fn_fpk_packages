@@ -109,13 +109,65 @@ function saveSettings() {
 function showSection(id) {
     document.querySelectorAll('.section').forEach(el => el.style.display = 'none');
     document.getElementById('section-' + id).style.display = 'flex';
-    document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+    
+    const menuItems = document.querySelectorAll('.menu-item');
+    menuItems.forEach(el => el.classList.remove('active'));
     
     if (id === 'library') {
-        document.querySelector('.menu-item:nth-child(2)').classList.add('active');
-    } else {
-        document.querySelector('.menu-item:nth-child(3)').classList.add('active');
+        menuItems[0].classList.add('active');
+    } else if (id === 'artists') {
+        menuItems[1].classList.add('active');
+        renderArtists();
+    } else if (id === 'settings') {
+        menuItems[2].classList.add('active');
     }
+}
+
+function renderArtists() {
+    const container = document.getElementById('artists-container');
+    
+    // Group by artist
+    const artists = {};
+    allTracks.forEach(track => {
+        const name = track.artist || 'Unknown Artist';
+        if (!artists[name]) {
+            artists[name] = 0;
+        }
+        artists[name]++;
+    });
+    
+    // Sort
+    const sortedArtists = Object.keys(artists).sort((a, b) => {
+        if (a === 'Unknown Artist') return 1;
+        if (b === 'Unknown Artist') return -1;
+        return a.localeCompare(b, 'zh-CN');
+    });
+    
+    container.innerHTML = '';
+    if (sortedArtists.length === 0) {
+        container.innerHTML = '<div style="color:#666; text-align:center; grid-column: 1/-1;">暂无歌手数据，请先扫描音乐。</div>';
+        return;
+    }
+    
+    sortedArtists.forEach(name => {
+        const count = artists[name];
+        const div = document.createElement('div');
+        div.className = 'artist-card';
+        
+        const safeName = escapeHtml(name);
+        const jsName = escapeJs(name);
+        
+        div.innerHTML = `
+            <div class="artist-icon"><i class="layui-icon layui-icon-username"></i></div>
+            <div class="artist-name" title="${safeName}">${safeName}</div>
+            <div class="artist-count">${count} 首歌曲</div>
+        `;
+        div.onclick = () => {
+            showSection('library');
+            filterBy('artist', name);
+        };
+        container.appendChild(div);
+    });
 }
 
 // Library Management

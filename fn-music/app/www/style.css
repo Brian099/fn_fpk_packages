@@ -172,6 +172,53 @@ button:hover {
   color: var(--accent-color);
 }
 
+/* Artists Grid */
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 15px;
+  padding-top: 20px;
+}
+
+.artist-card {
+  background-color: #2a2d2e;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.2s;
+  border: 1px solid transparent;
+}
+
+.artist-card:hover {
+  background-color: #37373d;
+  border-color: var(--accent-color);
+  transform: translateY(-2px);
+}
+
+.artist-icon {
+  font-size: 40px;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+.artist-card:hover .artist-icon {
+  color: var(--accent-color);
+}
+
+.artist-name {
+  font-weight: bold;
+  margin-bottom: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artist-count {
+  font-size: 12px;
+  color: #888;
+}
+
 /* Player Bar */
 #player-bar {
   height: var(--player-height);
