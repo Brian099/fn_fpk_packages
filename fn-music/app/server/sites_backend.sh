@@ -152,16 +152,8 @@ get_lyrics() {
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# Priority: 
-# 1. TRIM_PKGVAR (Environment Variable)
-# 2. /var/apps/fn-music/var (Standard path if env missing)
-# 3. Local config dir (Fallback)
-
-if [ -n "$TRIM_PKGVAR" ]; then
-    CONFIG_DIR="$TRIM_PKGVAR"
-else
-    CONFIG_DIR="/var/apps/fn-music/var"
-fi
+# Force use of app-local config directory as requested
+CONFIG_DIR="$APP_ROOT/config"
 CONFIG_FILE="$CONFIG_DIR/config.json"
 
 get_config() {
