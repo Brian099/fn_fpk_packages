@@ -98,17 +98,20 @@ elif [ "$REL_PATH" = "/api/music/config/get" ]; then
 
 elif [ "$REL_PATH" = "/api/music/config/save" ]; then
     # Save Config
-    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "save-config" >"$TMP_OUTPUT" 2>/dev/null; then
+    STDERR_TMP=$(mktemp)
+    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "save-config" >"$TMP_OUTPUT" 2>"$STDERR_TMP"; then
         echo "Status: 200 OK"
         echo "Content-Type: application/json; charset=utf-8"
         echo ""
         cat "$TMP_OUTPUT"
     else
+        ERR_MSG=$(cat "$STDERR_TMP" | tr '\n' ' ' | sed 's/"/\\"/g')
         echo "Status: 500 Internal Server Error"
         echo "Content-Type: application/json; charset=utf-8"
         echo ""
-        echo '{"ok":false,"error":"Failed to save config"}'
+        echo "{\"ok\":false,\"error\":\"Failed to save config. Script error: $ERR_MSG\"}"
     fi
+    rm -f "$STDERR_TMP"
     rm -f "$TMP_OUTPUT"
     rm -f "$INPUT_TMP"
     exit 0

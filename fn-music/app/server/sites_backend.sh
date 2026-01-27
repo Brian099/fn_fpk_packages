@@ -190,7 +190,10 @@ save_config() {
        if echo "$content" > "$CONFIG_FILE"; then
           echo '{"ok":true}'
        else
-          echo "{\"ok\":false,\"error\":\"Failed to write to '$CONFIG_FILE'. Check permissions.\"}"
+          debug_user=$(id -a)
+          debug_dir=$(ls -ld "$CONFIG_DIR" 2>&1)
+          debug_file=$(ls -l "$CONFIG_FILE" 2>&1)
+          echo "{\"ok\":false,\"error\":\"Failed to write to '$CONFIG_FILE'. Debug: User=[$debug_user] Dir=[$debug_dir] File=[$debug_file]\"}"
        fi
        ;;
     *)
