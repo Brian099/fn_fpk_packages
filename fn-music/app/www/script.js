@@ -475,7 +475,7 @@ function play(index) {
     
     // Update Track Info
     document.getElementById('track-name').innerText = song.name;
-    document.getElementById('track-lyrics').innerText = 'Loading lyrics...';
+    document.getElementById('track-artist').innerText = song.artist || 'Unknown Artist';
     
     // Update Cover
     const coverImg = document.getElementById('cover-art');
@@ -505,7 +505,7 @@ function play(index) {
 
 async function fetchLyrics(path) {
     lyricsData = [];
-    document.getElementById('track-lyrics').innerText = '';
+    // document.getElementById('track-lyrics').innerText = '';
     
     try {
         const res = await fetch(`${apiBase}?api_route=/api/music/lyrics&path=${encodeURIComponent(path)}`);
@@ -513,11 +513,11 @@ async function fetchLyrics(path) {
             const text = await res.text();
             parseLyrics(text);
         } else {
-            document.getElementById('track-lyrics').innerText = 'No lyrics found';
+            // document.getElementById('track-lyrics').innerText = 'No lyrics found';
         }
     } catch (e) {
         console.error('Failed to fetch lyrics', e);
-        document.getElementById('track-lyrics').innerText = '';
+        // document.getElementById('track-lyrics').innerText = '';
     }
 }
 
@@ -542,7 +542,9 @@ function parseLyrics(text) {
     }
     
     if (lyricsData.length === 0) {
-        document.getElementById('track-lyrics').innerText = 'No lyrics available';
+        document.getElementById('large-lyrics').innerHTML = `
+            <div class="current-line" style="font-size:20px; color:#aaa;">纯音乐，请欣赏</div>
+        `;
     }
 }
 
@@ -567,7 +569,7 @@ function updateLyricsDisplay() {
     
     if (currentLineIndex !== -1) {
         const currentText = lyricsData[currentLineIndex].text;
-        document.getElementById('track-lyrics').innerText = currentText;
+        // document.getElementById('track-lyrics').innerText = currentText;
         
         // Update large lyrics
         const nextText = lyricsData[currentLineIndex + 1] ? lyricsData[currentLineIndex + 1].text : '';
