@@ -684,7 +684,7 @@ function initVisualizer() {
         source.connect(analyser);
         analyser.connect(audioContext.destination);
         
-        analyser.fftSize = 128; // Lower size for thicker bars
+        analyser.fftSize = 256; // Increase for smoother curve
         const bufferLength = analyser.frequencyBinCount;
         dataArray = new Uint8Array(bufferLength);
         
@@ -710,21 +710,51 @@ function drawVisualizer() {
     
     canvasCtx.clearRect(0, 0, width, height);
     
-    const barWidth = (width / dataArray.length);
-    let barHeight;
+    // Draw Smooth Ribbon
+    canvasCtx.beginPath();
+    canvasCtx.moveTo(0, height);
+    
+    const sliceWidth = width * 1.0 / (dataArray.length - 1);
     let x = 0;
     
-    for(let i = 0; i < dataArray.length; i++) {
-        barHeight = (dataArray[i] / 255) * height; 
+    // Start Point
+    let v0 = dataArray[0] / 255.0;
+    let y0 = height - (v0 * height * 0.6); // Scale 0.6 to keep it subtle
+    canvasCtx.lineTo(0, y0);
+    
+    for (let i = 0; i < dataArray.length - 1; i++) {
+        const v1 = dataArray[i] / 255.0;
+        const v2 = dataArray[i + 1] / 255.0;
         
-        // Gradient or solid color
-        canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        const y1 = height - (v1 * height * 0.6);
+        const y2 = height - (v2 * height * 0.6);
         
-        // Rounded caps (simulated by just rect for now)
-        canvasCtx.fillRect(x, height - barHeight, barWidth - 2, barHeight);
+        const x1 = i * sliceWidth;
+        const x2 = (i + 1) * sliceWidth;
         
-        x += barWidth;
+        const xMid = (x1 + x2) / 2;
+        const yMid = (y1 + y2) / 2;
+        
+        // Quadratic curve to midpoint ensures smoothness
+        canvasCtx.quadraticCurveTo(x1, y1, xMid, yMid);
     }
+    
+    // End Path
+    canvasCtx.lineTo(width, height);
+    canvasCtx.closePath();
+    
+    // Fill Gradient
+    const gradient = canvasCtx.createLinearGradient(0, height, 0, 0);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.1)');
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0.4)');
+    
+    canvasCtx.fillStyle = gradient;
+    canvasCtx.fill();
+    
+    // Add a stroke line on top
+    canvasCtx.lineWidth = 2;
+    canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    canvasCtx.stroke();
 }
 
 // Audio Events
