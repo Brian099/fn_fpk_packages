@@ -27,7 +27,7 @@ const btnPlayPause = document.getElementById('btn-play-pause');
 
 // Initialization
 window.onload = function() {
-    // loadSettings is async now, so we don't call it here directly in the same way
+    loadSettings();
     setupPlayerEvents();
     
     // Check for direct file play (Double click from system)
@@ -70,9 +70,7 @@ window.onload = function() {
         });
     } else {
         // Normal mode
-        if (directories.length > 0) {
-            rescanAll();
-        }
+        // Managed by loadSettings()
     }
 };
 
@@ -92,17 +90,56 @@ async function scanDirectory(dir) {
     return [];
 }
 
-function loadSettings() {
-    const savedDirs = localStorage.getItem('fn_music_dirs');
-    if (savedDirs) {
-        directories = JSON.parse(savedDirs);
+async function loadSettings() {
+    try {
+        // Try server config first
+        const res = await fetch(`${apiBase}?api_route=/api/music/config/get`);
+        const data = await res.json();
+        
+        let loaded = false;
+        if (data && data.dirs && Array.isArray(data.dirs) && data.dirs.length > 0) {
+            directories = data.dirs;
+            loaded = true;
+        }
+        
+        // Fallback to localStorage if server has no config
+        if (!loaded) {
+            const savedDirs = localStorage.getItem('fn_music_dirs');
+            if (savedDirs) {
+                directories = JSON.parse(savedDirs);
+                // Migrate to server
+                saveSettings();
+            }
+        }
+        
         renderDirList();
+        
+        // Auto scan if not direct play mode
+        const urlParams = new URLSearchParams(window.location.search);
+        if (!urlParams.get('file') && !urlParams.get('path')) {
+             if (directories.length > 0) {
+                 rescanAll();
+             }
+        }
+    } catch (e) {
+        console.error('Failed to load settings', e);
     }
 }
 
-function saveSettings() {
+async function saveSettings() {
+    // Keep localStorage as backup
     localStorage.setItem('fn_music_dirs', JSON.stringify(directories));
     renderDirList();
+    
+    try {
+        const config = { dirs: directories };
+        await fetch(`${apiBase}?api_route=/api/music/config/save`, {
+            method: 'POST',
+            body: JSON.stringify(config)
+        });
+    } catch (e) {
+        console.error('Failed to save settings to server', e);
+    }
 }
 
 // Navigation
