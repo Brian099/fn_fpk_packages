@@ -152,11 +152,15 @@ get_lyrics() {
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# Priority: TRIM_PKGVAR > Local config dir
+# Priority: 
+# 1. TRIM_PKGVAR (Environment Variable)
+# 2. /var/apps/fn-music/var (Standard path if env missing)
+# 3. Local config dir (Fallback)
+
 if [ -n "$TRIM_PKGVAR" ]; then
     CONFIG_DIR="$TRIM_PKGVAR"
 else
-    CONFIG_DIR="$APP_ROOT/config"
+    CONFIG_DIR="/var/apps/fn-music/var"
 fi
 CONFIG_FILE="$CONFIG_DIR/config.json"
 
@@ -175,7 +179,7 @@ save_config() {
   
   if [ ! -d "$CONFIG_DIR" ]; then
     if ! mkdir -p "$CONFIG_DIR"; then
-        echo "{\"ok\":false,\"error\":\"Failed to create directory $CONFIG_DIR\"}"
+        echo "{\"ok\":false,\"error\":\"Failed to create directory '$CONFIG_DIR'. (TRIM_PKGVAR='$TRIM_PKGVAR')\"}"
         return 0
     fi
   fi
@@ -186,7 +190,7 @@ save_config() {
        if echo "$content" > "$CONFIG_FILE"; then
           echo '{"ok":true}'
        else
-          echo "{\"ok\":false,\"error\":\"Failed to write to $CONFIG_FILE\"}"
+          echo "{\"ok\":false,\"error\":\"Failed to write to '$CONFIG_FILE'. Check permissions.\"}"
        fi
        ;;
     *)
