@@ -258,7 +258,7 @@ body.lyrics-active #lyrics-panel {
   top: 0; left: 0; right: 0; bottom: 0;
   /* Top gradient for blending with list area, radial gradient for vignette */
   background: 
-    linear-gradient(to bottom, var(--bg-color) 0%, rgba(30,30,30,0) 25%),
+    linear-gradient(to bottom, var(--bg-color) 0%, rgba(30,30,30,0) 100%),
     radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0.6) 100%);
   z-index: 1;
   pointer-events: none;
