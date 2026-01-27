@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -x
 # Music Scanning Function
 scan_music_json() {
   # Read raw body from stdin
