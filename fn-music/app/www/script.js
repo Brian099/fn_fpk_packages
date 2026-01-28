@@ -746,7 +746,8 @@ async function fetchLyrics(path) {
 
 function parseLyrics(text) {
     const lines = text.split('\n');
-    const regex = /^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/;
+    // Support [mm:ss.xx] or [mm:ss]
+    const regex = /^\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\](.*)/;
     
     lyricsData = [];
     
@@ -755,7 +756,8 @@ function parseLyrics(text) {
         if (match) {
             const min = parseInt(match[1]);
             const sec = parseInt(match[2]);
-            const ms = parseInt(match[3].padEnd(3, '0')); // Handle 2 or 3 digit ms
+            const msStr = match[3] || '00';
+            const ms = parseInt(msStr.padEnd(3, '0'));
             const time = min * 60 + sec + ms / 1000;
             const text = match[4].trim();
             if (text) {

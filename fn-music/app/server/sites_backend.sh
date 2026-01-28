@@ -221,16 +221,62 @@ get_cover() {
   fi
 }
 
+ensure_utf8() {
+  local file="$1"
+  if command -v iconv >/dev/null 2>&1; then
+     # Check if valid UTF-8 by trying to convert to itself.
+     # If it fails, it's likely not UTF-8 (or broken).
+     if iconv -f UTF-8 -t UTF-8 "$file" >/dev/null 2>&1; then
+         cat "$file"
+     else
+         # Try GB18030 (covers GBK, GB2312) -> UTF-8
+         # If that fails too, just cat the original
+         iconv -f GB18030 -t UTF-8 "$file" 2>/dev/null || cat "$file"
+     fi
+  else
+     cat "$file"
+  fi
+}
+
 get_lyrics() {
   file_path=$(cat)
   file_path=$(printf '%s' "$file_path" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
   
-  lrc_file="${file_path%.*}.lrc"
-  if [ -f "$lrc_file" ]; then
-    cat "$lrc_file"
+  dir_path=$(dirname "$file_path")
+  base_name=$(basename "$file_path")
+  name_no_ext="${base_name%.*}"
+  
+  # Check candidates in order
+  # 1. Exact match .lrc
+  if [ -f "${dir_path}/${name_no_ext}.lrc" ]; then
+    ensure_utf8 "${dir_path}/${name_no_ext}.lrc"
+    return
+  fi
+  
+  # 2. Uppercase .LRC
+  if [ -f "${dir_path}/${name_no_ext}.LRC" ]; then
+    ensure_utf8 "${dir_path}/${name_no_ext}.LRC"
+    return
+  fi
+  
+  # 3. .txt
+  if [ -f "${dir_path}/${name_no_ext}.txt" ]; then
+    ensure_utf8 "${dir_path}/${name_no_ext}.txt"
     return
   fi
 
+  # 4. Lyrics/ subdir (exact match)
+  if [ -f "${dir_path}/Lyrics/${name_no_ext}.lrc" ]; then
+    ensure_utf8 "${dir_path}/Lyrics/${name_no_ext}.lrc"
+    return
+  fi
+
+  # 5. lyrics/ subdir (lowercase)
+  if [ -f "${dir_path}/lyrics/${name_no_ext}.lrc" ]; then
+    ensure_utf8 "${dir_path}/lyrics/${name_no_ext}.lrc"
+    return
+  fi
+  
   if command -v ffprobe >/dev/null 2>&1; then
       # Use python for robust extraction if available
       if command -v python3 >/dev/null 2>&1; then
