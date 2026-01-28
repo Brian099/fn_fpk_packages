@@ -128,7 +128,23 @@ async function loadSettings() {
         const urlParams = new URLSearchParams(window.location.search);
         if (!urlParams.get('file') && !urlParams.get('path')) {
              if (directories.length > 0) {
-                 rescanAll();
+                 try {
+                     const libRes = await fetch(`${apiBase}?api_route=/api/music/library/get`);
+                     const libData = await libRes.json();
+                     if (libData && libData.ok && libData.tracks) {
+                         allTracks = libData.tracks;
+                         playlist = [...allTracks];
+                         document.getElementById('library-status').innerText = `共 ${playlist.length} 首歌曲`;
+                         renderPlaylist();
+                         
+                         // Silent background sync to detect new/deleted files
+                         rescanAll(true);
+                     } else {
+                         rescanAll();
+                     }
+                 } catch (e) {
+                     rescanAll();
+                 }
              }
         }
     } catch (e) {
@@ -327,8 +343,10 @@ function addManualDir() {
 const ITEMS_PER_PAGE = 50;
 let currentPage = 1;
 
-async function rescanAll() {
-    document.getElementById('library-status').innerText = '正在快速扫描文件...';
+async function rescanAll(isSilent = false) {
+    if (!isSilent) {
+        document.getElementById('library-status').innerText = '正在快速扫描文件...';
+    }
     
     // Create a map of existing tracks to preserve metadata
     const existingMap = new Map();
@@ -348,8 +366,7 @@ async function rescanAll() {
                 // Merge: Use existing metadata if available, otherwise use new file info
                 const merged = data.files.map(f => {
                     if (existingMap.has(f.path)) {
-                        // Keep existing metadata, but maybe update name if needed? 
-                        // For now just keep the existing object to preserve duration/artist/etc.
+                        // Keep existing metadata
                         return existingMap.get(f.path);
                     }
                     return f;
@@ -361,11 +378,37 @@ async function rescanAll() {
         }
     }
     
+    // Check if anything changed
+    const currentPaths = new Set(allTracks.map(t => t.path));
+    const newPaths = new Set(newAllTracks.map(t => t.path));
+    let hasChanges = false;
+    
+    if (currentPaths.size !== newPaths.size) {
+        hasChanges = true;
+    } else {
+        for (const p of newPaths) {
+            if (!currentPaths.has(p)) {
+                hasChanges = true;
+                break;
+            }
+        }
+    }
+    
+    if (!hasChanges) {
+        // Just update status and return
+        if (!isSilent) {
+            document.getElementById('library-status').innerText = `共 ${playlist.length} 首歌曲`;
+        }
+        return;
+    }
+    
     allTracks = newAllTracks;
     playlist = [...allTracks];
     
-    // Reset to page 1
-    currentPage = 1;
+    // Reset to page 1 if not silent or if list was empty
+    if (!isSilent || existingMap.size === 0) {
+        currentPage = 1;
+    }
     
     // Re-apply search filter if any
     const searchInput = document.getElementById('search-input');
