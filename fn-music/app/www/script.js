@@ -1051,7 +1051,7 @@ async function loadBrowserPath(path) {
                     const btn = document.createElement('button');
                     btn.className = 'layui-btn layui-btn-xs layui-btn-normal';
                     btn.style.float = 'right';
-                    btn.innerText = 'Select';
+                    btn.innerText = '选择';
                     btn.onclick = (e) => {
                         e.stopPropagation();
                         addDirectory(data.current === '/' ? `/${dir}` : `${data.current}/${dir}`);
