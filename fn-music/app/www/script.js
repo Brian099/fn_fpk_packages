@@ -746,25 +746,45 @@ async function fetchLyrics(path) {
 
 function parseLyrics(text) {
     const lines = text.split('\n');
-    // Support [mm:ss.xx] or [mm:ss]
-    const regex = /^\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\](.*)/;
-    
     lyricsData = [];
     
     for (const line of lines) {
-        const match = line.match(regex);
-        if (match) {
-            const min = parseInt(match[1]);
-            const sec = parseInt(match[2]);
-            const msStr = match[3] || '00';
-            const ms = parseInt(msStr.padEnd(3, '0'));
-            const time = min * 60 + sec + ms / 1000;
-            const text = match[4].trim();
-            if (text) {
-                lyricsData.push({ time, text });
+        let l = line.trim();
+        const timestamps = [];
+        
+        // Extract all leading timestamps
+        while (true) {
+            // Match [mm:ss.xx] or [mm:ss] at the start
+            const match = /^\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]/.exec(l);
+            if (match) {
+                const min = parseInt(match[1]);
+                const sec = parseInt(match[2]);
+                const msStr = match[3] || '00';
+                const ms = parseInt(msStr.padEnd(3, '0'));
+                const time = min * 60 + sec + ms / 1000;
+                timestamps.push(time);
+                
+                // Remove this timestamp from the string
+                l = l.substring(match[0].length);
+            } else {
+                break;
+            }
+        }
+        
+        if (timestamps.length > 0) {
+            // Remove any remaining timestamps from the content (karaoke word-level timestamps)
+            const content = l.replace(/\[\d{2}:\d{2}(?:\.\d{2,3})?\]/g, '').trim();
+            
+            if (content) {
+                timestamps.forEach(time => {
+                    lyricsData.push({ time, text: content });
+                });
             }
         }
     }
+    
+    // Sort by time
+    lyricsData.sort((a, b) => a.time - b.time);
     
     if (lyricsData.length === 0) {
         document.getElementById('large-lyrics').innerHTML = `
