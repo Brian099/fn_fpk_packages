@@ -98,3 +98,57 @@ jobs:
           tag: ${{ env.TAG }}
           artifacts: "*.fpk"
           bodyFile: "apps-list.md"
+
+      - name: Upload to FnDepot Repository
+        if: success() && !cancelled()
+        run: |
+          echo "Uploading fpk files to FnDepot repository..."
+          
+          # 设置 Git 配置
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          
+          # 克隆目标仓库（使用 RELEASE token）
+          git clone "https://${{ secrets.RELEASE }}@github.com/${{ github.actor }}/FnDepot.git" fndepot-repo
+          cd fndepot-repo
+          
+          # 处理每个 fpk 文件
+          for FPK_FILE in ../*.fpk; do
+            if [ -f "$FPK_FILE" ]; then
+              # 从文件名提取应用名称（移除版本号）
+              # 支持两种格式：webops-v1.0.0.fpk 和 webops_v1.0.0.fpk
+              BASENAME=$(basename "$FPK_FILE" .fpk)
+              
+              # 提取应用名称（移除版本号部分）
+              if [[ "$BASENAME" =~ _v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                # 格式: webops_v1.0.0
+                APPNAME=$(echo "$BASENAME" | sed 's/_v[0-9]\+\.[0-9]\+\.[0-9]\+$//')
+              elif [[ "$BASENAME" =~ -v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                # 格式: webops-v1.0.0
+                APPNAME=$(echo "$BASENAME" | sed 's/-v[0-9]\+\.[0-9]\+\.[0-9]\+$//')
+              else
+                # 如果没有版本号，直接使用基本名称
+                APPNAME="$BASENAME"
+              fi
+              
+              echo "Processing: $BASENAME.fpk -> $APPNAME/$APPNAME.fpk"
+              
+              # 创建应用目录（如果不存在）
+              mkdir -p "$APPNAME"
+              
+              # 复制文件到目标目录并重命名为 appname.fpk
+              cp "$FPK_FILE" "$APPNAME/$APPNAME.fpk"
+              
+              echo "Copied $BASENAME.fpk to $APPNAME/$APPNAME.fpk"
+            fi
+          done
+          
+          # 提交并推送到目标仓库
+          git add .
+          if git diff-index --quiet HEAD; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update fpk files from ${{ github.repository }} - ${{ env.TAG }}"
+            git push origin main
+            echo "Successfully uploaded to FnDepot repository"
+          fi
