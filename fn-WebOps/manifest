@@ -1,7 +1,7 @@
 appname               = webops
 version               = 1.0.0
 display_name          = WebOps
-desc                  = 可视化网页配置工具。
+desc                  = WebOps 是一款专为飞牛 NAS 系统 (fnOS) 设计的轻量级可视化 Web 环境配置与管理工具。它通过直观的 Web 界面，帮助用户轻松管理 Nginx、PHP、数据库以及网站站点，无需繁琐的命令行操作。
 platform              = all
 source                = thirdparty
 desktop_uidir         = ui

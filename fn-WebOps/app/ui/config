@@ -1,7 +1,7 @@
 {
   ".url": {
     "webops.Application": {
-      "title": "webops",
+      "title": "WebOps",
       "icon": "images/icon_{0}.png",
       "type": "iframe",
       "url": "/cgi/ThirdParty/webops/index.cgi/",
