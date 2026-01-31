@@ -393,6 +393,7 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
 
   // --- Directory Selector ---
   var currentDirInputId = "";
+  var dirSelectorIndex;
   $('#btn-browse-root').click(function(){
       currentDirInputId = "input-root-path";
       openDirSelector($('#input-root-path').val());
@@ -400,7 +401,7 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
 
   function openDirSelector(initialPath) {
       loadDirs(initialPath || "/");
-      layer.open({ type: 1, title: '选择目录', content: $('#tpl-dir-selector'), area: ['500px', '400px'] });
+      dirSelectorIndex = layer.open({ type: 1, title: '选择目录', content: $('#tpl-dir-selector'), area: ['500px', '400px'] });
   }
 
   $('#btn-dir-up').click(function(){
@@ -413,7 +414,7 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
   $('#btn-dir-confirm').click(function(){
       var selected = $('#dir-selector-current').val();
       if(currentDirInputId) $('#'+currentDirInputId).val(selected);
-      layer.closeAll('page');
+      if(dirSelectorIndex) layer.close(dirSelectorIndex);
   });
 
   function loadDirs(path) {
