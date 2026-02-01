@@ -36,6 +36,56 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
     });
   }
 
+  // --- Install Log Helper ---
+  function showInstallLog(type, api, body, successMsg, callback) {
+      var logContent = "";
+      var logLayer = layer.open({
+          type: 1,
+          title: '安装进度日志',
+          area: ['800px', '600px'],
+          content: '<div style="padding:10px;background:#333;color:#eee;height:100%;box-sizing:border-box;overflow:auto;"><pre id="install-log-content" style="white-space:pre-wrap;word-break:break-all;font-family:monospace;"></pre></div>',
+          btn: ['关闭'],
+          yes: function(index){
+              layer.close(index);
+          }
+      });
+
+      var logInterval = setInterval(function(){
+          fetch(apiBase + "/api/install/log", {
+              method: "POST",
+              body: "type=" + type
+          }).then(r=>r.json()).then(d=>{
+              if(d.ok && d.log) {
+                  $('#install-log-content').text(d.log);
+                  var div = $('#install-log-content').parent()[0];
+                  div.scrollTop = div.scrollHeight;
+              }
+          });
+      }, 1000);
+
+      // Start actual install
+      fetch(apiBase + api, {
+          method: "POST",
+          body: body,
+          headers: {"Content-Type": "text/plain"}
+      }).then(r=>r.json()).then(data => {
+          clearInterval(logInterval);
+          // Fetch log one last time
+          fetch(apiBase + "/api/install/log", {method: "POST", body: "type=" + type})
+             .then(r=>r.json()).then(d=>{ if(d.ok && d.log) $('#install-log-content').text(d.log); });
+             
+          if(data.ok) {
+              layer.msg(successMsg, {icon: 1});
+              if(callback) callback(data);
+          } else {
+              layer.alert("安装失败: " + (data.error || "未知错误") + "<br>请查看日志", {icon: 2});
+          }
+      }).catch(err => {
+          clearInterval(logInterval);
+          layer.alert("请求失败: " + err.message, {icon: 2});
+      });
+  }
+
   // --- Navigation Logic ---
   $('.layui-nav-item a').click(function(){
       var id = $(this).data('id');
@@ -75,8 +125,7 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
               $('#btn-install-nginx').click(function(){
                   layer.confirm('确认安装 Nginx?', function(i){
                       layer.close(i);
-                      el.html('<i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 安装中...');
-                      apiPost("/api/nginx/install", "", "安装完成", loadStatus);
+                      showInstallLog('nginx', "/api/nginx/install", "", "安装完成", loadStatus);
                   });
               });
           }
@@ -94,8 +143,7 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
               $('#btn-install-php').click(function(){
                   layer.confirm('确认安装 PHP?', function(i){
                       layer.close(i);
-                      el.html('<i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 安装中...');
-                      apiPost("/api/php/install", "", "安装完成", loadStatus);
+                      showInstallLog('php', "/api/php/install", "", "安装完成", loadStatus);
                   });
               });
           }
@@ -227,7 +275,7 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
       if(obj.event === 'install'){
           layer.confirm('安装插件 '+data.name+'?', function(i){
               layer.close(i);
-              apiPost("/api/php/install", data.name, "安装完成", function(){ loadPluginTable(); });
+              showInstallLog('php', "/api/php/install", data.name, "安装完成", function(){ loadPluginTable(); });
           });
       } else if(obj.event === 'uninstall'){
           layer.confirm('卸载插件 '+data.name+'?', function(i){
@@ -241,7 +289,7 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
       var allPkgs = defaultPhpExtensions.split('\n').filter(x=>x.trim());
       layer.confirm('确定安装所有推荐插件?', function(i){
           layer.close(i);
-          apiPost("/api/php/install", allPkgs.join('\n'), "批量安装完成", function(){ loadPluginTable(); });
+          showInstallLog('php', "/api/php/install", allPkgs.join('\n'), "批量安装完成", function(){ loadPluginTable(); });
       });
   });
 
@@ -250,7 +298,7 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
       if(!name) return layer.msg('请输入包名');
       layer.confirm('安装自定义插件 '+name+'?', function(i){
           layer.close(i);
-          apiPost("/api/php/install", name, "安装完成", function(){ loadPluginTable(); });
+          showInstallLog('php', "/api/php/install", name, "安装完成", function(){ loadPluginTable(); });
       });
   });
 

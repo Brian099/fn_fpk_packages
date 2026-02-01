@@ -1132,6 +1132,29 @@ EOF
   fi
 }
 
+get_install_log_json() {
+  if [ -n "$CONTENT_LENGTH" ] && [ "$CONTENT_LENGTH" -gt 0 ] 2>/dev/null; then
+    input=$(dd bs=1 count="$CONTENT_LENGTH" 2>/dev/null || cat)
+  fi
+  
+  log_type=$(echo "$input" | grep "^type=" | cut -d= -f2- | tr -d '\r')
+  
+  log_file=""
+  if [ "$log_type" = "nginx" ]; then
+    log_file="/tmp/webops_nginx_install.log"
+  elif [ "$log_type" = "php" ]; then
+    log_file="/tmp/webops_php_install.log"
+  fi
+  
+  if [ -n "$log_file" ] && [ -f "$log_file" ]; then
+    # Get last 2000 chars
+    content=$(tail -c 2000 "$log_file" | sed 's/\\/\\\\/g; s/"/\\"/g; s/$/\\n/' | tr -d '\n' | tr -d '\r')
+    printf '{"ok":true,"log":"%s"}' "$content"
+  else
+    printf '{"ok":true,"log":""}'
+  fi
+}
+
 case "$1" in
   list-sites-json)
     list_sites_json
@@ -1189,6 +1212,9 @@ case "$1" in
     ;;
   php-remove)
     php_remove_json
+    ;;
+  get-install-log)
+    get_install_log_json
     ;;
   *)
     echo '{"error":"unsupported action"}'
