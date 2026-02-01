@@ -72,7 +72,18 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
           clearInterval(logInterval);
           // Fetch log one last time
           fetch(apiBase + "/api/install/log", {method: "POST", body: "type=" + type})
-             .then(r=>r.json()).then(d=>{ if(d.ok && d.log) $('#install-log-content').text(d.log); });
+             .then(r=>r.json()).then(d=>{ 
+                 if(d.ok && d.log) {
+                     $('#install-log-content').text(d.log);
+                     if(data.ok) {
+                         $('#install-log-content').append('\n\n[SUCCESS] ' + successMsg);
+                     } else {
+                         $('#install-log-content').append('\n\n[ERROR] ' + (data.error || "安装失败"));
+                     }
+                     var div = $('#install-log-content').parent()[0];
+                     div.scrollTop = div.scrollHeight;
+                 }
+             });
              
           if(data.ok) {
               layer.msg(successMsg, {icon: 1});
