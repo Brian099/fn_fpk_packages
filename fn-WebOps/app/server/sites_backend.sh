@@ -355,9 +355,16 @@ EOF
       reload_nginx_safe
       echo '{"ok":true,"message":"site created"}'
   else
+      # Config check failed - Immediate Rollback
       rm -f "/etc/nginx/sites-enabled/$site_name"
       rm -f "$config_file"
-      echo '{"ok":false,"error":"Nginx configuration test failed. Rolled back."}'
+      
+      # Also remove info files if they were created (though usually kept for data safety, 
+      # but if site creation failed due to config error, we should probably clean up to avoid "ghost" sites)
+      # However, user might have important data in root dir if they chose an existing dir.
+      # So we only delete the nginx config files, not the data directory.
+      
+      echo '{"ok":false,"error":"Nginx configuration test failed (likely invalid rewrite rules). Site deleted."}'
       return 0
   fi
 }
@@ -691,15 +698,15 @@ update_site_port_json() {
       return 0
   fi
 
-  config_file="/etc/nginx/sites-available/$site_name"
-  if [ ! -f "$config_file" ]; then
+  old_config_file="/etc/nginx/sites-available/$site_name"
+  if [ ! -f "$old_config_file" ]; then
       echo '{"ok":false,"error":"site configuration not found"}'
       return 0
   fi
   
   # 1. Get current ports
-  old_port=$(grep "listen" "$config_file" | grep -v "ssl" | grep -v "\[::\]" | awk '{print $2}' | tr -d ';' | head -1)
-  old_port_https=$(grep "listen" "$config_file" | grep "ssl" | grep -v "\[::\]" | awk '{print $2}' | tr -d ';' | head -1)
+  old_port=$(grep "listen" "$old_config_file" | grep -v "ssl" | grep -v "\[::\]" | awk '{print $2}' | tr -d ';' | head -1)
+  old_port_https=$(grep "listen" "$old_config_file" | grep "ssl" | grep -v "\[::\]" | awk '{print $2}' | tr -d ';' | head -1)
 
   # 2. Check conflicts (only if ports changed)
   if [ "$new_port" != "$old_port" ]; then
@@ -720,88 +727,112 @@ update_site_port_json() {
       fi
   fi
 
-  # 3. Update Configuration
-  # Update HTTP Port
-  if [ -n "$old_port" ] && [ "$new_port" != "$old_port" ]; then
-      sed -i "s/listen $old_port/listen $new_port/g" "$config_file"
-      sed -i "s/listen \[::\]:$old_port/listen [::]:$new_port/g" "$config_file"
+  # 3. Determine New Site Name and Config File
+  final_site_name="$site_name"
+  if [[ "$site_name" =~ ^port_[0-9]+$ ]] && [ "$new_port" != "$old_port" ]; then
+      new_site_name="port_${new_port}"
+  else
+      new_site_name="$site_name"
   fi
   
-  # Update HTTPS Port
+  new_config_file="/etc/nginx/sites-available/$new_site_name"
+  
+  # Safety check: if new file exists and it's NOT the same as old file
+  if [ "$new_config_file" != "$old_config_file" ] && [ -f "$new_config_file" ]; then
+      echo "{\"ok\":false,\"error\":\"Target config file $new_site_name already exists\"}"
+      return 0
+  fi
+
+  # 4. Create New Config (Copy Logic)
+  if [ "$new_config_file" != "$old_config_file" ]; then
+      cp "$old_config_file" "$new_config_file"
+      temp_cleanup_file="$new_config_file"
+      backup_file=""
+  else
+      cp "$old_config_file" "${old_config_file}.bak"
+      temp_cleanup_file=""
+      backup_file="${old_config_file}.bak"
+  fi
+
+  # 5. Modify New Config (In Place on new_config_file)
+  if [ -n "$old_port" ] && [ "$new_port" != "$old_port" ]; then
+      sed -i "s/listen $old_port/listen $new_port/g" "$new_config_file"
+      sed -i "s/listen \[::\]:$old_port/listen [::]:$new_port/g" "$new_config_file"
+  fi
+  
   if [ -n "$new_port_https" ]; then
        if [ -n "$old_port_https" ] && [ "$new_port_https" != "$old_port_https" ]; then
-          sed -i "s/listen $old_port_https/listen $new_port_https/g" "$config_file"
-          sed -i "s/listen \[::\]:$old_port_https/listen [::]:$new_port_https/g" "$config_file"
+          sed -i "s/listen $old_port_https/listen $new_port_https/g" "$new_config_file"
+          sed -i "s/listen \[::\]:$old_port_https/listen [::]:$new_port_https/g" "$new_config_file"
           
-          # Update Cert Reference if it follows the pattern
-          # Pattern: _sslPORT.pem
-          if grep -q "_ssl${old_port_https}" "$config_file"; then
-              sed -i "s/_ssl${old_port_https}/_ssl${new_port_https}/g" "$config_file"
-              
-              # Generate new cert placeholder
-              # We need to guess the cert path. 
-              # In create_site_json: ssl_cert="/etc/nginx/certs/${site_name}_ssl${port_https}.pem"
-              # NOTE: site_name might change later if we rename, but currently it is $site_name.
-              # If we rename site later, we should probably generate cert with NEW name?
-              # But let's stick to current name for cert generation for now, or handle it after rename?
-              # If we rename site, the cert filename in config must also be updated.
-              # Let's do cert generation AFTER rename if possible, or here.
-              # Actually, if we rename the site, the config file content will still refer to OLD name in cert path unless we update it.
+          if grep -q "_ssl${old_port_https}" "$new_config_file"; then
+              sed -i "s/_ssl${old_port_https}/_ssl${new_port_https}/g" "$new_config_file"
           fi
        fi
   fi
   
-  # 4. Handle Site Renaming (if port-based)
-  final_site_name="$site_name"
-  if [[ "$site_name" =~ ^port_[0-9]+$ ]] && [ "$new_port" != "$old_port" ]; then
-      new_site_name="port_${new_port}"
-      if [ ! -f "/etc/nginx/sites-available/$new_site_name" ]; then
-          mv "$config_file" "/etc/nginx/sites-available/$new_site_name"
-          rm -f "/etc/nginx/sites-enabled/$site_name"
-          ln -sf "/etc/nginx/sites-available/$new_site_name" "/etc/nginx/sites-enabled/$new_site_name"
-          config_file="/etc/nginx/sites-available/$new_site_name"
-          final_site_name="$new_site_name"
-          
-          # Update website_info.txt
-          root_dir=$(grep "root" "$config_file" | head -1 | awk '{print $2}' | tr -d ';')
-          if [ -f "$root_dir/website_info.txt" ]; then
-             sed -i "s/网站名称: $site_name/网站名称: $new_site_name/" "$root_dir/website_info.txt"
-          fi
-          
-          # If we renamed the site, we might want to update cert paths in config if they used the site name
-          # create_site_json used: ${site_name}_ssl${port_https}
-          # So old config has: port_8080_ssl8443
-          # New config should have: port_8081_ssl8443
-          if [ -n "$new_port_https" ]; then
-             # Replace old site name in cert paths
-             sed -i "s/${site_name}_ssl/${new_site_name}_ssl/g" "$config_file"
-             
-             # Now generate the new cert
-             ssl_cert="/etc/nginx/certs/${new_site_name}_ssl${new_port_https}.pem"
-             ssl_key="/etc/nginx/certs/${new_site_name}_ssl${new_port_https}.key"
-             create_certificate_placeholder "$ssl_cert" "$ssl_key" "localhost"
-          fi
+  # Update Site Name in Config & Certs
+  if [ "$new_site_name" != "$site_name" ]; then
+      sed -i "s/${site_name}_ssl/${new_site_name}_ssl/g" "$new_config_file"
+      
+      if [ -n "$new_port_https" ]; then
+           ssl_cert="/etc/nginx/certs/${new_site_name}_ssl${new_port_https}.pem"
+           ssl_key="/etc/nginx/certs/${new_site_name}_ssl${new_port_https}.key"
+           if [ ! -f "$ssl_cert" ]; then
+               create_certificate_placeholder "$ssl_cert" "$ssl_key" "localhost"
+           fi
       fi
-  elif [ -n "$new_port_https" ] && [ "$new_port_https" != "$old_port_https" ]; then
-      # If not renaming site, but changed HTTPS port, and using patterned certs
-      # We already updated config to point to _sslNEWPORT
-      # We need to generate that cert.
-      # Check if config uses site_name based certs
-      if grep -q "${site_name}_ssl${new_port_https}" "$config_file"; then
-           ssl_cert="/etc/nginx/certs/${site_name}_ssl${new_port_https}.pem"
-           ssl_key="/etc/nginx/certs/${site_name}_ssl${new_port_https}.key"
-           create_certificate_placeholder "$ssl_cert" "$ssl_key" "localhost"
+      
+      root_dir=$(grep "root" "$new_config_file" | head -1 | awk '{print $2}' | tr -d ';')
+      if [ -f "$root_dir/website_info.txt" ]; then
+          sed -i "s/网站名称: $site_name/网站名称: $new_site_name/" "$root_dir/website_info.txt"
+      fi
+  else
+      if [ -n "$new_port_https" ] && [ "$new_port_https" != "$old_port_https" ]; then
+          if grep -q "${site_name}_ssl${new_port_https}" "$new_config_file"; then
+               ssl_cert="/etc/nginx/certs/${site_name}_ssl${new_port_https}.pem"
+               ssl_key="/etc/nginx/certs/${site_name}_ssl${new_port_https}.key"
+               if [ ! -f "$ssl_cert" ]; then
+                   create_certificate_placeholder "$ssl_cert" "$ssl_key" "localhost"
+               fi
+          fi
       fi
   fi
+
+  # 6. Switch Links & Test
+  rm -f "/etc/nginx/sites-enabled/$site_name"
+  ln -sf "$new_config_file" "/etc/nginx/sites-enabled/$new_site_name"
   
-  # 5. Reload
   if nginx -t > /dev/null 2>&1; then
       reload_nginx_safe
+      
+      # Success! Cleanup
+      if [ -n "$temp_cleanup_file" ]; then
+          rm -f "$old_config_file"
+      fi
+      if [ -n "$backup_file" ]; then
+          rm -f "$backup_file"
+      fi
+      
       echo '{"ok":true,"message":"site updated"}'
   else
-      # Simple Rollback Attempt (Revert rename if happened)
-      # Not implementing full rollback for simplicity, just error.
-      echo '{"ok":false,"error":"Nginx configuration test failed. Please check logs."}'
+      # Failure! Rollback
+      rm -f "/etc/nginx/sites-enabled/$new_site_name"
+      ln -sf "$old_config_file" "/etc/nginx/sites-enabled/$site_name"
+      
+      if [ -n "$temp_cleanup_file" ]; then
+          rm -f "$temp_cleanup_file"
+          # Revert info file
+          root_dir=$(grep "root" "$old_config_file" | head -1 | awk '{print $2}' | tr -d ';')
+          if [ -n "$root_dir" ] && [ -f "$root_dir/website_info.txt" ]; then
+               sed -i "s/网站名称: $new_site_name/网站名称: $site_name/" "$root_dir/website_info.txt"
+          fi
+      fi
+      if [ -n "$backup_file" ]; then
+          mv "$backup_file" "$old_config_file"
+      fi
+      
+      echo '{"ok":false,"error":"Nginx configuration test failed. Reverted to old config."}'
       return 0
   fi
 }
