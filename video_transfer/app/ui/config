@@ -1,0 +1,13 @@
+{
+  ".url": {
+    "video_transfer.Application": {
+      "title": "Video Transfer",
+      "icon": "images/icon_{0}.png",
+      "type": "url",
+      "protocol": "http",
+      "port": "8087",
+      "url": "/",
+      "allUsers": false
+    }
+  }
+}

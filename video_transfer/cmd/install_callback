@@ -1,0 +1,35 @@
+#!/bin/bash
+
+### This script is called after the user installs the application.
+
+# 切换到 docker 目录以执行 setup.sh
+cd "${TRIM_APPDEST}/docker"
+
+if [ -f "setup.sh" ]; then
+    echo "Executing setup.sh for installation configuration..."
+    # 只需要生成配置，不需要启动（启动由 start 脚本控制）
+    # 修改 setup.sh 行为或者在此处只运行生成部分？
+    # 目前的 setup.sh 包含启动命令。
+    # 为了避免安装时启动（通常不建议），我们应该只运行生成配置的部分。
+    # 但如果必须复用 setup.sh，就让它运行吧，或者让 setup.sh 接受参数。
+    
+    # 简单方案：直接运行，让配置就绪。
+    # 注意：install_callback 运行时 docker 服务可能还未就绪或者不应该启动容器。
+    # 通常 install_callback 只做文件和配置处理。
+    
+    # 暂时只执行 setup.sh，如果它包含启动，可能会失败或成功启动，视环境而定。
+    # 更稳妥的做法是修改 setup.sh 增加一个 flag "generate-only"
+    # 或者我们假设 setup.sh 里的 docker compose up -d 即使失败也不影响 install_callback 的退出码（除非 set -e）
+    
+    /bin/bash setup.sh
+    if [ $? -ne 0 ]; then
+        echo "setup.sh failed"
+        # 即使失败，为了不打断安装流程，可能选择 exit 0，但最好报错
+        exit 1
+    fi
+else
+    echo "setup.sh not found"
+    exit 1
+fi
+
+exit 0

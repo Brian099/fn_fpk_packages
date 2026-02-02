@@ -1,0 +1,59 @@
+#!/bin/bash
+
+FILE_PATH="${TRIM_APPDEST}/docker/docker-compose.yaml"
+
+is_docker_running () {
+    DOCKER_NAME=""
+
+    if [ -f "$FILE_PATH" ]; then
+        DOCKER_NAME=$(cat $FILE_PATH | grep "container_name" | awk -F ':' '{print $2}' | xargs)
+        echo "DOCKER_NAME is set to: $DOCKER_NAME"
+    fi
+
+    if [ -n "$DOCKER_NAME" ]; then
+        docker inspect $DOCKER_NAME | grep -q "\"Status\": \"running\"," || exit 1
+        return
+    fi
+}
+
+case $1 in
+start)
+    # run start command. exit 0 if success, exit 1 if failed
+    
+    # 切换到 docker 目录以执行 setup.sh
+    cd "${TRIM_APPDEST}/docker"
+    
+    if [ -f "setup.sh" ]; then
+        echo "Executing setup.sh..."
+        /bin/bash setup.sh
+        if [ $? -ne 0 ]; then
+            echo "setup.sh failed"
+            exit 1
+        fi
+    else
+        echo "setup.sh not found at ${TRIM_APPDEST}/docker/setup.sh"
+        exit 1
+    fi
+
+    exit 0
+    ;;
+stop)
+    # run stop command. exit 0 if success, exit 1 if failed
+    # do nothing, docker application will be stopped by appcenter
+    # 或者如果需要显式停止：
+    # cd "${TRIM_APPDEST}/docker" && docker-compose down
+    exit 0
+    ;;
+status)
+    # check application status command. exit 0 if running, exit 3 if not running
+    # check first container by default, you cound modify it by yourself 
+    if is_docker_running; then
+        exit 0
+    else
+        exit 3
+    fi
+    ;;
+*)
+    exit 1
+    ;;
+esac

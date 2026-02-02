@@ -1,0 +1,8 @@
+{
+    "defaults":
+    {
+        "run-as": "package"
+    },
+    "username": "docker-video_transfer",
+    "groupname": "docker-video_transfer"
+}

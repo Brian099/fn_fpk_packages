@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FFmpeg 视频转码控制台</title>
+
+  <!-- Google Font: Source Sans Pro -->
+  <link rel="stylesheet" href="/static/dist/css/google-fonts.css">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="/static/plugins/fontawesome-free/css/all.min.css">
+  <!-- Theme style -->
+  <link rel="stylesheet" href="/static/dist/css/adminlte.min.css">
+  <style>
+    .content-wrapper { background-color: #f4f6f9; }
+    .card-primary.card-outline { border-top: 3px solid #007bff; }
+    /* Login Modal Full Screen Background */
+    #loginModal {
+        background-color: #343a40;
+    }
+  </style>
+</head>
+<body class="hold-transition sidebar-mini layout-fixed layout-footer-fixed">
+<div class="wrapper">
+
+  <!-- Navbar -->
+  <nav class="main-header navbar navbar-expand navbar-white navbar-light">
+    <!-- Left navbar links -->
+    <ul class="navbar-nav align-items-center">
+      <li class="nav-item">
+        <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
+      </li>
+      <li class="nav-item d-none d-sm-inline-block ml-2">
+        <h4 class="m-0" id="topbar-title">新建任务</h4>
+      </li>
+      <li class="nav-item ml-4" id="topbar-controls" style="display: none;">
+        <div class="d-flex align-items-center">
+            <button type="button" class="btn btn-tool" onclick="loadJobs()">
+                <i class="fas fa-sync-alt"></i> 刷新
+            </button>
+        </div>
+      </li>
+    </ul>
+
+    <!-- Right navbar links -->
+    <ul class="navbar-nav ml-auto">
+      <li class="nav-item dropdown">
+        <a class="nav-link" data-toggle="dropdown" href="#">
+          <i class="far fa-user"></i> <span id="currentUser">User</span>
+        </a>
+        <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
+          <a href="#" class="dropdown-item" data-toggle="modal" data-target="#userModal">
+            <i class="fas fa-cog mr-2"></i> 账户管理
+          </a>
+          <div class="dropdown-divider"></div>
+          <a href="#" class="dropdown-item" onclick="logout()">
+            <i class="fas fa-sign-out-alt mr-2"></i> 退出登录
+          </a>
+        </div>
+      </li>
+    </ul>
+  </nav>
+  <!-- /.navbar -->
+
+  <!-- Main Sidebar Container -->
+  <aside class="main-sidebar sidebar-dark-primary elevation-4">
+    <!-- Brand Logo -->
+    <a href="#" class="brand-link">
+      <span class="brand-text font-weight-light pl-3">FFmpeg <b>Transcoder</b></span>
+    </a>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <!-- Sidebar Menu -->
+      <nav class="mt-2">
+        <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+          <li class="nav-item">
+            <a href="#" class="nav-link active" id="nav-create" onclick="switchView('create')">
+              <i class="nav-icon fas fa-plus-square"></i>
+              <p>新建任务</p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-link" id="nav-jobs" onclick="switchView('jobs')">
+              <i class="nav-icon fas fa-list"></i>
+              <p>任务列表</p>
+            </a>
+          </li>
+        </ul>
+      </nav>
+      <!-- /.sidebar-menu -->
+    </div>
+    <!-- /.sidebar -->
+  </aside>
+
+  <!-- Content Wrapper. Contains page content -->
+  <div class="content-wrapper">
+    <!-- Main content -->
+    <div class="content pt-3">
+      <div class="container-fluid">
+        
+        <div class="row" id="section-create">
+            <!-- 1. Source Selection -->
+            <div class="col-lg-12">
+                <div class="card card-primary card-outline">
+                    <div class="card-header">
+                        <h5 class="card-title m-0"><i class="fas fa-folder-open mr-1"></i> 视频来源</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>上传单个视频</label>
+                                    <div class="input-group">
+                                        <div class="custom-file">
+                                            <input type="file" class="custom-file-input" id="singleFile">
+                                            <label class="custom-file-label" for="singleFile">选择文件</label>
+                                        </div>
+                                        <div class="input-group-append">
+                                            <button class="btn btn-primary" onclick="uploadFile()">上传</button>
+                                        </div>
+                                    </div>
+                                    <small id="uploadResult" class="form-text text-muted"></small>
+                                </div>
+                                <div class="form-group">
+                                    <label>批量扫描容器目录</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="scanPath" value="/data/input" placeholder="/data/input">
+                                        <div class="input-group-append">
+                                            <button class="btn btn-info" onclick="scanDirectory()">扫描添加</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>待处理文件列表 (一行一个)</label>
+                                    <textarea class="form-control" id="manualInputs" rows="5" placeholder="/data/input/video.mp4"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Transcode Settings -->
+            <div class="col-lg-12">
+                <div class="card card-success card-outline">
+                    <div class="card-header">
+                        <h5 class="card-title m-0"><i class="fas fa-sliders-h mr-1"></i> 转码参数配置</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label>视频编码 (vcodec)</label>
+                                    <input type="text" class="form-control" id="vcodec" value="libx264">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label>音频编码 (acodec)</label>
+                                    <input type="text" class="form-control" id="acodec" value="aac">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label>分辨率</label>
+                                    <select class="form-control" id="resolution">
+                                        <option value="" selected>保持原样</option>
+                                        <option value="3840:2160">4K (3840x2160)</option>
+                                        <option value="1920:1080">1080P (1920x1080)</option>
+                                        <option value="1280:720">720P (1280x720)</option>
+                                        <option value="720:480">480P (720x480)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label>输出格式</label>
+                                    <select class="form-control" id="format">
+                                        <option value="mkv">MKV</option>
+                                        <option value="mp4">MP4</option>
+                                        <option value="mov">MOV</option>
+                                        <option value="webm">WebM</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label>硬件加速 (GPU)</label>
+                                    <select class="form-control" id="hw_accel">
+                                        <option value="cpu" selected>禁用 (CPU软解)</option>
+                                        <option value="cuda">NVIDIA (CUDA 自动)</option>
+                                        <option value="cuda:0">NVIDIA (GPU 0)</option>
+                                        <option value="qsv">Intel 核显 (QSV)</option>
+                                        <option value="vaapi">AMD 核显 (VAAPI)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label>预设策略 (Quality)</label>
+                                    <select class="form-control" id="qualityPreset" onchange="applyQualityPreset()">
+                                        <option value="balanced" selected>平衡 (Medium, CRF 21)</option>
+                                        <option value="high">高质量 (Slow, CRF 20)</option>
+                                        <option value="fast">快速 (Fast, CRF 23)</option>
+                                        <option value="custom">自定义 (Custom)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label>CRF (质量 0-51)</label>
+                                    <input type="number" class="form-control" id="crf" value="21">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label>预设 (Preset)</label>
+                                    <select class="form-control" id="preset">
+                                        <option value="ultrafast">Ultrafast</option>
+                                        <option value="superfast">Superfast</option>
+                                        <option value="veryfast">Veryfast</option>
+                                        <option value="faster">Faster</option>
+                                        <option value="fast">Fast</option>
+                                        <option value="medium" selected>Medium</option>
+                                        <option value="slow">Slow</option>
+                                        <option value="slower">Slower</option>
+                                        <option value="veryslow">Veryslow</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label id="threadsLabel" title="单个视频转码任务占用的 CPU 核心数，与并行任务数无关">单任务线程数 (0=自动)</label>
+                                    <input type="number" class="form-control" id="threads" value="0" min="0" title="设置为 0 则由 FFmpeg 自动管理">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>画面处理</label>
+                                    <div class="custom-control custom-checkbox mt-2">
+                                        <input type="checkbox" class="custom-control-input" id="deinterlace">
+                                        <label class="custom-control-label" for="deinterlace" title="解决视频画面出现横向拉丝条纹的问题">反交错 (去横纹，源视频较老时建议勾选此项)</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label>额外参数</label>
+                                    <input type="text" class="form-control" id="extraArgs" placeholder="-movflags +faststart">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button class="btn btn-info btn-lg" onclick="generatePreview()">
+                            <i class="fas fa-eye mr-1"></i> 预览效果 (10s)
+                        </button>
+                        <button class="btn btn-success btn-lg float-right" onclick="startTranscode()">
+                            <i class="fas fa-play mr-1"></i> 开始转码任务
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Preview Modal -->
+            <div class="modal fade" id="previewModal" tabindex="-1" role="dialog">
+                <div class="modal-dialog modal-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">转码效果预览 (中间10秒)</h5>
+                            <button type="button" class="close" data-dismiss="modal">
+                                <span>&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body text-center">
+                            <div class="p-3 mb-3 bg-white rounded border" id="previewStats" style="display:none; text-align: left; font-size: 0.9rem; box-shadow: 0 1px 3px rgba(0,0,0,.1);">
+                                <!-- Stats content will be inserted here -->
+                            </div>
+                            <video id="previewPlayer" controls style="max-width: 100%; max-height: 500px;">
+                                您的浏览器不支持 HTML5 视频。
+                            </video>
+                            <p class="mt-2 text-muted">如果视频无法播放，可能是浏览器不支持该编码格式 (如 HEVC)。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row" id="section-jobs" style="display: none;">
+            <!-- 3. Job Monitor -->
+            <div class="col-lg-12">
+                <div class="card card-warning card-outline">
+                    <div class="card-header d-flex align-items-center">
+                        <h5 class="card-title m-0"><i class="fas fa-tasks mr-1"></i> 任务队列</h5>
+                        <div class="card-tools ml-auto d-flex align-items-center">
+                            <div class="input-group input-group-sm mr-2" style="width: 150px;">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text">并发数</span>
+                                </div>
+                                <select class="form-control" id="concurrencySelect" onchange="updateConcurrency()">
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="4">4</option>
+                                    <option value="8">8</option>
+                                </select>
+                            </div>
+                            <button type="button" class="btn btn-warning btn-sm mr-1" onclick="retryAllJobs()" title="重新开始所有失败或已取消的任务">
+                                <i class="fas fa-redo"></i> 重试未完成
+                            </button>
+                            <button type="button" class="btn btn-danger btn-sm" onclick="cancelAllJobs()" title="取消所有正在运行或等待中的任务">
+                                <i class="fas fa-ban"></i> 取消进行中
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body table-responsive p-0">
+                        <table class="table table-striped table-valign-middle" id="jobsTable">
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>状态</th>
+                                <th>输入文件</th>
+                                <th>源大小</th>
+                                <th>输出文件</th>
+                                <th>输出大小</th>
+                                <th>压缩比</th>
+                                <th>操作</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Jobs here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        <!-- /.row -->
+      </div><!-- /.container-fluid -->
+    </div>
+    <!-- /.content -->
+  </div>
+  <!-- /.content-wrapper -->
+
+  <!-- Main Footer -->
+  <footer class="main-footer">
+    <div class="float-right d-none d-sm-inline">
+      Powered by FFmpeg & Docker
+    </div>
+    <strong>Copyright &copy; 2024.</strong> All rights reserved.
+  </footer>
+</div>
+<!-- ./wrapper -->
+
+<!-- Login Modal -->
+<div class="modal fade" id="loginModal" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="loginTitle">登录</h5>
+            </div>
+            <div class="modal-body">
+                <form id="loginForm" onsubmit="handleAuth(event)">
+                    <div class="form-group">
+                        <label>用户名</label>
+                        <input type="text" class="form-control" id="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label>密码</label>
+                        <input type="password" class="form-control" id="password" required>
+                    </div>
+                    <!-- Confirm Password field (hidden by default) -->
+                    <div class="form-group" id="confirmPasswordField" style="display:none;">
+                        <label>确认密码</label>
+                        <input type="password" class="form-control" id="confirmPassword">
+                    </div>
+                    <div class="text-danger mb-2" id="loginError"></div>
+                    <button type="submit" class="btn btn-primary btn-block" id="loginBtn">登录</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Management Modal -->
+<div class="modal fade" id="userModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">账户管理</h5>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs" id="userTabs" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="pwd-tab" data-toggle="tab" href="#pwd-content" role="tab">修改密码</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="newuser-tab" data-toggle="tab" href="#newuser-content" role="tab">创建用户</a>
+                    </li>
+                </ul>
+                <div class="tab-content mt-3">
+                    <!-- Change Password -->
+                    <div class="tab-pane fade show active" id="pwd-content" role="tabpanel">
+                        <form onsubmit="handleChangePassword(event)">
+                            <div class="form-group">
+                                <label>旧密码</label>
+                                <input type="password" class="form-control" id="oldPwd" required>
+                            </div>
+                            <div class="form-group">
+                                <label>新密码</label>
+                                <input type="password" class="form-control" id="newPwd" required>
+                            </div>
+                            <button type="submit" class="btn btn-warning">修改密码</button>
+                        </form>
+                    </div>
+                    <!-- Create User (Admin only) -->
+                    <div class="tab-pane fade" id="newuser-content" role="tabpanel">
+                        <form onsubmit="handleCreateUser(event)">
+                            <div class="form-group">
+                                <label>新用户名</label>
+                                <input type="text" class="form-control" id="newUsername" required>
+                            </div>
+                            <div class="form-group">
+                                <label>密码</label>
+                                <input type="password" class="form-control" id="newUserPwd" required>
+                            </div>
+                            <button type="submit" class="btn btn-success">创建用户</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- jQuery -->
+<script src="/static/plugins/jquery/jquery.min.js"></script>
+<!-- Bootstrap 4 -->
+<script src="/static/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
+<!-- AdminLTE App -->
+<script src="/static/dist/js/adminlte.min.js"></script>
+<!-- bs-custom-file-input -->
+<script src="/static/plugins/bs-custom-file-input/bs-custom-file-input.min.js"></script>
+
+<script>
+    // Auth Logic
+    const originalFetch = window.fetch;
+    window.fetch = async function(url, options = {}) {
+        const token = localStorage.getItem('access_token');
+        if (token) {
+            options.headers = options.headers || {};
+            if (options.headers instanceof Headers) {
+                options.headers.append('Authorization', `Bearer ${token}`);
+            } else if (Array.isArray(options.headers)) {
+                options.headers.push(['Authorization', `Bearer ${token}`]);
+            } else {
+                options.headers['Authorization'] = `Bearer ${token}`;
+            }
+        }
+
+        try {
+            const response = await originalFetch(url, options);
+            if (response.status === 401) {
+                localStorage.removeItem('access_token');
+                $('#loginModal').modal('show');
+            }
+            return response;
+        } catch (e) {
+            throw e;
+        }
+    };
+
+    let isSetupMode = false;
+
+    async function handleAuth(event) {
+        event.preventDefault();
+        const username = $('#username').val();
+        const password = $('#password').val();
+        
+        if (isSetupMode) {
+            const confirmPassword = $('#confirmPassword').val();
+            if (password !== confirmPassword) {
+                $('#loginError').text('两次输入的密码不一致');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/auth/setup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem('access_token', data.access_token);
+                    $('#loginModal').modal('hide');
+                    $('#currentUser').text(username);
+                    $('#loginError').text('');
+                    // Refresh data
+                    loadJobs();
+                    checkHardware();
+                    loadConcurrency();
+                } else {
+                    const data = await res.json();
+                    $('#loginError').text('Setup failed: ' + data.detail);
+                }
+            } catch (e) {
+                $('#loginError').text('Setup error: ' + e.message);
+            }
+        } else {
+            // Normal Login
+            const formData = new FormData();
+            formData.append('username', username);
+            formData.append('password', password);
+            
+            try {
+                const res = await originalFetch('/token', { method: 'POST', body: formData });
+                if (res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem('access_token', data.access_token);
+                    $('#loginModal').modal('hide');
+                    $('#currentUser').text(username);
+                    $('#loginError').text('');
+                    // Refresh data
+                    loadJobs();
+                    checkHardware();
+                    loadConcurrency();
+                } else {
+                    $('#loginError').text('用户名或密码错误');
+                }
+            } catch (e) {
+                $('#loginError').text('登录请求失败: ' + e.message);
+            }
+        }
+    }
+
+    // Removed handleLogin as it's merged into handleAuth
+    
+    function logout() {
+        localStorage.removeItem('access_token');
+        location.reload();
+    }
+    
+    async function handleChangePassword(event) {
+        event.preventDefault();
+        const oldPwd = $('#oldPwd').val();
+        const newPwd = $('#newPwd').val();
+        
+        try {
+            const res = await fetch('/users/password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ old_password: oldPwd, new_password: newPwd })
+            });
+            if (res.ok) {
+                alert('密码修改成功');
+                $('#userModal').modal('hide');
+                event.target.reset();
+            } else {
+                const data = await res.json();
+                alert('修改失败: ' + data.detail);
+            }
+        } catch (e) {
+            alert('错误: ' + e.message);
+        }
+    }
+    
+    async function handleCreateUser(event) {
+        event.preventDefault();
+        const username = $('#newUsername').val();
+        const password = $('#newUserPwd').val();
+        
+        try {
+            const res = await fetch('/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username, password: password })
+            });
+            if (res.ok) {
+                alert('用户创建成功');
+                $('#userModal').modal('hide');
+                event.target.reset();
+            } else {
+                const data = await res.json();
+                alert('创建失败: ' + data.detail);
+            }
+        } catch (e) {
+            alert('错误: ' + e.message);
+        }
+    }
+
+    // Check auth on load
+    async function checkAuth() {
+        // First check if setup is required
+        try {
+            const res = await fetch('/auth/setup-required');
+            const data = await res.json();
+            if (data.setup_required) {
+                isSetupMode = true;
+                $('#loginTitle').text('系统初始化 - 设置管理员');
+                $('#loginBtn').text('创建账户');
+                $('#confirmPasswordField').show();
+                $('#confirmPassword').prop('required', true);
+                $('#loginModal').modal('show');
+                return;
+            }
+        } catch(e) {
+            console.error("Check setup status failed", e);
+        }
+
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            $('#loginModal').modal('show');
+        } else {
+            // Optional: Decode token to get username
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                $('#currentUser').text(payload.sub);
+            } catch(e) {}
+        }
+    }
+
+    $(document).ready(function () {
+        checkAuth();
+        bsCustomFileInput.init();
+        loadJobs();
+        checkHardware();
+        loadConcurrency();
+        // Auto refresh every 5 seconds
+        setInterval(loadJobs, 5000);
+        
+        // Bind manual changes to custom
+        $('#crf, #preset').on('change', function() {
+            $('#qualityPreset').val('custom');
+        });
+
+        // Auto logout logic (30 minutes inactivity)
+        let lastActivity = Date.now();
+        const TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+        let activityThrottler = false;
+
+        function updateActivity() {
+            if (!activityThrottler) {
+                activityThrottler = true;
+                setTimeout(() => {
+                    lastActivity = Date.now();
+                    activityThrottler = false;
+                }, 1000); // Update at most once per second
+            }
+        }
+
+        $(document).on('mousemove keypress click scroll touchstart', updateActivity);
+
+        setInterval(function() {
+            // Only check if logged in
+            if (localStorage.getItem('access_token')) {
+                if (Date.now() - lastActivity > TIMEOUT_MS) {
+                    console.log("Auto logging out due to inactivity");
+                    logout();
+                }
+            }
+        }, 60000); // Check every minute
+    });
+
+    function applyQualityPreset() {
+        const val = $('#qualityPreset').val();
+        if (val === 'high') {
+            $('#crf').val(20);
+            $('#preset').val('slow');
+        } else if (val === 'balanced') {
+            $('#crf').val(21);
+            $('#preset').val('medium');
+        } else if (val === 'fast') {
+            $('#crf').val(23);
+            $('#preset').val('fast');
+        }
+    }
+
+    async function checkHardware() {
+        try {
+            const res = await fetch('/hardware-info');
+            const info = await res.json();
+            
+            const select = $('#hw_accel');
+            select.empty();
+            select.append('<option value="cpu" selected>禁用 (CPU软解)</option>');
+            
+            if (info.cuda) {
+                select.append('<option value="cuda">NVIDIA (CUDA 自动)</option>');
+                if (info.cuda_devices && info.cuda_devices.length > 0) {
+                    info.cuda_devices.forEach(dev => {
+                        select.append(`<option value="cuda:${dev.index}">NVIDIA: ${dev.name} (GPU ${dev.index})</option>`);
+                    });
+                } else {
+                    select.append('<option value="cuda:0">NVIDIA (GPU 0)</option>');
+                }
+            }
+            
+            if (info.qsv) {
+                select.append('<option value="qsv">Intel 核显 (QSV)</option>');
+            }
+            
+            if (info.vaapi) {
+                select.append('<option value="vaapi">AMD/Intel 核显 (VAAPI)</option>');
+            }
+            
+        } catch (e) {
+            console.error("Failed to check hardware info:", e);
+        }
+    }
+
+    async function loadConcurrency() {
+        try {
+            const res = await fetch('/settings/concurrency');
+            const data = await res.json();
+            $('#concurrencySelect').val(data.max_concurrent_jobs);
+        } catch (e) {
+            console.error("Failed to load concurrency settings:", e);
+        }
+    }
+
+    async function updateConcurrency() {
+        const count = $('#concurrencySelect').val();
+        const formData = new FormData();
+        formData.append("count", count);
+        
+        try {
+            await fetch('/settings/concurrency', { method: 'POST', body: formData });
+            // Optionally reload jobs to reflect immediate changes if any
+            loadJobs();
+        } catch (e) {
+            alert("设置并发数失败: " + e.message);
+        }
+    }
+
+    async function cancelAllJobs() {
+        if (!confirm("确定要取消所有正在运行和等待中的任务吗？")) return;
+        
+        try {
+            const res = await fetch('/jobs/cancel-all', { method: 'POST' });
+            const data = await res.json();
+            alert(data.message);
+            loadJobs();
+        } catch (e) {
+            alert("操作失败: " + e.message);
+        }
+    }
+
+    async function retryAllJobs() {
+        if (!confirm("确定要重新开始所有失败和已取消的任务吗？")) return;
+        
+        try {
+            const res = await fetch('/jobs/retry-all', { method: 'POST' });
+            const data = await res.json();
+            alert(data.message);
+            loadJobs();
+        } catch (e) {
+            alert("操作失败: " + e.message);
+        }
+    }
+
+    function switchView(view) {
+        if (view === 'create') {
+            $('#section-create').show();
+            $('#section-jobs').hide();
+            $('#nav-create').addClass('active');
+            $('#nav-jobs').removeClass('active');
+            $('#topbar-title').text('新建任务');
+            $('#topbar-controls').hide();
+        } else if (view === 'jobs') {
+            $('#section-create').hide();
+            $('#section-jobs').show();
+            $('#nav-create').removeClass('active');
+            $('#nav-jobs').addClass('active');
+            $('#topbar-title').text('任务列表');
+            $('#topbar-controls').show();
+            loadJobs(); // Refresh immediately when switching
+        }
+    }
+
+    // Helper to get status badge class
+    function getStatusBadge(status) {
+        switch(status) {
+            case 'pending': return '<span class="badge badge-secondary">等待中</span>';
+            case 'running': return '<span class="badge badge-primary">进行中</span>';
+            case 'completed': return '<span class="badge badge-success">已完成</span>';
+            case 'failed': return '<span class="badge badge-danger">失败</span>';
+            case 'cancelled': return '<span class="badge badge-warning">已取消</span>';
+            default: return `<span class="badge badge-light">${status}</span>`;
+        }
+    }
+
+    async function uploadFile() {
+        const fileInput = document.getElementById('singleFile');
+        const file = fileInput.files[0];
+        if (!file) return alert("请先选择文件");
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        $('#uploadResult').text("正在上传...").removeClass('text-danger text-success').addClass('text-muted');
+        
+        try {
+            const res = await fetch('/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            
+            if (res.ok) {
+                $('#uploadResult').text(`上传成功: ${data.path}`).removeClass('text-muted text-danger').addClass('text-success');
+                // Auto append
+                const textarea = document.getElementById('manualInputs');
+                textarea.value = (textarea.value.trim() ? textarea.value.trim() + '\n' : '') + data.path;
+            } else {
+                $('#uploadResult').text(`上传失败: ${data.detail}`).removeClass('text-muted text-success').addClass('text-danger');
+            }
+        } catch (e) {
+            $('#uploadResult').text(`错误: ${e.message}`).removeClass('text-muted text-success').addClass('text-danger');
+        }
+    }
+
+    async function scanDirectory() {
+        const path = document.getElementById('scanPath').value.trim();
+        if (!path) return alert("请输入扫描路径");
+
+        const formData = new FormData();
+        formData.append("path", path);
+        
+        const btn = $(event.target);
+        const originalText = btn.text();
+        btn.prop('disabled', true).text('扫描中...');
+
+        try {
+            const res = await fetch('/scan-directory', { method: 'POST', body: formData });
+            const data = await res.json();
+            
+            if (res.ok) {
+                // Append to textarea
+                const textarea = document.getElementById('manualInputs');
+                const current = textarea.value.trim();
+                const newFiles = data.files.join('\n');
+                textarea.value = current ? current + '\n' + newFiles : newFiles;
+                alert(`扫描成功: 找到 ${data.count} 个文件`);
+            } else {
+                alert(`扫描失败: ${data.detail}`);
+            }
+        } catch (e) {
+            alert(`错误: ${e.message}`);
+        } finally {
+            btn.prop('disabled', false).text(originalText);
+        }
+    }
+
+    async function startTranscode() {
+        const inputs = document.getElementById('manualInputs').value.trim().split('\n').filter(line => line.trim() !== '');
+        if (inputs.length === 0) return alert("请输入至少一个输入文件路径");
+
+        const params = {
+            vcodec: document.getElementById('vcodec').value || null,
+            acodec: document.getElementById('acodec').value || null,
+            resolution: document.getElementById('resolution').value || null,
+            format: document.getElementById('format').value,
+            crf: document.getElementById('crf').value ? parseInt(document.getElementById('crf').value) : null,
+            preset: document.getElementById('preset').value || null,
+            threads: document.getElementById('threads').value ? parseInt(document.getElementById('threads').value) : 0,
+            deinterlace: document.getElementById('deinterlace').checked,
+            extra_args: document.getElementById('extraArgs').value ? document.getElementById('extraArgs').value.split(' ') : null,
+            hw_accel: document.getElementById('hw_accel').value
+        };
+
+        try {
+            const res = await fetch('/transcode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    inputs: inputs,
+                    params: params
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert(`任务已提交，ID: ${data.job_id}`);
+                loadJobs();
+            } else {
+                alert(`提交失败: ${data.detail}`);
+            }
+        } catch (e) {
+            alert(`请求错误: ${e.message}`);
+        }
+    }
+
+    // Helper to format file size
+    function formatSize(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    async function generatePreview() {
+        const inputs = document.getElementById('manualInputs').value.trim().split('\n').filter(line => line.trim() !== '');
+        if (inputs.length === 0) return alert("请先添加输入文件");
+
+        const btn = $(event.target).closest('button');
+        const originalText = btn.html();
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> 生成预览中...');
+
+        const params = {
+            vcodec: document.getElementById('vcodec').value || null,
+            acodec: document.getElementById('acodec').value || null,
+            resolution: document.getElementById('resolution').value || null,
+            format: document.getElementById('format').value,
+            crf: document.getElementById('crf').value ? parseInt(document.getElementById('crf').value) : null,
+            preset: document.getElementById('preset').value || null,
+            threads: document.getElementById('threads').value ? parseInt(document.getElementById('threads').value) : 0,
+            extra_args: document.getElementById('extraArgs').value ? document.getElementById('extraArgs').value.split(' ') : null,
+            hw_accel: document.getElementById('hw_accel').value
+        };
+
+        try {
+            const res = await fetch('/preview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    inputs: inputs,
+                    params: params
+                })
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                const player = document.getElementById('previewPlayer');
+                player.src = data.preview_url;
+                
+                // 显示统计信息
+                if (data.stats) {
+                    const stats = data.stats;
+                    const ratio = (stats.compression_ratio * 100).toFixed(1);
+                    const ratioClass = stats.compression_ratio > 0 ? 'text-success' : 'text-danger';
+                    const ratioText = stats.compression_ratio > 0 ? `减少 ${ratio}%` : `增加 ${Math.abs(ratio)}%`;
+                    
+                    const html = `
+                        <div class="row">
+                            <div class="col-sm-4"><strong>原文件大小:</strong> ${formatSize(stats.source_size)}</div>
+                            <div class="col-sm-4"><strong>预估输出:</strong> ${formatSize(stats.estimated_full_size)}</div>
+                            <div class="col-sm-4"><strong>压缩率:</strong> <span class="${ratioClass} font-weight-bold">${ratioText}</span></div>
+                        </div>
+                    `;
+                    $('#previewStats').html(html).show();
+                } else {
+                    $('#previewStats').hide();
+                }
+
+                $('#previewModal').modal('show');
+                player.play();
+            } else {
+                alert(`预览生成失败: ${data.detail}`);
+            }
+        } catch (e) {
+            alert(`请求错误: ${e.message}`);
+        } finally {
+            btn.prop('disabled', false).html(originalText);
+        }
+    }
+
+    async function loadJobs() {
+        try {
+            const res = await fetch('/jobs');
+            const jobs = await res.json();
+            const tbody = $('#jobsTable tbody');
+            tbody.empty();
+            
+            jobs.forEach(job => {
+                let actionHtml = '';
+                
+                // Determine action button or status text
+                if (job.status === 'running') {
+                     // Progress bar for running
+                     const pct = job.progress ? job.progress.toFixed(1) : 0;
+                     // Flatten structure: Progress Bar + Stop Icon
+                     actionHtml = `
+                        <div class="progress flex-grow-1 mr-2" style="height: 1rem; min-width: 80px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: ${pct}%"></div>
+                        </div>
+                        <span class="mr-2 small text-muted">${pct}%</span>
+                        <i class="fas fa-stop-circle text-danger mr-2" style="cursor: pointer; font-size: 1.2rem;" onclick="cancelJob('${job.id}')" title="中止任务"></i>
+                     `;
+                } else if (job.status === 'pending') {
+                    actionHtml = `
+                        <i class="fas fa-times-circle text-danger mr-2" style="cursor: pointer; font-size: 1.2rem;" onclick="cancelJob('${job.id}')" title="取消任务"></i>
+                    `;
+                } else if (job.status === 'completed') {
+                    let timeStr = '';
+                    if (job.completed_at) {
+                        const date = new Date(job.completed_at * 1000);
+                        // Format: MM-DD HH:MM:SS
+                        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                        const day = date.getDate().toString().padStart(2, '0');
+                        const hours = date.getHours().toString().padStart(2, '0');
+                        const minutes = date.getMinutes().toString().padStart(2, '0');
+                        const seconds = date.getSeconds().toString().padStart(2, '0');
+                        timeStr = `${month}月${day}日 ${hours}:${minutes}:${seconds}`;
+                    }
+                    actionHtml = `<span class="text-success mr-2"><i class="fas fa-check"></i> 完成于 ${timeStr}</span>`;
+                } else if (job.status === 'failed') {
+                    actionHtml = '<span class="text-danger mr-2"><i class="fas fa-times"></i> 失败</span>';
+                } else if (job.status === 'cancelled') {
+                    actionHtml = '<span class="text-warning mr-2"><i class="fas fa-ban"></i> 已取消</span>';
+                } else {
+                    actionHtml = `<span class="text-muted mr-2">${job.status}</span>`;
+                }
+
+                // Info icon with tooltip (Command or Error)
+                let tooltipText = '';
+                if (job.error) {
+                    tooltipText = `错误: ${job.error}`;
+                } else if (job.params) {
+                    // Construct readable params
+                    const p = job.params;
+                    const parts = [];
+                    if (p.format) parts.push(`格式: ${p.format}`);
+                    if (p.vcodec) parts.push(`视频: ${p.vcodec}`);
+                    if (p.acodec) parts.push(`音频: ${p.acodec}`);
+                    if (p.resolution) parts.push(`分辨率: ${p.resolution}`);
+                    if (p.crf) parts.push(`CRF: ${p.crf}`);
+                    if (p.preset) parts.push(`预设: ${p.preset}`);
+                    if (p.hw_accel && p.hw_accel !== 'cpu') parts.push(`加速: ${p.hw_accel}`);
+                    if (p.threads) parts.push(`线程: ${p.threads}`);
+                    if (p.extra_args) parts.push(`额外: ${p.extra_args.join(' ')}`);
+                    
+                    tooltipText = parts.join('\n');
+                } else if (job.command) {
+                    tooltipText = `执行命令: ${job.command}`;
+                } else {
+                    tooltipText = '无详细信息';
+                }
+                // Escape quotes for HTML attribute
+                tooltipText = tooltipText.replace(/"/g, '&quot;');
+                
+                const infoIcon = `<i class="fas fa-info-circle text-info" style="cursor: pointer; font-size: 1.2rem;" title="${tooltipText}"></i>`;
+                
+                // Combine - Removed justify-content-end for left alignment
+                const infoCell = `<div class="d-flex align-items-center">${actionHtml} ${infoIcon}</div>`;
+                
+                // Fields
+                const inputPath = job.inputs[0] || '';
+                // Use basename for display, full path for title
+                const inputName = inputPath.split(/[/\\]/).pop();
+                
+                const inputSize = job.input_size ? formatSize(job.input_size) : '-';
+                
+                const outputPath = job.outputs && job.outputs[0] ? job.outputs[0] : '';
+                const outputName = outputPath ? outputPath.split(/[/\\]/).pop() : '-';
+                
+                const outputSize = job.output_size ? formatSize(job.output_size) : '-';
+
+                let compressionInfo = '-';
+                if (job.compression_ratio) {
+                    const ratio = (job.compression_ratio * 100).toFixed(1);
+                    // Less than 100% is good (green), more is bad (red)
+                    const color = job.compression_ratio < 1.0 ? 'text-success' : 'text-danger';
+                    compressionInfo = `<span class="${color} font-weight-bold">${ratio}%</span>`;
+                }
+
+                const tr = `
+                    <tr>
+                        <td>${job.id.substring(0, 8)}</td>
+                        <td>${getStatusBadge(job.status)}</td>
+                        <td title="${inputPath}" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${inputPath}</td>
+                        <td>${inputSize}</td>
+                        <td title="${outputPath}" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${outputPath}</td>
+                        <td>${outputSize}</td>
+                        <td>${compressionInfo}</td>
+                        <td>${infoCell}</td>
+                    </tr>
+                `;
+                tbody.append(tr);
+            });
+        } catch (e) {
+            console.error("加载任务失败", e);
+        }
+    }
+
+    async function cancelJob(jobId) {
+        if (!confirm("确定要中止这个任务吗？")) return;
+        
+        try {
+            const res = await fetch(`/jobs/${jobId}/cancel`, { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                alert(data.message);
+                loadJobs();
+            } else {
+                alert(`中止失败: ${data.detail}`);
+            }
+        } catch (e) {
+            alert(`请求错误: ${e.message}`);
+        }
+    }
+</script>
+</body>
+</html>

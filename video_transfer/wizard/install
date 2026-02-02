@@ -1,0 +1,36 @@
+[
+  {
+    "stepTitle": "储存设置",
+    "items": [
+      {
+        "type": "text",
+        "field": "wizard_data",
+        "label": "媒体目录",
+        "initValue": "/vol1/1000/media",
+        "rules": [
+          {
+            "required": true,
+            "message": "请输入媒体目录",
+            "min": 3,
+            "max": 100,
+            "message": "请输入媒体的绝对目录地址"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "field": "wizard_config",
+        "label": "设置保存位置",
+        "initValue": "/vol1/1000/config",
+        "rules": [
+          {
+            "required": true,
+            "message": "请输入设置保存目录",
+            "min": 3,
+            "message": "请输入设置的绝对目录地址"
+          }
+        ]
+      }
+    ]
+  }
+]

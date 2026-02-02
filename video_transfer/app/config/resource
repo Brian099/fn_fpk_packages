@@ -1,0 +1,12 @@
+{
+    "docker-project":
+    {
+        "projects":
+        [
+            {
+                "name": "video_transfer",
+                "path": "docker"
+            }
+        ]
+    }
+}
