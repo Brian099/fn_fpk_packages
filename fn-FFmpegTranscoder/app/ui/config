@@ -1,0 +1,12 @@
+{
+    ".url": {
+        "App.Docker.FFmpegTranscoder.Application": {
+            "title": "FFmpeg Transcoder",
+            "icon": "images/icon-{0}.png",
+            "type": "iframe",
+            "protocol": "",
+            "url": "index.cgi",
+            "allUsers": true
+        }
+    }
+}

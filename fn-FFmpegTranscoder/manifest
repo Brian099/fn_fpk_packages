@@ -1,0 +1,10 @@
+appname = App.Docker.FFmpegTranscoder
+version = 1.0.0
+display_name = FFmpeg Transcoder
+desc = Web-based FFmpeg Transcoder with Task Queue
+platform = all
+source = thirdparty
+maintainer = Trae
+distributor = Trae
+desktop_uidir = ui
+desktop_applaunchname = App.Docker.FFmpegTranscoder.Application

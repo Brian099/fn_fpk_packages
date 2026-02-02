@@ -1,0 +1,22 @@
+#!/bin/bash
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+APP_ROOT=$(dirname "$SCRIPT_DIR")
+DOCKER_DIR="$APP_ROOT/app/docker"
+
+echo "Starting FFmpeg Transcoder..." >> "$APP_ROOT/install.log"
+cd "$DOCKER_DIR"
+
+if ! command -v docker-compose &> /dev/null; then
+    echo "Error: docker-compose not found" >> "$APP_ROOT/install.log"
+    exit 1
+fi
+
+# Build and start
+docker-compose up -d --build >> "$APP_ROOT/install.log" 2>&1
+
+if [ $? -ne 0 ]; then
+    echo "Error starting docker-compose" >> "$APP_ROOT/install.log"
+    exit 1
+fi
+
+exit 0

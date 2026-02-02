@@ -1,0 +1,11 @@
+#!/bin/bash
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+APP_ROOT=$(dirname "$SCRIPT_DIR")
+DOCKER_DIR="$APP_ROOT/app/docker"
+
+if [ -d "$DOCKER_DIR" ]; then
+    cd "$DOCKER_DIR"
+    docker-compose down
+fi
+
+exit 0

@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  ffmpeg-service:
+    build: .
+    container_name: ffmpeg-app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../../var/data:/data
+      - ../../var/config:/config
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - TZ=Asia/Shanghai
+      - PUID=0
+      - PGID=0
+    restart: always
