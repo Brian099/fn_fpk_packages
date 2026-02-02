@@ -7,7 +7,7 @@
 |----------|------|------|------|
 | WebOps| v1.0.0 | all | 可视化网页配置工具。 |
 | Waves | v1.0.0 | all | 音乐播放器。 |
-| Video Transfer | v1.0.1 | all | 视频压缩软件 |
+| Video Transfer | v1.0.1 | x86 | 视频压缩软件 |
 
 ## 社区支持
 - QQ 群：130359605 · [点击加入](https://qm.qq.com/q/xMUyJacSIw)
