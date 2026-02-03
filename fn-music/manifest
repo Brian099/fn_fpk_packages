@@ -1,7 +1,7 @@
 appname               = waves
-version               = 1.0.0
+version               = 1.0.1
 display_name          = Waves
-desc                  = 简单的NAS音乐播放器，支持多目录管理。
+desc                  = 专为飞牛OS设计的音乐播放器，支持多目录管理，支持托管系统音乐文件。
 platform              = all
 source                = thirdparty
 desktop_uidir         = ui

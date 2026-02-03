@@ -1,5 +1,5 @@
 appname               = video_transfer
-version               = 1.0.0
+version               = 1.0.1
 display_name          = Video Transfer
 desc                  = 一个基于 FFmpeg 和 FastAPI 的高性能视频转码服务。支持多种格式互转，集成 NVIDIA CUDA、Intel QSV 和 VAAPI 硬件加速功能。提供直观的 Web 界面用于任务管理、进度监控和文件处理，并支持用户认证与权限管理。
 platform              = x86
