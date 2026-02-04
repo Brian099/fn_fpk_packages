@@ -256,7 +256,7 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
           url: apiBase + '/api/php/extensions',
           parseData: function(res){
               var installedMap = {};
-              if(res && Array.isArray(res)) res.forEach(r => installedMap[r.name] = true);
+              if(res && Array.isArray(res)) res.forEach(r => installedMap[r.name] = r.installed);
               
               var allPkgs = defaultPhpExtensions.split('\n').filter(x=>x.trim());
               var gridData = allPkgs.map(name => {
