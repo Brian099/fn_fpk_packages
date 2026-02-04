@@ -582,7 +582,7 @@ php_extensions_status_json() {
   first=1
   echo '['
   for extension in "${extensions[@]}"; do
-    if dpkg -s "$extension" >/dev/null 2>&1; then
+    if dpkg -s "$extension" 2>/dev/null | grep -q "Status: install ok installed"; then
       installed=true
     else
       installed=false
