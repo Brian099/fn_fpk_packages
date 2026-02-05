@@ -119,6 +119,22 @@ create_site_json() {
         }' | sed 's/\\/\\\\/g; s/\$/\\\$/g; s/`/\\`/g')
     fi
   fi
+  
+  # Check if user provided a root location block to avoid duplicate location /
+  root_location_block="    location / {
+        try_files \$uri \$uri/ =404;
+    }"
+    
+  if [ -n "$rewrite_block" ]; then
+      # Check for "location / {" or "location /{" with varying spaces
+      # We unescape the rewrite_block slightly for grep checking because we escaped $ and \ above
+      # Actually simpler: check the original decoded string if possible, but we don't have it easily accessible in all paths
+      # Let's just grep the rewrite_block. Note that it has escaped chars.
+      # "location / {" might look like "location / {"
+      if echo "$rewrite_block" | grep -qE "location[[:space:]]+/[[:space:]]*\{"; then
+          root_location_block=""
+      fi
+  fi
   domain=$(echo "$input" | grep "^domain=" | cut -d= -f2- | tr -d '\r')
   custom_name=$(echo "$input" | grep "^name=" | cut -d= -f2- | tr -d '\r')
   if [ -n "$custom_name" ]; then
@@ -211,9 +227,7 @@ server {
     
     $rewrite_block
     
-    location / {
-        try_files \$uri \$uri/ =404;
-    }
+    $root_location_block
     location ~ \.php$ {
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:/run/php/php8.2-fpm.sock;
@@ -233,9 +247,7 @@ server {
     
     $rewrite_block
     
-    location / {
-        try_files \$uri \$uri/ =404;
-    }
+    $root_location_block
     location ~ \.php$ {
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:/run/php/php8.2-fpm.sock;
@@ -316,9 +328,7 @@ server {
     
     $rewrite_block
     
-    location / {
-        try_files \$uri \$uri/ =404;
-    }
+    $root_location_block
     location ~ \.php$ {
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:/run/php/php8.2-fpm.sock;
@@ -337,9 +347,7 @@ server {
     
     $rewrite_block
     
-    location / {
-        try_files \$uri \$uri/ =404;
-    }
+    $root_location_block
     location ~ \.php$ {
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:/run/php/php8.2-fpm.sock;
