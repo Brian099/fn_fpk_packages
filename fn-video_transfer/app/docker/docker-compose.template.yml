@@ -1,13 +1,13 @@
 services:
   ffmpeg-service:
     build: .
-    container_name: video-transfer
+    container_name: ffmpeg-app
     ports:
       - "8087:8000"
     volumes:
       - ./:/app
-      - ${wizard_data}:/data
-      - ${wizard_config}:/config
+      - ./media:/data
+      - ./config:/config
       # 挂载宿主机时间
       - /etc/localtime:/etc/localtime:ro
     environment:

@@ -1,8 +1,6 @@
-fastapi==0.115.6
-uvicorn==0.32.0
-python-multipart==0.0.9
-pydantic==2.6.4
-python-jose==3.3.0
-passlib==1.7.4
-bcrypt==3.2.2
-python-multipart
+fastapi>=0.115.6
+uvicorn>=0.32.0
+python-multipart>=0.0.9
+pydantic>=2.6.4
+python-jose>=3.3.0
+passlib[bcrypt]>=1.7.4

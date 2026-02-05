@@ -18,7 +18,7 @@ from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, Field
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 
 # 配置路径
 BASE_DIR = Path(__file__).resolve().parent
@@ -115,6 +115,7 @@ class TranscodeParams(BaseModel):
     threads: Optional[int] = 0
     scodec: Optional[str] = "copy" # 字幕编码，默认复制，预览时可设为 None 禁用
     deinterlace: bool = False
+    rotation: Optional[str] = None
     extra_args: Optional[List[str]] = None
 
 class TranscodeRequest(BaseModel):
@@ -127,7 +128,6 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "ffmpeg-web-ui-secret-key-change-this"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 USERS_FILE = CONFIG_DIR / "users.json"
@@ -151,11 +151,25 @@ class CreateUserRequest(BaseModel):
     username: str
     password: str
 
+def hash_password_pre(password: str) -> str:
+    # bcrypt max length is 72 bytes.
+    # To support longer passwords, we hash them with sha256 first.
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
+
 def get_password_hash(password):
-    return pwd_context.hash(password)
+    # Ensure we stay within bcrypt limits by using the pre-hashed hex string (64 chars)
+    pwd_bytes = hash_password_pre(password).encode('utf-8')
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
 
 def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+    pwd_bytes = hash_password_pre(plain_password).encode('utf-8')
+    # handle cases where hashed_password might be string or bytes
+    hash_bytes = hashed_password.encode('utf-8') if isinstance(hashed_password, str) else hashed_password
+    try:
+        return bcrypt.checkpw(pwd_bytes, hash_bytes)
+    except ValueError:
+        return False
 
 def load_users():
     if not USERS_FILE.exists():
@@ -305,12 +319,16 @@ def build_ffmpeg_cmd(input_path: Path, output_path: Path, params: TranscodeParam
     if params.preset:
         cmd.extend(["-preset", params.preset])
         
-    # 视频过滤器链 (Scale, Deinterlace)
+    # 视频过滤器链 (Scale, Deinterlace, Rotate)
     filters = []
     
+    # 决定是否使用硬件滤镜
+    # 如果有旋转需求，暂时禁用硬件滤镜以简化兼容性处理 (依靠 FFmpeg 自动协商 hwdownload)
+    use_hw_filters = use_cuda and (not params.rotation)
+
     # 反交错 (建议在缩放前处理)
     if params.deinterlace:
-        if use_cuda:
+        if use_hw_filters:
             # CUDA 硬件反交错 (需要 ffmpeg 支持 yadif_cuda)
             # 0:-1:0 -> mode:parity:deint (default)
             filters.append("yadif_cuda=0:-1:0")
@@ -319,11 +337,20 @@ def build_ffmpeg_cmd(input_path: Path, output_path: Path, params: TranscodeParam
             filters.append("yadif")
 
     if params.resolution:
-        if use_cuda:
+        if use_hw_filters:
             # 使用 scale_cuda 过滤器
             filters.append(f"scale_cuda={params.resolution}")
         else:
             filters.append(f"scale={params.resolution}")
+            
+    if params.rotation:
+        rot_map = {
+            "90": "transpose=1",
+            "180": "transpose=1,transpose=1",
+            "270": "transpose=2"
+        }
+        if params.rotation in rot_map:
+            filters.append(rot_map[params.rotation])
     
     if filters:
         cmd.extend(["-vf", ",".join(filters)])
@@ -474,23 +501,34 @@ def is_setup_required():
 
 @app.post("/auth/setup")
 def setup_first_user(new_user: CreateUserRequest):
-    users_db = load_users()
-    if len(users_db) > 0:
-        raise HTTPException(status_code=403, detail="Setup already completed")
+    try:
+        users_db = load_users()
+        if len(users_db) > 0:
+            raise HTTPException(status_code=403, detail="Setup already completed")
+            
+        hashed = get_password_hash(new_user.password)
         
-    users_db[new_user.username] = {
-        "username": new_user.username,
-        "hashed_password": get_password_hash(new_user.password),
-        "disabled": False
-    }
-    save_users(users_db)
-    
-    # Auto login
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": new_user.username}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
+        users_db[new_user.username] = {
+            "username": new_user.username,
+            "hashed_password": hashed,
+            "disabled": False
+        }
+        save_users(users_db)
+        
+        # Auto login
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": new_user.username}, expires_delta=access_token_expires
+        )
+        return {"access_token": access_token, "token_type": "bearer"}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        # 如果是 HTTPException 直接抛出
+        if isinstance(e, HTTPException):
+            raise e
+        # 其他错误返回 500 并带上详情以便调试
+        raise HTTPException(status_code=500, detail=f"Setup failed: {str(e)}")
 
 @app.get("/users/me", response_model=User)
 async def read_users_me(current_user: User = Depends(get_current_user)):
@@ -530,6 +568,92 @@ async def create_new_user(
     return {"username": new_user.username}
 
 # --- API Interfaces ---
+
+@app.get("/thumbnail")
+async def get_thumbnail(path: str):
+    """Generate or retrieve a thumbnail for a video file."""
+    p = Path(path)
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    # Thumbnails cache directory
+    thumb_dir = DATA_DIR / "thumbnails"
+    thumb_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Hash path to get unique filename
+    path_hash = hashlib.md5(str(p).encode('utf-8')).hexdigest()
+    thumb_path = thumb_dir / f"{path_hash}.jpg"
+    
+    if not thumb_path.exists():
+        # Generate thumbnail using ffmpeg
+        try:
+            cmd = [
+                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                "-ss", "00:00:05", # Try to take frame at 5s
+                "-i", str(p),
+                "-vframes", "1",
+                "-q:v", "2",
+                "-vf", "scale=320:-1", # Resize width to 320px, keep aspect ratio
+                str(thumb_path)
+            ]
+            # If video is shorter than 5s, try 0s
+            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            
+            if not thumb_path.exists():
+                 # Retry at 0s if 5s failed (maybe video is short)
+                cmd[6] = "00:00:00"
+                subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                
+        except Exception as e:
+            print(f"Thumbnail generation failed: {e}")
+            
+    if thumb_path.exists():
+        return FileResponse(thumb_path)
+    
+    # Return a default placeholder or 404
+    raise HTTPException(status_code=404, detail="Thumbnail could not be generated")
+
+class FileInfo(BaseModel):
+    path: str
+    exists: bool
+    size: Optional[int] = None
+    size_fmt: Optional[str] = None
+    duration: Optional[float] = None
+    duration_fmt: Optional[str] = None
+    
+class BatchFileRequest(BaseModel):
+    files: List[str]
+
+@app.post("/files/batch-info", response_model=List[FileInfo])
+async def get_batch_file_info(req: BatchFileRequest, current_user: User = Depends(get_current_user)):
+    results = []
+    for fpath in req.files:
+        p = Path(fpath)
+        info = FileInfo(path=fpath, exists=p.exists())
+        if p.exists() and p.is_file():
+            try:
+                st = p.stat()
+                info.size = st.st_size
+                # Format size
+                for unit in ['B', 'KB', 'MB', 'GB']:
+                    if info.size < 1024.0:
+                        info.size_fmt = f"{info.size:.2f} {unit}"
+                        break
+                    info.size /= 1024.0
+                else:
+                    info.size_fmt = f"{info.size:.2f} TB"
+                
+                # Restore raw size for sorting if needed
+                info.size = st.st_size
+                
+                info.duration = get_video_duration(p)
+                m, s = divmod(int(info.duration), 60)
+                h, m = divmod(m, 60)
+                info.duration_fmt = f"{h:02d}:{m:02d}:{s:02d}"
+            except:
+                pass
+        results.append(info)
+    return results
 
 @app.get("/")
 def read_root():

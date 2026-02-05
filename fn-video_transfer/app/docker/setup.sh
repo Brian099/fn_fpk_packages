@@ -4,7 +4,7 @@
 # set -e
 
 TEMPLATE_FILE="docker-compose.template.yml"
-OUTPUT_FILE="docker-compose.yaml"
+OUTPUT_FILE="docker-compose.yml"
 
 # 检查模板文件是否存在
 if [ ! -f "$TEMPLATE_FILE" ]; then
@@ -18,11 +18,10 @@ cp "$TEMPLATE_FILE" "$OUTPUT_FILE"
 # ---------------------------------------------------------
 # 0. 配置媒体目录
 # ---------------------------------------------------------
-USER_MEDIA_DIR="${wizard_data}"
+read -p "请输入媒体文件目录 (默认为当前目录下的 ./media): " USER_MEDIA_DIR
 
 # 如果为空，则使用默认值
 if [ -z "$USER_MEDIA_DIR" ]; then
-    echo "警告: 未检测到 wizard_data 环境变量，使用默认值 ./media"
     USER_MEDIA_DIR="./media"
 fi
 
@@ -36,19 +35,17 @@ fi
 
 # 替换 docker-compose.yml 中的路径
 # 使用 | 作为分隔符以避免路径中的 / 冲突
-sed -i "s|\${wizard_data}|$USER_MEDIA_DIR|g" "$OUTPUT_FILE"
+sed -i "s|./media:/data|$USER_MEDIA_DIR:/data|g" "$OUTPUT_FILE"
 
 echo "已配置媒体目录: $USER_MEDIA_DIR -> /data"
 
 # ---------------------------------------------------------
 # 0.5. 配置配置目录
 # ---------------------------------------------------------
-# 从环境变量 wizard_config 获取 (由安装向导传入)
-USER_CONFIG_DIR="${wizard_config}"
+read -p "请输入配置文件目录 (默认为当前目录下的 ./config): " USER_CONFIG_DIR
 
 # 如果为空，则使用默认值
 if [ -z "$USER_CONFIG_DIR" ]; then
-    echo "警告: 未检测到 wizard_config 环境变量，使用默认值 ./config"
     USER_CONFIG_DIR="./config"
 fi
 
@@ -61,7 +58,7 @@ else
 fi
 
 # 替换 docker-compose.yml 中的路径
-sed -i "s|\${wizard_config}|$USER_CONFIG_DIR|g" "$OUTPUT_FILE"
+sed -i "s|./config:/config|$USER_CONFIG_DIR:/config|g" "$OUTPUT_FILE"
 
 echo "已配置配置目录: $USER_CONFIG_DIR -> /config"
 
