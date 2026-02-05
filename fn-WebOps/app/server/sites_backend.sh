@@ -112,6 +112,11 @@ create_site_json() {
             # Remove leading whitespace
             if ($0 != "") sub(/^[ \t]+/, "", $0);
             
+            # Ensure space before { for location blocks
+            if ($0 ~ /^location/ && $0 ~ /\{$/ && $0 !~ / \{$/) {
+                sub(/\{$/, " {", $0);
+            }
+            
             # Indent
             if ($0 == "") print "";
             else if ($0 ~ /^location/ || $0 ~ /^}$/) print "    " $0;
@@ -359,7 +364,10 @@ EOF
 
   ln -sf "$config_file" "/etc/nginx/sites-enabled/$site_name"
   
-  if nginx -t > /dev/null 2>&1; then
+  nginx_test_output=$(nginx -t 2>&1)
+  nginx_test_status=$?
+  
+  if [ $nginx_test_status -eq 0 ]; then
       reload_nginx_safe
       echo '{"ok":true,"message":"site created"}'
   else
@@ -367,12 +375,10 @@ EOF
       rm -f "/etc/nginx/sites-enabled/$site_name"
       rm -f "$config_file"
       
-      # Also remove info files if they were created (though usually kept for data safety, 
-      # but if site creation failed due to config error, we should probably clean up to avoid "ghost" sites)
-      # However, user might have important data in root dir if they chose an existing dir.
-      # So we only delete the nginx config files, not the data directory.
+      # Clean up error message for JSON (escape quotes, replace newlines)
+      error_msg=$(echo "$nginx_test_output" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' ' | sed 's/  */ /g')
       
-      echo '{"ok":false,"error":"Nginx configuration test failed (likely invalid rewrite rules). Site deleted."}'
+      echo "{\"ok\":false,\"error\":\"Nginx check failed: $error_msg\"}"
       return 0
   fi
 }
