@@ -532,11 +532,16 @@ $input
 EOF
     fi
   fi
+  to_install=()
   for extension in "${extensions[@]}"; do
     if ! dpkg -l 2>/dev/null | grep -q "$extension"; then
-      apt-get install -y "$extension" >>/tmp/webops_php_install.log 2>&1 || true
+      to_install+=("$extension")
     fi
   done
+  
+  if [ ${#to_install[@]} -gt 0 ]; then
+    apt-get install -y "${to_install[@]}" >>/tmp/webops_php_install.log 2>&1 || true
+  fi
   systemctl enable --now php8.2-fpm >/dev/null 2>&1 || systemctl enable --now php-fpm >/dev/null 2>&1 || true
   if "$already_php"; then
     printf '{"ok":true,"message":"php packages updated or ensured"}'
@@ -1113,7 +1118,7 @@ install_db_json() {
   if [ -f "$DB_DIR/docker-compose.yml" ]; then
       # Try to start it if it exists
       cd "$DB_DIR"
-      if docker compose up -d >/dev/null 2>&1; then
+      if docker compose up -d >/tmp/webops_db_install.log 2>&1; then
            echo '{"ok":true,"message":"Existing database stack started"}'
            return 0
       fi
@@ -1156,7 +1161,7 @@ EOF
 
   cd "$DB_DIR" || return 1
   
-  if docker compose -p fn-mysql up -d >/dev/null 2>&1; then
+  if docker compose up -d >/tmp/webops_db_install.log 2>&1; then
       echo '{"ok":true,"message":"Docker版数据库安装成功"}'
   else
       echo '{"ok":false,"error":"Docker compose 启动失败"}'
@@ -1175,6 +1180,8 @@ get_install_log_json() {
     log_file="/tmp/webops_nginx_install.log"
   elif [ "$log_type" = "php" ]; then
     log_file="/tmp/webops_php_install.log"
+  elif [ "$log_type" = "db" ]; then
+    log_file="/tmp/webops_db_install.log"
   fi
   
   if [ -n "$log_file" ] && [ -f "$log_file" ]; then

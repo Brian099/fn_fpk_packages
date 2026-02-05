@@ -182,8 +182,9 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
                   layer.prompt({title: '请设置 MySQL root 密码', formType: 1}, function(pass, index){
                       layer.close(index);
                       if(!pass) return;
-                      el.html('<i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 安装中 (Docker compose)...');
-                      apiPost("/api/db/install", "password="+encodeURIComponent(pass), "安装完成", loadStatus);
+                      // el.html('<i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 安装中 (Docker compose)...');
+                      // apiPost("/api/db/install", "password="+encodeURIComponent(pass), "安装完成", loadStatus);
+                      showInstallLog('db', "/api/db/install", "password="+encodeURIComponent(pass), "安装完成", loadStatus);
                   });
               });
           }
