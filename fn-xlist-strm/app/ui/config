@@ -1,0 +1,17 @@
+{
+  ".url": {
+    "xlist-strm.Application": {
+      "title": "XList Strm",
+      "desc": "XList Strm",
+      "icon": "images/icon_{0}.png",
+      "type": "url",
+      "protocol": "http",
+      "port": "${wizard_port}",
+      "url": "${wizard_base_path}",
+      "allUsers": true,
+      "control": {
+        "accessPerm": "readonly"
+      }
+    }
+  }
+}

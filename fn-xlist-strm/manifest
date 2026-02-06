@@ -1,0 +1,13 @@
+appname               = xlist-strm
+version               = 1.0.0
+display_name          = xlist-strm
+desc                  = XList Strm 是一个用于获取alist/openlist strm文件的容器。
+platform              = all
+source                = thirdparty
+desktop_uidir         = ui
+desktop_applaunchname = xlist-strm.Application
+maintainer            = Giraff
+maintainer_url        = https://giraff.fun
+distributor           = Giraff
+distributor_url       = https://giraff.fun
+reloadui              = yes

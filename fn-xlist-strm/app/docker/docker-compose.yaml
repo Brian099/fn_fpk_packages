@@ -1,0 +1,15 @@
+services:
+  alist-strm:
+    image: brian9909/alist-strm:latest
+    container_name: alist-strm
+    restart: always
+    ports:
+      - ${wizard_port}:5000
+    volumes:
+      - ${wizard_config}:/config
+      - ${wizard_logs}:/app/logs
+      - ${wizard_data}:/data
+    environment:
+      - TZ=Asia/Shanghai
+    # 如果需要以非 root 用户运行，且宿主机有权限问题，可能需要根据实际情况调整权限
+    # 目前镜像默认以 root 运行

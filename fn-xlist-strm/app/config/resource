@@ -1,0 +1,22 @@
+{
+  "docker-project": {
+    "projects": [
+      {
+        "name": "xlist-strm",
+        "path": "docker"
+      }
+    ]
+  },
+  "data-share": {
+    "shares": [
+      {
+        "name": "xlist-strm",
+        "permission": {
+          "rw": [
+            "docker-xlist-strm"
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "defaults": {
+    "run-as": "package"
+  },
+  "username": "docker-xlist-strm"
+}
