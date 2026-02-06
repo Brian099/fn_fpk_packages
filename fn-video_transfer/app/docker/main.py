@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import re
 import json
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any
@@ -72,6 +73,9 @@ JOB_PROCESSES: Dict[str, subprocess.Popen] = {}
 
 # 并发控制
 MAX_CONCURRENT_JOBS = int(os.environ.get("MAX_CONCURRENT_JOBS", 2))
+# 限制预览并发数为 1，防止短时间内大量启动 FFmpeg 导致内存溢出
+PREVIEW_SEMAPHORE = threading.Semaphore(1)
+
 # 使用足够大的线程池来容纳可能的并发任务，实际调度由逻辑控制
 executor = ThreadPoolExecutor(max_workers=20)
 
@@ -902,7 +906,7 @@ def create_preview(req: TranscodeRequest, current_user: User = Depends(get_curre
         
     # 获取时长并计算中间点
     duration = get_video_duration(input_path)
-    start_time = max(0, duration / 2 - 5) # 从中间开始，或者至少0
+    start_time = max(0, duration / 2 - 2.5) # 从中间开始，或者至少0
     
     # 生成预览文件名
     preview_filename = f"preview_{get_path_hash(input_path)}_{uuid.uuid4().hex}.mp4"
@@ -919,50 +923,83 @@ def create_preview(req: TranscodeRequest, current_user: User = Depends(get_curre
     req.params.format = "mp4" # 强制预览为 mp4 容器
     req.params.scodec = "none" # 预览时禁用字幕，防止 TS 图形字幕(dvb_sub)转 MP4 失败
     
-    # 截取 10 秒
-    input_options = ["-ss", str(start_time), "-t", "10"]
+    # 截取 5 秒
+    input_options = ["-ss", str(start_time), "-t", "5"]
     
     cmd = build_ffmpeg_cmd(input_path, preview_path, req.params, input_options)
     
+    # 使用信号量限制并发预览
+    if not PREVIEW_SEMAPHORE.acquire(blocking=False):
+         raise HTTPException(status_code=503, detail="系统正忙，请稍后再试 (预览任务队列已满)")
+
     try:
-        # 同步执行预览生成 (通常 10秒片段很快)
-        process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        if process.returncode != 0:
-             raise RuntimeError(f"FFmpeg Preview Error: {process.stdout}")
-             
-        # 计算预估体积和压缩率
-        preview_size = preview_path.stat().st_size
-        source_size = input_path.stat().st_size
-        
-        estimate_info = {
-            "source_size": source_size,
-            "preview_size": preview_size,
-            "duration": duration,
-            "estimated_full_size": 0,
-            "compression_ratio": 0.0
-        }
-
-        if duration > 0:
-            # 简单估算：预览10秒 -> 完整时长
-            # 注意：如果实际截取不足10秒（视频短于10秒），这里的估算会有偏差，但通常预览针对长视频
-            actual_preview_duration = min(10.0, duration)
-            ratio = duration / actual_preview_duration
-            estimated_full_size = preview_size * ratio
+        try:
+            # 同步执行预览生成 (通常 5秒片段很快)
+            process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            if process.returncode != 0:
+                 raise RuntimeError(f"FFmpeg Preview Error: {process.stdout}")
+                 
+            # 计算预估体积和压缩率
+            preview_size = preview_path.stat().st_size
+            source_size = input_path.stat().st_size
             
-            estimate_info["estimated_full_size"] = int(estimated_full_size)
-            if source_size > 0:
-                # 压缩率：(原大小 - 预估大小) / 原大小
-                estimate_info["compression_ratio"] = (source_size - estimated_full_size) / source_size
+            # --- 新增：抽取10帧画面 ---
+            # 从生成的预览视频中抽取 10 帧 (fps=2, 5秒 = 10帧)
+            # 输出格式: preview_{hash}_{uuid}_frame_%03d.jpg
+            frame_pattern = f"preview_{get_path_hash(input_path)}_{uuid.uuid4().hex}_frame_%03d.jpg"
+            frame_output_path = PREVIEW_DIR / frame_pattern
+            
+            # 使用 ffmpeg 提取帧
+            # -vf fps=2 保证 5秒视频输出约 10 帧
+            extract_cmd = [
+                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                "-i", str(preview_path),
+                "-vf", "fps=2",
+                str(frame_output_path)
+            ]
+            subprocess.run(extract_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            
+            # 收集生成的图片 URL
+            preview_images = []
+            # 查找生成的文件 (glob pattern)
+            # frame_pattern 包含 %03d，我们需要匹配它
+            # glob pattern: frame_pattern with %03d replaced by *
+            glob_pattern = frame_pattern.replace("%03d", "*")
+            for img_file in sorted(PREVIEW_DIR.glob(glob_pattern)):
+                preview_images.append(f"/previews/{img_file.name}")
+            
+            estimate_info = {
+                "source_size": source_size,
+                "preview_size": preview_size,
+                "duration": duration,
+                "estimated_full_size": 0,
+                "compression_ratio": 0.0
+            }
 
-        # 返回预览 URL 和 统计信息
-        preview_url = f"/previews/{preview_filename}"
-        return {
-            "preview_url": preview_url,
-            "stats": estimate_info
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+            if duration > 0:
+                # 简单估算：预览5秒 -> 完整时长
+                # 注意：如果实际截取不足5秒（视频短于5秒），这里的估算会有偏差，但通常预览针对长视频
+                actual_preview_duration = min(5.0, duration)
+                ratio = duration / actual_preview_duration
+                estimated_full_size = preview_size * ratio
+                
+                estimate_info["estimated_full_size"] = int(estimated_full_size)
+                if source_size > 0:
+                    # 压缩率：(原大小 - 预估大小) / 原大小
+                    estimate_info["compression_ratio"] = (source_size - estimated_full_size) / source_size
+
+            # 返回预览 URL 和 统计信息
+            preview_url = f"/previews/{preview_filename}"
+            return {
+                "preview_url": preview_url,
+                "preview_images": preview_images, # 返回图片列表
+                "stats": estimate_info
+            }
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        PREVIEW_SEMAPHORE.release()
 
 # 挂载静态文件（确保放在最后，避免覆盖 API 路由）
 # 注意：我们需要先创建 static 目录
