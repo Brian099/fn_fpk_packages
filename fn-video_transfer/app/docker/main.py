@@ -782,12 +782,19 @@ def create_transcode_job(req: TranscodeRequest, background_tasks: BackgroundTask
         job_id = uuid.uuid4().hex
         p = Path(inp)
         
-        # 清理该文件的旧预览
+        # 清理该文件的旧预览 (包括视频和图片)
         try:
             path_hash = get_path_hash(p)
+            # 清理视频
             for preview_file in PREVIEW_DIR.glob(f"preview_{path_hash}_*.mp4"):
                 try:
                     preview_file.unlink()
+                except:
+                    pass
+            # 清理图片
+            for preview_img in PREVIEW_DIR.glob(f"preview_{path_hash}_*.jpg"):
+                try:
+                    preview_img.unlink()
                 except:
                     pass
         except:
@@ -867,6 +874,21 @@ def retry_all_jobs(current_user: User = Depends(get_current_user)):
         try_start_jobs()
         
     return {"message": f"已重置 {retried_count} 个任务", "count": retried_count}
+
+@app.post("/jobs/clear-completed")
+def clear_completed_jobs(current_user: User = Depends(get_current_user)):
+    """清除所有已完成的任务"""
+    to_remove = []
+    for job_id, job in JOBS.items():
+        if job.status == "completed":
+            to_remove.append(job_id)
+    
+    for job_id in to_remove:
+        del JOBS[job_id]
+        # 可选：是否删除相关的预览文件？
+        # 目前预览文件保留，直到下次同名文件上传时覆盖。
+        
+    return {"message": f"已清除 {len(to_remove)} 个已完成的任务", "count": len(to_remove)}
 
 @app.post("/jobs/{job_id}/cancel")
 def cancel_job(job_id: str, current_user: User = Depends(get_current_user)):

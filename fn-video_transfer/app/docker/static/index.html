@@ -368,8 +368,11 @@
                             <button type="button" class="btn btn-warning btn-sm mr-1" onclick="retryAllJobs()" title="重新开始所有失败或已取消的任务">
                                 <i class="fas fa-redo"></i> 重试未完成
                             </button>
-                            <button type="button" class="btn btn-danger btn-sm" onclick="cancelAllJobs()" title="取消所有正在运行或等待中的任务">
+                            <button type="button" class="btn btn-danger btn-sm mr-1" onclick="cancelAllJobs()" title="取消所有正在运行或等待中的任务">
                                 <i class="fas fa-ban"></i> 取消进行中
+                            </button>
+                            <button type="button" class="btn btn-success btn-sm" onclick="clearCompletedJobs()" title="清除所有已完成的任务">
+                                <i class="fas fa-check"></i> 清除已完成
                             </button>
                         </div>
                     </div>
@@ -843,6 +846,19 @@
         
         try {
             const res = await fetch('/jobs/retry-all', { method: 'POST' });
+            const data = await res.json();
+            alert(data.message);
+            loadJobs();
+        } catch (e) {
+            alert("操作失败: " + e.message);
+        }
+    }
+
+    async function clearCompletedJobs() {
+        if (!confirm("确定要清除所有已完成的任务记录吗？")) return;
+        
+        try {
+            const res = await fetch('/jobs/clear-completed', { method: 'POST' });
             const data = await res.json();
             alert(data.message);
             loadJobs();
