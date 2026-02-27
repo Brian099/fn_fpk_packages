@@ -204,9 +204,12 @@
 
     <div class="layui-form-item">
       <label class="layui-form-label">根目录</label>
-      <div class="layui-input-block" style="display:flex;">
-        <input type="text" name="root" id="input-root-path" value="" class="layui-input" style="flex:1;">
-        <button type="button" class="layui-btn layui-btn-primary" id="btn-browse-root">浏览</button>
+      <div class="layui-input-block">
+        <div style="display:flex;">
+          <input type="text" name="root" id="input-root-path" value="" class="layui-input" style="flex:1;">
+          <button type="button" class="layui-btn layui-btn-primary" id="btn-browse-root">浏览</button>
+        </div>
+        <div class="layui-word-aux" style="margin-top: 5px; font-size: 12px;">目录路径中请勿包含空格和除 -_ 外其他特殊符号</div>
       </div>
     </div>
 
