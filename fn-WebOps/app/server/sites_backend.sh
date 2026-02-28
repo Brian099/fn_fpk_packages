@@ -1161,7 +1161,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   phpmyadmin:
-    image: phpmyadmin/phpmyadmin:latest
+    image: phpmyadmin:latest
     restart: always
     ports:
       - "8080:80"
