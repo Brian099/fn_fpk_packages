@@ -1,6 +1,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+const { constants } = require('../src/config');
 
 class LibraryDatabase {
   constructor(libraryPath) {
@@ -28,14 +29,15 @@ class LibraryDatabase {
     
     this.initTables();
     
-    // 启动 WAL 定期 checkpoint（每 5 分钟）
+    // 启动 WAL 定期 checkpoint（使用配置的间隔）
+    const checkpointInterval = constants.MEMORY.WAL_CHECKPOINT_INTERVAL_MS || 600000;
     this.walCheckpointInterval = setInterval(() => {
       try {
         this.db.pragma('wal_checkpoint(PASSIVE)');
       } catch (e) {
         console.warn('[DB] WAL checkpoint warning:', e.message);
       }
-    }, 300000); // 5 分钟
+    }, checkpointInterval); // 10分钟（降低I/O开销，不影响性能）
   }
 
   initTables() {
