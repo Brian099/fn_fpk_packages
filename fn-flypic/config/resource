@@ -1,0 +1,14 @@
+{
+    "data-share": {
+        "shares": [
+            {
+                "name": "flypic",
+                "permission": {
+                    "rw": [
+                        "flypic"
+                    ]
+                }
+            }
+        ]
+    }
+}

@@ -1,0 +1,52 @@
+[
+    {
+        "stepTitle": "应用配置",
+        "items": [
+            {
+                "type": "tips",
+                "helpText": "欢迎安装 FlyPic！请配置应用端口。"
+            },
+            {
+                "type": "text",
+                "field": "wizard_app_port",
+                "label": "应用端口",
+                "initValue": "15002",
+                "rules": [
+                    {
+                        "required": true,
+                        "message": "请输入端口号"
+                    },
+                    {
+                        "pattern": "^[0-9]+$",
+                        "message": "端口号必须是数字"
+                    }
+                ]
+            },
+            {
+                "type": "tips",
+                "helpText": "默认端口为 15002，如果该端口被占用，请修改为其他可用端口。"
+            }
+        ]
+    },
+    {
+        "stepTitle": "使用说明",
+        "items": [
+            {
+                "type": "tips",
+                "helpText": "<div style=\"text-align: center; padding: 20px 0;\"><div style=\"font-size: 32px; color: #ff4d00; font-weight: 900; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);\">⚠️ <strong>重要提示</strong></div><div style=\"font-size: 18px; color: #666; margin-top: 10px;\">使用前请仔细阅读以下说明</div></div>"
+            },
+            {
+                "type": "tips",
+                "helpText": "<div style=\"text-align: center; background: #fff8e6; border: 1px solid #ffe58f; border-radius: 8px; padding: 16px; margin: 20px 0;\"><div style=\"font-size: 18px; font-weight: bold; color: #d48806; margin-bottom: 8px;\"><strong>📁 素材库路径</strong></div><div style=\"font-size: 14px; color: #666;\">添加素材库时需输入飞牛文件系统的<strong>完整路径</strong></div><div style=\"font-size: 16px; color: #1890ff; background: #f0f5ff; padding: 8px 16px; border-radius: 4px; margin-top: 8px; font-family: monospace;\">/vol1/1000/图片库</div></div>"
+            },
+            {
+                "type": "tips",
+                "helpText": "<div style=\"text-align: center; background: #fff1f0; border: 1px solid #ffa39e; border-radius: 8px; padding: 16px; margin: 20px 0;\"><div style=\"font-size: 18px; font-weight: bold; color: #cf1322; margin-bottom: 8px;\"><strong>🔐 文件夹权限（必须配置）</strong></div><div style=\"font-size: 14px; color: #666;\">请确保应用对素材库文件夹有<strong>读取权限</strong></div><div style=\"font-size: 14px; color: #cf1322; margin-top: 8px;\">👉 在飞牛「应用设置」→「授权目录」中添加素材库路径</div></div>"
+            },
+            {
+                "type": "tips",
+                "helpText": "<div style=\"text-align: center; background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 8px; padding: 16px; margin: 20px 0;\"><div style=\"font-size: 18px; font-weight: bold; color: #389e0d; margin-bottom: 8px;\"><strong>📖 更多帮助</strong></div><div style=\"font-size: 14px; color: #666;\">详细使用教程和常见问题解答，请访问官网</div><div style=\"margin-top: 8px;\"><a target=\"_blank\" href=\"https://flypic.shikejk.com/\" style=\"font-size: 16px; color: #1890ff;\">https://flypic.shikejk.com/</a></div></div>"
+            }
+        ]
+    }
+]

@@ -1,0 +1,33 @@
+#!/bin/bash
+LOG="${TRIM_TEMP_LOGFILE:-/tmp/flypic_install.log}"
+exec >> "$LOG" 2>&1
+set -x
+
+echo "=== FlyPic 安装初始化开始 ==="
+echo "时间: $(date)"
+echo "应用名称: ${TRIM_APPNAME}"
+echo "应用版本: ${TRIM_APPVER}"
+echo "用户名: ${TRIM_USERNAME}"
+echo "用户组: ${TRIM_GROUPNAME}"
+echo "数据共享路径: ${TRIM_DATA_SHARE_PATHS}"
+echo "应用目录: ${TRIM_APPDEST}"
+echo "数据目录: ${TRIM_PKGVAR}"
+echo "临时目录: ${TRIM_PKGTMP}"
+
+# 获取用户设置的端口（从安装向导）
+APP_PORT="${wizard_app_port:-15002}"
+echo "用户设置端口: ${APP_PORT}"
+
+# 更新 UI 配置中的端口
+UI_CONFIG="${TRIM_APPDEST}/ui/config"
+if [ -f "$UI_CONFIG" ]; then
+    sed -i "s/\"port\": \"[0-9]*\"/\"port\": \"${APP_PORT}\"/" "$UI_CONFIG"
+    echo "已更新 UI 配置端口为: ${APP_PORT}"
+fi
+
+# 保存端口配置供 main 脚本使用
+echo "APP_PORT=${APP_PORT}" > "${TRIM_PKGVAR}/port.conf"
+
+echo "=== 安装初始化完成 ==="
+
+exit 0

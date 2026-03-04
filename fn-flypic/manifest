@@ -1,0 +1,14 @@
+appname=flypic
+version=1.2.0
+desc=飞图 - 专为飞牛 fnOS 设计的轻量、快速、稳定的图像素材检索浏览应用，支持数十万级别图片流畅浏览，非侵入式设计，100% 开源免费
+arch=x86_64
+display_name=FlyPic
+maintainer=FlyPic
+maintainer_url=https://flypic.shikejk.com/
+distributor=ZangXin
+distributor_url=https://github.com/ZangXincz
+desktop_uidir=ui
+desktop_applaunchname=flypic.Application
+source=thirdparty
+service_port=15002
+install_dep_apps=nodejs_v22
