@@ -3,8 +3,6 @@
  * Executes routine and emergency memory cleanup procedures
  */
 
-const logger = require('../src/utils/logger');
-
 class CleanupManager {
   constructor(options = {}) {
     this.routineInterval = options.routineInterval || 5000; // 5 seconds
@@ -23,7 +21,7 @@ class CleanupManager {
   startRoutineCleanup() {
     if (this.isRunning) return;
 
-    logger.task('清理管理器已启动');
+    console.log('🧹 清理管理器已启动');
     this.isRunning = true;
 
     this.routineIntervalId = setInterval(() => {
@@ -37,7 +35,7 @@ class CleanupManager {
   stopRoutineCleanup() {
     if (!this.isRunning) return;
 
-    logger.task('清理管理器已停止');
+    console.log('🧹 清理管理器已停止');
     
     if (this.routineIntervalId) {
       clearInterval(this.routineIntervalId);
@@ -78,7 +76,7 @@ class CleanupManager {
 
       // 只在内存回收显著时输出日志
       if (Math.abs(rssReclaimed) > 10) {
-        logger.perf(`内存清理: ${rssBefore.toFixed(0)}MB → ${rssAfter.toFixed(0)}MB`);
+        console.log(`🧹 内存清理: ${rssBefore.toFixed(0)}MB → ${rssAfter.toFixed(0)}MB`);
       }
 
       return {
@@ -89,7 +87,7 @@ class CleanupManager {
         connectionsCleared: 0
       };
     } catch (error) {
-      logger.error('清理失败:', error.message);
+      console.error('❌ 清理失败:', error.message);
       return null;
     }
   }
@@ -101,7 +99,7 @@ class CleanupManager {
    * - Force garbage collection multiple times (3+)
    */
   executeEmergencyCleanup() {
-    logger.task('执行紧急内存清理...');
+    console.log('🚨 执行紧急内存清理...');
     
     const memoryBefore = this.getMemoryStats();
     
@@ -112,15 +110,15 @@ class CleanupManager {
         try {
           this.dbPool.closeAll();
           connectionsCleared = 1;
-          logger.task('数据库连接已关闭');
+          console.log('  ✓ 数据库连接已关闭');
         } catch (error) {
-          logger.error('关闭连接失败:', error.message);
+          console.error('  ✗ 关闭连接失败:', error.message);
         }
       }
 
       // 2. Clear all registered caches
       const cachesCleared = this.clearAllCaches();
-      logger.task(`已清理 ${cachesCleared} 个缓存`);
+      console.log(`  ✓ 已清理 ${cachesCleared} 个缓存`);
 
       // 3. Force garbage collection multiple times (minimum 3)
       this.forceGarbageCollection(3);
@@ -128,7 +126,7 @@ class CleanupManager {
       const memoryAfter = this.getMemoryStats();
       const memoryReclaimed = memoryBefore.heapUsed - memoryAfter.heapUsed;
 
-      logger.task(`紧急清理完成: 回收 ${(memoryReclaimed / 1024 / 1024).toFixed(0)}MB`);
+      console.log(`✅ 紧急清理完成: 回收 ${(memoryReclaimed / 1024 / 1024).toFixed(0)}MB`);
 
       return {
         memoryBefore,
@@ -138,7 +136,7 @@ class CleanupManager {
         connectionsCleared
       };
     } catch (error) {
-      logger.error('紧急清理失败:', error.message);
+      console.error('❌ 紧急清理失败:', error.message);
       return null;
     }
   }
@@ -155,7 +153,7 @@ class CleanupManager {
       try {
         global.gc();
       } catch (error) {
-        logger.error(`GC失败 (${i + 1}/${actualIterations}):`, error.message);
+        console.error(`  ✗ GC失败 (${i + 1}/${actualIterations}):`, error.message);
       }
     }
   }
@@ -174,7 +172,7 @@ class CleanupManager {
           cleared++;
         }
       } catch (error) {
-        logger.error(`清理缓存失败 "${name}":`, error.message);
+        console.error(`❌ 清理缓存失败 "${name}":`, error.message);
       }
     }
 
@@ -188,7 +186,7 @@ class CleanupManager {
    */
   registerCache(name, cache) {
     if (!cache || typeof cache.clear !== 'function') {
-      logger.warn(`缓存 "${name}" 无clear()方法`);
+      console.warn(`⚠️ 缓存 "${name}" 无clear()方法`);
       return;
     }
 

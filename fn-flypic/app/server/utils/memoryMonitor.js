@@ -3,8 +3,6 @@
  * Continuously monitors memory usage and triggers cleanup when thresholds are exceeded
  */
 
-const logger = require('../src/utils/logger');
-
 class MemoryMonitor {
   constructor(options = {}) {
     this.warningThreshold = options.warningThreshold || 150 * 1024 * 1024; // 150MB
@@ -28,7 +26,7 @@ class MemoryMonitor {
   start() {
     if (this.isRunning) return;
 
-    logger.perf('内存监控已启动');
+    console.log('📊 内存监控已启动');
 
     this.isRunning = true;
 
@@ -55,7 +53,7 @@ class MemoryMonitor {
   stop() {
     if (!this.isRunning) return;
 
-    logger.perf('内存监控已停止');
+    console.log('📊 内存监控已停止');
     
     if (this.intervalId) {
       clearInterval(this.intervalId);
@@ -118,6 +116,7 @@ class MemoryMonitor {
 
     this.lastWarningTime = now;
     
+    console.warn('⚠️ 内存使用偏高');
     this.logMemoryStats(stats, 'WARNING');
   }
 
@@ -134,11 +133,12 @@ class MemoryMonitor {
 
     this.lastDangerTime = now;
     
+    console.error('🚨 内存使用危险！');
     this.logMemoryStats(stats, 'DANGER');
 
     // Trigger emergency cleanup if cleanup manager is available
     if (this.cleanupManager) {
-      logger.perf('触发紧急清理...');
+      console.log('🚨 触发紧急清理...');
       try {
         this.cleanupManager.executeEmergencyCleanup();
         
@@ -157,7 +157,7 @@ class MemoryMonitor {
           }
         }, 1000);
       } catch (error) {
-        logger.error('紧急清理失败:', error.message);
+        console.error('❌ 紧急清理失败:', error.message);
       }
     }
   }
@@ -172,12 +172,10 @@ class MemoryMonitor {
     const externalMB = (stats.external / 1024 / 1024).toFixed(2);
     const arrayBuffersMB = (stats.arrayBuffers / 1024 / 1024).toFixed(2);
 
-    const message = `内存状态 [${level}]: Heap ${heapUsedMB}/${heapTotalMB} MB, RSS ${rssMB} MB`;
-    if (level === 'WARNING' || level === 'DANGER') {
-      logger.warn(message);
-    } else {
-      logger.perf(message);
-    }
+    console.log(`📊 内存状态 [${level}]:`);
+    console.log(`  Heap: ${heapUsedMB}/${heapTotalMB} MB`);
+    console.log(`  RSS: ${rssMB} MB`);
+    console.log(`  External: ${externalMB} MB`);
   }
 
   /**

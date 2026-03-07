@@ -66,10 +66,10 @@ router.patch('/rename', asyncHandler(async (req, res) => {
 /**
  * 移动文件或文件夹
  * POST /api/file/move
- * Body: { libraryId, items: [{type, path}], targetFolder, conflictAction?: 'skip'|'replace'|'rename' }
+ * Body: { libraryId, items: [{type, path}], targetFolder }
  */
 router.post('/move', asyncHandler(async (req, res) => {
-  const { libraryId, items, targetFolder, conflictAction } = req.body;
+  const { libraryId, items, targetFolder } = req.body;
 
   if (!libraryId || !items || !Array.isArray(items) || targetFolder === undefined) {
     return res.status(400).json({
@@ -78,7 +78,7 @@ router.post('/move', asyncHandler(async (req, res) => {
     });
   }
 
-  const results = await fileService.moveItems(libraryId, items, targetFolder, conflictAction);
+  const results = await fileService.moveItems(libraryId, items, targetFolder);
   
   res.json({
     success: true,

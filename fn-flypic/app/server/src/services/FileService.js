@@ -6,11 +6,9 @@
 const fs = require('fs');
 const path = require('path');
 const { processImage } = require('../../utils/scanner');
-const { constants } = require('../config');
-const logger = require('../utils/logger');
 
-// 临时备份目录（用于撤销恢复）
-const TEMP_BACKUP_DIR = constants.PATHS.TEMP_BACKUP_DIR;
+// 临时备份目录（用于撤销恢复）- 放在 .flypic 内部
+const TEMP_BACKUP_DIR = '.flypic/temp_backup';
 
 class FileService {
   constructor(dbPool, configManager) {
@@ -39,7 +37,7 @@ class FileService {
         const originalPath = path.join(libraryPath, item.path);
         const metaPath = backupPath + '.meta.json';
 
-        logger.fileOp(`开始恢复: ${item.path} (${item.type})`);
+        console.log(`🔄 开始恢复: ${item.path} (${item.type})`);
 
         // 检查备份是否存在
         if (!fs.existsSync(backupPath)) {
@@ -61,9 +59,10 @@ class FileService {
             const metaContent = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
             imageRecords = metaContent.imageRecords;
             folderRecords = metaContent.folderRecords;
-            logger.fileOp(`读取meta: 图片${Array.isArray(imageRecords) ? imageRecords.length : (imageRecords ? 1 : 0)}条, 文件夹${folderRecords ? folderRecords.length : 0}条`);
+            console.log(`  读取到 ${Array.isArray(imageRecords) ? imageRecords.length : (imageRecords ? 1 : 0)} 条图片记录`);
+            console.log(`  读取到 ${folderRecords ? folderRecords.length : 0} 条文件夹记录`);
           } catch (error) {
-            logger.warn(`读取meta失败 ${metaPath}:`, error.message);
+            console.warn(`读取meta失败 ${metaPath}:`, error);
           }
         }
 
@@ -71,7 +70,7 @@ class FileService {
         try {
           fs.renameSync(backupPath, originalPath);
         } catch (renameError) {
-          logger.fileOp('rename失败，使用复制方式');
+          console.log(`  ⚠️ rename失败，使用复制方式`);
           // rename 失败时使用复制+删除
           if (item.type === 'folder') {
             this._copyDirSync(backupPath, originalPath);
@@ -97,7 +96,7 @@ class FileService {
                 folderRecord.last_scan || Date.now()
               );
             } catch (error) {
-              logger.warn(`恢复文件夹记录失败: ${folderRecord.path}`, error.message);
+              console.warn(`恢复文件夹记录失败: ${folderRecord.path}`, error);
             }
           }
         } else if (item.type === 'folder') {
@@ -115,9 +114,9 @@ class FileService {
               0,
               Date.now()
             );
-            logger.fileOp(`创建空文件夹记录: ${item.path}`);
+            console.log(`  创建空文件夹记录: ${item.path}`);
           } catch (error) {
-            logger.warn(`创建文件夹记录失败: ${item.path}`, error.message);
+            console.warn(`创建文件夹记录失败: ${item.path}`, error);
           }
         }
         
@@ -127,7 +126,7 @@ class FileService {
             try {
               db.insertImage(record);
             } catch (error) {
-              logger.warn(`恢复图片记录失败: ${record.path}`, error.message);
+              console.warn(`恢复图片记录失败: ${record.path}`, error);
             }
           }
         }
@@ -138,9 +137,9 @@ class FileService {
         }
 
         results.success.push(item.path);
-        logger.fileOp(`恢复成功: ${item.path}`);
+        console.log(`✅ 恢复成功: ${item.path}`);
       } catch (error) {
-        logger.error(`恢复失败 ${item.path}:`, error.message);
+        console.error(`恢复失败 ${item.path}:`, error);
         results.failed.push({ path: item.path, error: error.message });
       }
     }
@@ -176,7 +175,7 @@ class FileService {
       return { cleaned: 0, failed: 0, thumbnailsCleaned: 0 };
     }
 
-    const EXPIRY_TIME = constants.FILE_OPERATIONS.TEMP_FILE_EXPIRY_MS;
+    const FIVE_MINUTES = 5 * 60 * 1000; // 5分钟
     const now = Date.now();
     let cleaned = 0;
     let failed = 0;
@@ -200,8 +199,8 @@ class FileService {
             const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
             const age = now - meta.deletedAt;
             
-            // 超过配置的过期时间，移入系统回收站
-            if (age > EXPIRY_TIME) {
+            // 超过5分钟，移入系统回收站
+            if (age > FIVE_MINUTES) {
               try {
                 // 1. 清理缩略图（在移入回收站前）
                 if (meta.imageRecords) {
@@ -213,10 +212,10 @@ class FileService {
                         if (fs.existsSync(thumbnailFullPath)) {
                           fs.unlinkSync(thumbnailFullPath);
                           thumbnailsCleaned++;
-                          logger.fileOp(`清理缩略图: ${record.thumbnail_path}`);
+                          console.log(`🧹 已清理缩略图: ${record.thumbnail_path}`);
                         }
                       } catch (thumbError) {
-                        logger.warn(`清理缩略图失败 ${record.thumbnail_path}:`, thumbError.message);
+                        console.warn(`清理缩略图失败 ${record.thumbnail_path}:`, thumbError.message);
                       }
                     }
                   }
@@ -228,14 +227,14 @@ class FileService {
                 await trash([fullPath]);
                 fs.unlinkSync(metaPath); // 删除 meta 文件
                 cleaned++;
-                logger.info(`已将过期文件移入回收站: ${meta.originalPath}`);
+                console.log(`🗑️ 已将过期文件移入回收站: ${meta.originalPath}`);
               } catch (error) {
-                logger.error(`清理失败 ${meta.originalPath}:`, error);
+                console.error(`清理失败 ${meta.originalPath}:`, error);
                 failed++;
               }
             }
           } catch (error) {
-            logger.error(`读取 meta 失败 ${metaPath}:`, error);
+            console.error(`读取 meta 失败 ${metaPath}:`, error);
           }
         } else if (fs.statSync(fullPath).isDirectory()) {
           // 递归处理子目录
@@ -292,7 +291,7 @@ class FileService {
             // 根目录也删除（如果完全为空）
             try {
               fs.rmdirSync(dir);
-              logger.fileOp(`删除空的备份目录: ${TEMP_BACKUP_DIR}`);
+              console.log(`🧹 已删除空的备份目录: ${TEMP_BACKUP_DIR}`);
             } catch (error) {
               // 忽略根目录删除失败
             }
@@ -301,7 +300,7 @@ class FileService {
             try {
               fs.rmdirSync(dir);
               const relativePath = path.relative(backupDir, dir);
-              logger.fileOp(`删除空文件夹: ${relativePath}`);
+              console.log(`🧹 已删除空文件夹: ${relativePath}`);
             } catch (error) {
               // 忽略删除失败（可能权限问题）
             }
@@ -316,10 +315,30 @@ class FileService {
     try {
       removeEmptyDirs(backupDir);
     } catch (error) {
-      logger.warn('[cleanExpiredTempFiles] 清理空文件夹时出错:', error.message);
+      console.warn('[cleanExpiredTempFiles] 清理空文件夹时出错:', error.message);
     }
 
     return { cleaned, failed, thumbnailsCleaned };
+  }
+
+  /**
+   * 递归复制目录
+   */
+  _copyDirSync(src, dest) {
+    fs.mkdirSync(dest, { recursive: true });
+    const files = fs.readdirSync(src);
+    
+    for (const file of files) {
+      const srcPath = path.join(src, file);
+      const destPath = path.join(dest, file);
+      const stat = fs.statSync(srcPath);
+      
+      if (stat.isDirectory()) {
+        this._copyDirSync(srcPath, destPath);
+      } else {
+        fs.copyFileSync(srcPath, destPath);
+      }
+    }
   }
 
   /**
@@ -352,13 +371,13 @@ class FileService {
         if (!fs.existsSync(fullPath)) {
           if (item.type === 'folder') {
             // 物理文件夹已不存在：视为只需要清理数据库中的“空壳”记录
-            logger.fileOp(`目标文件夹不存在，仅清理数据库记录: ${item.path}`);
+            console.warn(`目标文件夹不存在，仅清理数据库记录: ${item.path}`);
             try {
               db.deleteImagesByFolderPrefix(item.path);
               db.deleteFoldersByPrefix(item.path);
               results.success.push(item.path);
             } catch (e) {
-              logger.error(`清理不存在文件夹的数据库记录失败 ${item.path}:`, e.message);
+              console.error(`清理不存在文件夹的数据库记录失败 ${item.path}:`, e.message);
               results.failed.push({ path: item.path, error: e.message });
             }
           } else {
@@ -388,7 +407,7 @@ class FileService {
           fs.renameSync(fullPath, backupPath);
         } catch (renameError) {
           // rename 失败（可能是权限问题或跨磁盘），使用复制+删除
-          logger.fileOp(`rename失败，使用复制方式: ${item.path}`);
+          console.log(`⚠️ rename失败，使用复制方式: ${item.path}`);
           if (item.type === 'folder') {
             // 文件夹：递归复制
             this._copyDirSync(fullPath, backupPath);
@@ -409,7 +428,7 @@ class FileService {
           type: item.type
         }));
         
-        logger.fileOp(`已移入临时文件夹: ${item.path}`);
+        console.log(`📦 已移入临时文件夹: ${item.path}`);
         
         // 删除数据库记录前，先保存到meta（恢复时需要）
         let imageRecords = null;
@@ -421,7 +440,7 @@ class FileService {
           const stmt = db.db.prepare('SELECT * FROM folders WHERE path = ? OR path LIKE ?');
           folderRecords = stmt.all(item.path, `${item.path}/%`);
           
-          logger.fileOp(`删除文件夹: ${item.path} (图片:${imageRecords?.length || 0}, 子文件夹:${folderRecords?.length || 0})`);
+          console.log(`🔍 删除文件夹: ${item.path} (图片:${imageRecords?.length || 0}, 子文件夹:${folderRecords?.length || 0})`);
           
           // 删除数据库记录
           db.deleteImagesByFolderPrefix(item.path);
@@ -447,7 +466,7 @@ class FileService {
 
         results.success.push(item.path);
       } catch (error) {
-        logger.error(`删除失败 ${item.path}:`, error.message);
+        console.error(`删除失败 ${item.path}:`, error.message);
         results.failed.push({ path: item.path, error: error.message });
       }
     }
@@ -555,12 +574,11 @@ class FileService {
    * @param {string} libraryId - 素材库ID
    * @param {Array} items - 待移动项
    * @param {string} targetFolder - 目标文件夹（相对路径）
-   * @param {string} conflictAction - 冲突处理方式: 'skip'|'replace'|'rename'
    */
-  async moveItems(libraryId, items, targetFolder, conflictAction = 'rename') {
+  async moveItems(libraryId, items, targetFolder) {
     const db = this._getDatabase(libraryId);
     const libraryPath = db.libraryPath;
-    const results = { success: [], failed: [], conflicts: [] };
+    const results = { success: [], failed: [] };
 
     for (const item of items) {
       try {
@@ -570,12 +588,12 @@ class FileService {
         const normalizedTarget = targetFolder ? targetFolder.replace(/\\/g, '/') : '';
 
         // 目标文件夹相对路径
-        let newRelativeFolder = normalizedTarget
+        const newRelativeFolder = normalizedTarget
           ? `${normalizedTarget}/${fileName}`
           : fileName;
 
         const oldFullPath = path.join(libraryPath, oldPath);
-        let newFullPath = path.join(libraryPath, newRelativeFolder);
+        const newFullPath = path.join(libraryPath, newRelativeFolder);
 
         // 检查源路径是否存在
         if (!fs.existsSync(oldFullPath)) {
@@ -591,53 +609,10 @@ class FileService {
           fs.mkdirSync(targetFullPath, { recursive: true });
         }
 
-        // 处理冲突
-        const isDirectory = item.type === 'folder';
-        
+        // 检查目标是否已存在同名文件/文件夹
         if (fs.existsSync(newFullPath)) {
-          // 目标位置已存在同名文件/文件夹
-          results.conflicts.push({ path: oldPath, name: fileName });
-          
-          if (conflictAction === 'skip') {
-            // 跳过冲突文件
-            logger.fileOp(`跳过冲突: ${fileName}`);
-            continue;
-          } else if (conflictAction === 'replace') {
-            // 覆盖：先删除目标文件/文件夹
-            logger.fileOp(`覆盖: ${fileName}`);
-            if (fs.statSync(newFullPath).isDirectory()) {
-              // 删除目标物理目录
-              fs.rmSync(newFullPath, { recursive: true, force: true });
-              // 同时删除数据库中目标路径下的记录，避免后续路径更新时触发 UNIQUE(path) 冲突
-              const normalizedTargetFolder = newRelativeFolder.replace(/\\/g, '/');
-              db.deleteImagesByFolderPrefix(normalizedTargetFolder);
-              db.deleteFoldersByPrefix(normalizedTargetFolder);
-            } else {
-              // 删除目标物理文件
-              fs.unlinkSync(newFullPath);
-              // 删除数据库中该文件的记录，避免 _updatePathInDatabase 更新到已存在路径时报 UNIQUE 约束错误
-              const normalizedTargetPath = newRelativeFolder.replace(/\\/g, '/');
-              db.deleteImage(normalizedTargetPath);
-            }
-            // 继续执行移动
-          } else if (conflictAction === 'rename') {
-            // 重命名：自动编号
-            const ext = isDirectory ? '' : path.extname(fileName);
-            const basename = isDirectory ? fileName : path.basename(fileName, ext);
-            let counter = 1;
-            
-            while (fs.existsSync(newFullPath)) {
-              const numberedName = isDirectory
-                ? `${basename} (${counter})`
-                : `${basename} (${counter})${ext}`;
-              newRelativeFolder = normalizedTarget
-                ? `${normalizedTarget}/${numberedName}`
-                : numberedName;
-              newFullPath = path.join(libraryPath, newRelativeFolder);
-              counter++;
-            }
-            logger.fileOp(`重命名为: ${path.basename(newFullPath)}`);
-          }
+          results.failed.push({ path: oldPath, error: '目标位置已存在同名文件' });
+          continue;
         }
 
         if (item.type === 'folder') {
@@ -708,7 +683,7 @@ class FileService {
           results.success.push({ oldPath, newPath: newRelativePath });
         }
       } catch (error) {
-        logger.error(`移动失败 ${item.path}:`, error.message);
+        console.error(`移动失败 ${item.path}:`, error.message);
         results.failed.push({ path: item.path, error: error.message });
       }
     }
@@ -762,11 +737,11 @@ class FileService {
           
           if (conflictAction === 'skip') {
             // 跳过：源和目标相同，直接跳过
-            logger.fileOp(`跳过（源和目标相同）: ${fileName}`);
+            console.log(`⏭️  跳过（源和目标相同）: ${fileName}`);
             continue;
           } else if (conflictAction === 'replace') {
             // 覆盖：源和目标相同，无法覆盖自己，跳过
-            logger.fileOp(`跳过（无法覆盖自己）: ${fileName}`);
+            console.log(`⏭️  跳过（无法覆盖自己）: ${fileName}`);
             continue;
           } else if (conflictAction === 'rename') {
             // 重命名：自动编号创建副本
@@ -781,7 +756,7 @@ class FileService {
               finalDstPath = path.join(targetFullPath, numberedName);
               counter++;
             }
-            logger.fileOp(`创建副本: ${path.basename(finalDstPath)}`);
+            console.log(`✏️  创建副本: ${path.basename(finalDstPath)}`);
           }
         } else if (fs.existsSync(dstFullPath)) {
           // 目标文件存在但与源不同
@@ -789,11 +764,11 @@ class FileService {
           
           if (conflictAction === 'skip') {
             // 跳过冲突文件
-            logger.fileOp(`跳过冲突文件: ${fileName}`);
+            console.log(`⏭️  跳过冲突文件: ${fileName}`);
             continue;
           } else if (conflictAction === 'replace') {
             // 覆盖：先删除目标文件/文件夹
-            logger.fileOp(`覆盖文件: ${fileName}`);
+            console.log(`🔄 覆盖文件: ${fileName}`);
             if (fs.statSync(dstFullPath).isDirectory()) {
               fs.rmSync(dstFullPath, { recursive: true, force: true });
             } else {
@@ -812,7 +787,7 @@ class FileService {
               finalDstPath = path.join(targetFullPath, numberedName);
               counter++;
             }
-            logger.fileOp(`重命名为: ${path.basename(finalDstPath)}`);
+            console.log(`✏️  重命名为: ${path.basename(finalDstPath)}`);
           }
         }
 
@@ -833,9 +808,9 @@ class FileService {
 
         const newRelativePath = path.relative(libraryPath, finalDstPath).replace(/\\/g, '/');
         results.success.push({ oldPath: item.path, newPath: newRelativePath });
-        logger.fileOp(`复制成功: ${item.path} → ${newRelativePath}`);
+        console.log(`✅ 复制成功: ${item.path} → ${newRelativePath}`);
       } catch (error) {
-        logger.error(`复制失败 ${item.path}:`, error.message);
+        console.error(`复制失败 ${item.path}:`, error.message);
         results.failed.push({ path: item.path, error: error.message });
       }
     }
@@ -873,7 +848,7 @@ class FileService {
           try {
             await processImage(fullPath, libraryPath, db);
           } catch (error) {
-            logger.warn(`处理图片失败 ${entry.name}:`, error.message);
+            console.warn(`处理图片失败 ${entry.name}:`, error.message);
           }
         }
       }
@@ -1027,7 +1002,7 @@ class FileService {
 
     // 创建文件夹
     fs.mkdirSync(fullPath, { recursive: true });
-    logger.fileOp(`创建文件夹: ${folderPath}`);
+    console.log(`📁 创建文件夹: ${folderPath}`);
 
     // 添加到数据库
     const normalizedPath = folderPath.replace(/\\/g, '/');
@@ -1081,7 +1056,7 @@ class FileService {
         fs.unlinkSync(thumbnailFullPath);
       }
     } catch (error) {
-      logger.warn(`删除缩略图失败: ${error.message}`);
+      console.warn(`删除缩略图失败: ${error.message}`);
     }
   }
 }

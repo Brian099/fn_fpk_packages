@@ -1,6 +1,4 @@
 const LibraryDatabase = require('./db');
-const { constants } = require('../src/config');
-const logger = require('../src/utils/logger');
 
 /**
  * 数据库连接池管理器
@@ -15,7 +13,7 @@ class DatabasePool {
     DatabasePool.instance = this;
     
     this.connections = new Map(); // libraryPath -> { db, lastUsed, refCount }
-    this.maxIdleTime = constants.MEMORY.DB_IDLE_TIMEOUT_MS;
+    this.maxIdleTime = 60000; // 60秒未使用则关闭
     this.cleanupInterval = null;
     
     // 启动定期清理
@@ -73,14 +71,14 @@ class DatabasePool {
           try {
             conn.db.db.pragma('wal_checkpoint(TRUNCATE)');
           } catch (e) {
-            logger.warn(`[DBPool] WAL checkpoint warning:`, e.message);
+            console.warn(`[DBPool] WAL checkpoint warning:`, e.message);
           }
         }
         conn.db.close();
         
         this.connections.delete(libraryPath);
       } catch (error) {
-        logger.error(`关闭数据库连接失败:`, error.message);
+        console.error(`❌ 关闭数据库连接失败:`, error.message);
         // 即使出错也删除引用
         this.connections.delete(libraryPath);
       }
@@ -104,12 +102,12 @@ class DatabasePool {
           try {
             conn.db.db.pragma('wal_checkpoint(TRUNCATE)');
           } catch (e) {
-            logger.warn(`[DBPool] WAL checkpoint warning:`, e.message);
+            console.warn(`[DBPool] WAL checkpoint warning:`, e.message);
           }
         }
         conn.db.close();
       } catch (error) {
-        logger.error(`关闭数据库连接失败:`, error.message);
+        console.error(`❌ 关闭数据库连接失败:`, error.message);
       }
     }
     this.connections.clear();
@@ -127,8 +125,7 @@ class DatabasePool {
    * 启动定期清理空闲连接
    */
   startCleanup() {
-    const checkInterval = constants.MEMORY.DB_CLEANUP_CHECK_INTERVAL;
-    
+    // 更频繁的检查（每10秒）
     this.cleanupInterval = setInterval(() => {
       const now = Date.now();
       const toClose = [];
@@ -150,7 +147,7 @@ class DatabasePool {
           }
         }
       }
-    }, checkInterval);
+    }, 10000); // 每10秒检查一次（更频繁）
   }
 
   /**

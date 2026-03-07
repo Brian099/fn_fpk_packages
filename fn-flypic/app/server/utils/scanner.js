@@ -10,8 +10,6 @@ const {
   clearSharpCache
 } = require('./thumbnail');
 const scanManager = require('./scanManager');
-const { constants } = require('../src/config');
-const logger = require('../src/utils/logger');
 
 /**
  * Get all image files in a directory
@@ -41,7 +39,7 @@ function ensureFolderChain(db, folderPath) {
     
     // 安全检查：确保 db 对象有 getFolderByPath 方法
     if (typeof db.getFolderByPath !== 'function') {
-      logger.error('db.getFolderByPath 不是函数');
+      console.error('❌ db.getFolderByPath 不是函数');
       return;
     }
     
@@ -100,7 +98,7 @@ async function applyChangesFromEvents(libraryPath, db, events) {
 
         // 检查文件是否存在
         if (!fs.existsSync(full)) {
-          logger.warn(`File not found, skipping: ${full}`);
+          console.warn(`File not found, skipping: ${full}`);
           continue;
         }
 
@@ -118,7 +116,7 @@ async function applyChangesFromEvents(libraryPath, db, events) {
         }
         results.added++;
       } catch (error) {
-        logger.error(`处理新增文件失败 ${file}:`, error.message);
+        console.error(`❌ 处理新增文件失败 ${file}:`, error.message);
       }
     }
 
@@ -130,7 +128,7 @@ async function applyChangesFromEvents(libraryPath, db, events) {
 
         // 检查文件是否存在
         if (!fs.existsSync(full)) {
-          logger.warn(`File not found, skipping: ${full}`);
+          console.warn(`File not found, skipping: ${full}`);
           continue;
         }
 
@@ -139,7 +137,7 @@ async function applyChangesFromEvents(libraryPath, db, events) {
         affectedFolders.add(folder);
         results.modified++;
       } catch (error) {
-        logger.error(`处理修改文件失败 ${file}:`, error.message);
+        console.error(`❌ 处理修改文件失败 ${file}:`, error.message);
       }
     }
 
@@ -160,7 +158,7 @@ async function applyChangesFromEvents(libraryPath, db, events) {
         }
         results.deleted++;
       } catch (error) {
-        logger.error(`删除文件失败 ${file}:`, error.message);
+        console.error(`❌ 删除文件失败 ${file}:`, error.message);
       }
     }
 
@@ -175,7 +173,7 @@ async function applyChangesFromEvents(libraryPath, db, events) {
         if (parent && parent !== '.') affectedFolders.add(parent);
         results.foldersRemoved++;
       } catch (error) {
-        logger.error(`删除目录失败 ${dir}:`, error.message);
+        console.error(`❌ 删除目录失败 ${dir}:`, error.message);
       }
     }
 
@@ -185,14 +183,14 @@ async function applyChangesFromEvents(libraryPath, db, events) {
         try {
           db.updateFolderImageCount(folderPath);
         } catch (error) {
-          logger.error(`更新文件夹计数失败 ${folderPath}:`, error.message);
+          console.error(`❌ 更新文件夹计数失败 ${folderPath}:`, error.message);
         }
       }
     });
 
     return results;
   } catch (error) {
-    logger.error('应用变化失败:', error.message);
+    console.error('❌ 应用变化失败:', error.message);
     throw error;
   }
 }
@@ -237,9 +235,6 @@ async function getFolderStructure(libraryPath) {
  * @param {boolean} dryRun - If true, return data instead of inserting into DB (for batch write)
  */
 async function processImage(imagePath, libraryPath, db, dryRun = false) {
-  const processStartTime = Date.now();
-  const stepTimes = {}; // 记录每个步骤的耗时
-  
   try {
     const relativePath = path.relative(libraryPath, imagePath);
     const filename = path.basename(imagePath);
@@ -247,13 +242,8 @@ async function processImage(imagePath, libraryPath, db, dryRun = false) {
     const folder = folderRaw === '.' ? '' : folderRaw.replace(/\\/g, '/');
 
     // Check if image already exists in database
-    let stepStart = Date.now();
     const existing = db.getImageByPath(relativePath.replace(/\\/g, '/'));
-    stepTimes.dbCheck = Date.now() - stepStart;
-    
-    stepStart = Date.now();
     const currentHash = calculateFileHash(imagePath);
-    stepTimes.hashCalc = Date.now() - stepStart;
 
     // For unchanged files, check whether thumbnails need upgrade/regeneration
     let needRegenThumbs = false;
@@ -278,26 +268,17 @@ async function processImage(imagePath, libraryPath, db, dryRun = false) {
 
     // Skip only if unchanged and thumbnails are up-to-date
     if (existing && existing.file_hash === currentHash && !needRegenThumbs) {
-      const totalTime = Date.now() - processStartTime;
-      // logger.info(`⏭️  跳过 (未变化): ${filename} (${totalTime}ms)`);
       return { status: 'skipped', path: relativePath };
     }
 
     // Get image metadata
-    stepStart = Date.now();
     const metadata = await getImageMetadata(imagePath);
-    stepTimes.metadata = Date.now() - stepStart;
     if (!metadata) {
-      const totalTime = Date.now() - processStartTime;
-      logger.warn(`❌ 元数据读取失败: ${filename} (${totalTime}ms)`);
       return { status: 'error', path: relativePath, error: 'Failed to read metadata' };
     }
 
     // Generate thumbnails (also for unchanged files when thumbnails missing/outdated)
-    stepStart = Date.now();
     const thumbnails = await generateImageThumbnails(imagePath, libraryPath);
-    stepTimes.thumbnail = Date.now() - stepStart;
-    
     const fileType = getFileType(imagePath);
 
     // 使用缩略图的实际尺寸（对于视频/PSD，这是提取后的真实尺寸）
@@ -325,30 +306,12 @@ async function processImage(imagePath, libraryPath, db, dryRun = false) {
     }
 
     // Insert/update in database
-    stepStart = Date.now();
     db.insertImage(imageData);
-    stepTimes.dbInsert = Date.now() - stepStart;
-    
-    const totalTime = Date.now() - processStartTime;
-    
-    // 输出详细的性能日志
-    const logParts = [
-      `总计${totalTime}ms`,
-      `哈希${stepTimes.hashCalc}ms`,
-      `元数据${stepTimes.metadata}ms`,
-      `缩略图${stepTimes.thumbnail}ms`
-    ];
-    
-    // 只有当总耗时超过 500ms 时才输出警告
-    if (totalTime > 500) {
-      logger.warn(`⚠️  处理较慢: ${filename} (${logParts.join(', ')})`);
-    }
-    
-    return { status: 'processed', path: relativePath, timing: stepTimes, totalTime };
+
+    return { status: 'processed', path: relativePath };
   } catch (error) {
-    const totalTime = Date.now() - processStartTime;
-    logger.error(`❌ 处理图片失败: ${path.basename(imagePath)} (${totalTime}ms)`, error.message);
-    return { status: 'error', path: imagePath, error: error.message, totalTime };
+    console.error('❌ 处理图片失败:', path.basename(imagePath), error.message);
+    return { status: 'error', path: imagePath, error: error.message };
   }
 }
 
@@ -416,8 +379,8 @@ async function scanLibrary(libraryPath, db, onProgress, libraryId = null, resume
 
     // 批量写入缓冲区
     let writeBuffer = [];
-    const WRITE_BATCH_SIZE = constants.SCAN.WRITE_BATCH_SIZE;
-    const STREAM_BATCH_SIZE = constants.SCAN.STREAM_BATCH_SIZE;
+    const WRITE_BATCH_SIZE = 50; // 每 50 条写入一次数据库（降低内存峰值）
+    const STREAM_BATCH_SIZE = 200; // 每批处理 200 个文件（流式处理）
 
     // 批量写入函数（事务）
     const batchWrite = db.db.transaction((items) => {
@@ -501,19 +464,16 @@ async function scanLibrary(libraryPath, db, onProgress, libraryId = null, resume
         writeBuffer = [];
       }
 
-      // 定期输出进度
-      const logInterval = constants.SCAN.PROGRESS_LOG_INTERVAL;
-      const gcInterval = constants.SCAN.GC_TRIGGER_INTERVAL;
-      
-      if (processedCount % logInterval === 0) {
+      // 每1000个文件输出一次进度（减少日志）
+      if (processedCount % 1000 === 0) {
         const elapsed = (Date.now() - startTime) / 1000;
         const speed = processedCount / elapsed;
         const percent = ((processedCount / total) * 100).toFixed(1);
-        logger.info(`扫描进度: ${processedCount}/${total} (${percent}%) | ${speed.toFixed(1)} 张/秒`);
+        console.log(`⚡ ${processedCount}/${total} (${percent}%) | ${speed.toFixed(1)} 张/秒`);
       }
       
-      // 定期触发 GC
-      if (processedCount > 0 && processedCount % gcInterval === 0 && global.gc) {
+      // 每 1000 个文件触发一次 GC
+      if (processedCount > 0 && processedCount % 1000 === 0 && global.gc) {
         global.gc();
       }
     }
@@ -525,7 +485,7 @@ async function scanLibrary(libraryPath, db, onProgress, libraryId = null, resume
     }
 
     const totalTime = (Date.now() - startTime) / 1000;
-    logger.info(`扫描完成: ${total} 个文件 (${totalTime.toFixed(1)}秒, ${(total / totalTime).toFixed(1)} 张/秒)`);
+    console.log(`✅ 扫描完成: ${total} 个文件 (${totalTime.toFixed(1)}秒, ${(total / totalTime).toFixed(1)} 张/秒)`);
 
     // Update folder image counts
     db.updateAllFolderCounts();
@@ -536,7 +496,7 @@ async function scanLibrary(libraryPath, db, onProgress, libraryId = null, resume
     // 强制 GC（如果可用）
     if (global.gc) {
       global.gc();
-      logger.perf('内存已清理');
+      console.log('🧹 内存已清理');
     }
 
     // 标记扫描完成
@@ -545,7 +505,7 @@ async function scanLibrary(libraryPath, db, onProgress, libraryId = null, resume
     }
     return results;
   } catch (error) {
-    logger.error('扫描失败:', error.message);
+    console.error('❌ 扫描失败:', error.message);
     if (libraryId) {
       scanManager.completeScan(libraryId);
     }
@@ -578,14 +538,14 @@ async function syncLibrary(libraryPath, db, forceRebuildFolders = false, onProgr
     const toCheck = [...currentPaths].filter(p => dbPaths.has(p));
     let toDelete = [...dbPaths].filter(p => !currentPaths.has(p));
 
-    logger.perf(`同步: +${toAdd.length} 检查${toCheck.length} -${toDelete.length}`);
+    console.log(`🔄 同步: +${toAdd.length} 检查${toCheck.length} -${toDelete.length}`);
 
     // 安全检查：如果要删除的文件数量超过数据库中文件的50%，可能是路径匹配问题
     const dbImageCount = dbPaths.size;
     if (toDelete.length > 0 && dbImageCount > 0) {
       const deleteRatio = toDelete.length / dbImageCount;
       if (deleteRatio > 0.5 && toDelete.length > 10) {
-        logger.warn(`安全检查: 跳过删除 ${toDelete.length}/${dbImageCount} 个文件 (${(deleteRatio * 100).toFixed(1)}%)`);
+        console.warn(`⚠️ 安全检查: 跳过删除 ${toDelete.length}/${dbImageCount} 个文件 (${(deleteRatio * 100).toFixed(1)}%)`);
         toDelete = [];
       }
     }
@@ -626,7 +586,7 @@ async function syncLibrary(libraryPath, db, forceRebuildFolders = false, onProgr
     }).length;
 
     if (modifiedCount > 0) {
-      logger.perf(`发现 ${modifiedCount} 个修改文件`);
+      console.log(`📝 发现 ${modifiedCount} 个修改文件`);
     }
 
     // Delete removed files
@@ -637,7 +597,7 @@ async function syncLibrary(libraryPath, db, forceRebuildFolders = false, onProgr
 
     // Rebuild folder structure if there are changes or forced
     if (toAdd.length > 0 || toDelete.length > 0 || forceRebuildFolders) {
-      logger.perf('重建文件夹结构...');
+      console.log('📂 重建文件夹结构...');
 
       // Get current folder structure from file system
       const currentFolders = await getFolderStructure(libraryPath);
@@ -662,7 +622,7 @@ async function syncLibrary(libraryPath, db, forceRebuildFolders = false, onProgr
       });
 
       if (foldersToAdd.length > 0 || foldersToDelete.length > 0) {
-        logger.perf(`文件夹变化: +${foldersToAdd.length} -${foldersToDelete.length}`);
+        console.log(`📂 文件夹变化: +${foldersToAdd.length} -${foldersToDelete.length}`);
       }
 
       // Update folder image counts
@@ -688,7 +648,7 @@ async function syncLibrary(libraryPath, db, forceRebuildFolders = false, onProgr
     }
 
     const totalTime = (Date.now() - startTime) / 1000;
-    logger.perf(`同步完成 (${totalTime.toFixed(1)}秒)`);
+    console.log(`✅ 同步完成 (${totalTime.toFixed(1)}秒)`);
 
     // 清理 Sharp 缓存
     clearSharpCache();
@@ -699,7 +659,7 @@ async function syncLibrary(libraryPath, db, forceRebuildFolders = false, onProgr
       deleted: toDelete.length
     };
   } catch (error) {
-    logger.error('同步失败:', error.message);
+    console.error('❌ 同步失败:', error.message);
     clearSharpCache();
     throw error;
   }
@@ -733,7 +693,7 @@ async function quickSync(libraryPath, db) {
   if (toDelete.length > 0 && dbImageCount > 0) {
     const deleteRatio = toDelete.length / dbImageCount;
     if (deleteRatio > 0.5 && toDelete.length > 10) {
-      logger.warn(`跳过删除 ${toDelete.length} 个文件`);
+      console.warn(`⚠️ 跳过删除 ${toDelete.length} 个文件`);
       toDelete = [];
     }
   }
@@ -749,7 +709,7 @@ async function quickSync(libraryPath, db) {
       }
       await processImage(fullPath, libraryPath, db);
     } catch (err) {
-      logger.error(`添加失败 ${relativePath}:`, err.message);
+      console.error(`❌ 添加失败 ${relativePath}:`, err.message);
     }
   }
 
@@ -765,7 +725,7 @@ async function quickSync(libraryPath, db) {
 
   const elapsed = Date.now() - startTime;
   if (toAdd.length > 0 || toDelete.length > 0) {
-    logger.perf(`快速同步: +${toAdd.length} -${toDelete.length} (${elapsed}ms)`);
+    console.log(`⚡ 快速同步: +${toAdd.length} -${toDelete.length} (${elapsed}ms)`);
     // 有变化时清理 Sharp 缓存
     clearSharpCache();
   }
