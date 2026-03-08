@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# T3MT视频下载 - 更新初始化脚本
+# 在更新之前执行
+
+echo "T3MT更新初始化..." >> "${TRIM_TEMP_LOGFILE}"
+echo "当前版本: ${TRIM_OLD_APPVER}" >> "${TRIM_TEMP_LOGFILE}"
+echo "目标版本: ${TRIM_APPVER}" >> "${TRIM_TEMP_LOGFILE}"
+
+# 备份配置文件（如果需要）
+if [ -d "${TRIM_PKGVAR}/data" ]; then
+    echo "备份数据目录..." >> "${TRIM_TEMP_LOGFILE}"
+    cp -r "${TRIM_PKGVAR}/data" "${TRIM_TEMP_UPGRADE_FOLDER}/data_backup" 2>/dev/null
+fi
+
+exit 0

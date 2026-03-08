@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# T3MT视频下载 - 配置初始化脚本
+# 在配置向导之前执行
+
+echo "T3MT配置初始化..." >> "${TRIM_TEMP_LOGFILE}"
+
+exit 0

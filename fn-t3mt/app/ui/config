@@ -1,0 +1,13 @@
+{
+    ".url": {
+        "t3mt.APPLICATION": {
+            "title": "T3MT",
+            "icon": "images/icon-{0}.png",
+            "type": "url",
+            "protocol": "http",
+            "port": "8520",
+            "url": "/",
+            "allUsers": true
+        }
+    }
+}

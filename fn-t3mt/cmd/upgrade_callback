@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# T3MT视频下载 - 更新回调脚本
+# 在更新完成后执行
+
+echo "T3MT更新回调执行中..." >> "${TRIM_TEMP_LOGFILE}"
+
+# 拉取最新的Docker镜像
+echo "拉取最新Docker镜像..." >> "${TRIM_TEMP_LOGFILE}"
+docker pull 85423296/t3mt >> "${TRIM_TEMP_LOGFILE}" 2>&1
+
+# 确保数据目录存在
+mkdir -p "${TRIM_PKGVAR}/data"
+mkdir -p "${TRIM_PKGVAR}/logs"
+mkdir -p "${TRIM_PKGVAR}/downloads"
+
+echo "T3MT更新完成" >> "${TRIM_TEMP_LOGFILE}"
+echo "新版本: ${TRIM_APPVER}" >> "${TRIM_TEMP_LOGFILE}"
+
+exit 0

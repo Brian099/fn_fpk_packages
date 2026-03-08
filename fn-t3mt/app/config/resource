@@ -1,0 +1,26 @@
+{
+    "docker-project": {
+        "projects": [
+            {
+                "name": "t3mt",
+                "path": "docker"
+            }
+        ]
+    },
+    "data-share": {
+        "shares": [
+            {
+                "name": "t3mt/data",
+                "permission": {
+                    "rw": ["t3mt"]
+                }
+            },
+            {
+                "name": "t3mt/logs",
+                "permission": {
+                    "rw": ["t3mt"]
+                }
+            }
+        ]
+    }
+}

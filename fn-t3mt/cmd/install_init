@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# T3MT视频下载 - 安装初始化脚本
+# 在安装向导之前执行
+
+echo "T3MT安装初始化..." >> "${TRIM_TEMP_LOGFILE}"
+
+# 检查Docker是否可用
+if ! command -v docker &> /dev/null; then
+    echo "错误: Docker未安装或不可用" >> "${TRIM_TEMP_LOGFILE}"
+    exit 1
+fi
+
+# 检查端口是否被占用
+if netstat -tuln 2>/dev/null | grep -q ":${TRIM_SERVICE_PORT:-8520} "; then
+    echo "警告: 端口 ${TRIM_SERVICE_PORT:-8520} 可能已被占用" >> "${TRIM_TEMP_LOGFILE}"
+fi
+
+exit 0

@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# T3MT视频下载 - 主控制脚本
+# 用于启动、停止和检查应用状态
+
+FILE_PATH="${TRIM_APPDEST}/docker/docker-compose.yaml"
+DOCKER_NAME="t3mt"
+
+# 检查Docker容器是否运行
+is_docker_running() {
+    if [ -n "$DOCKER_NAME" ]; then
+        docker inspect $DOCKER_NAME 2>/dev/null | grep -q "\"Status\": \"running\"," && return 0
+    fi
+    return 1
+}
+
+case $1 in
+start)
+    # Docker应用由应用中心管理启动
+    echo "T3MT应用启动中..." >> "${TRIM_TEMP_LOGFILE}"
+    exit 0
+    ;;
+stop)
+    # Docker应用由应用中心管理停止
+    echo "T3MT应用停止中..." >> "${TRIM_TEMP_LOGFILE}"
+    exit 0
+    ;;
+status)
+    # 检查应用运行状态
+    if is_docker_running; then
+        exit 0
+    else
+        exit 3
+    fi
+    ;;
+*)
+    echo "未知命令: $1" >> "${TRIM_TEMP_LOGFILE}"
+    exit 1
+    ;;
+esac

@@ -1,0 +1,45 @@
+[
+    {
+        "stepTitle": "欢迎安装T3MT",
+        "items": [
+            {
+                "type": "tips",
+                "helpText": "<h3>欢迎使用T3MT工具！</h3><p>T3MT是一款功能强大的视频下载管理工具，支持多平台视频解析下载，包括腾讯视频、爱奇艺、优酷等主流视频平台，并且支持夸克、天翼等云盘的全自动定时转存、下载功能。</p>"
+            },
+            {
+                "type": "tips",
+                "helpText": "<p><strong>主要功能：</strong></p><ul><li>支持腾讯视频、爱奇艺、优酷等主流平台</li><li>支持夸克、天翼等云盘全自动定时转存、下载</li><li>便捷的Web管理界面</li><li>批量下载功能</li><li>自动重试机制</li><li>文件管理功能</li></ul>"
+            },
+            {
+                "type": "tips",
+                "helpText": "<p><strong>系统要求：</strong></p><ul><li>Docker环境</li><li>端口8520可用</li><li>足够的存储空间</li></ul>"
+            }
+        ]
+    },
+    {
+        "stepTitle": "配置下载目录",
+        "items": [
+            {
+                "type": "tips",
+                "helpText": "<p>请输入视频下载保存的目录路径。</p><p style='color: #666;'>示例：/vol1/downloads/t3mt</p>"
+            },
+            {
+                "type": "text",
+                "field": "wizard_download_path",
+                "label": "下载目录路径",
+                "initValue": "/vol1/downloads/t3mt",
+                "placeholder": "请输入完整的目录路径",
+                "rules": [
+                    {
+                        "required": true,
+                        "message": "请输入下载目录路径"
+                    }
+                ]
+            },
+            {
+                "type": "tips",
+                "helpText": "<p style='color: #ff6600;'><strong>注意：</strong>请确保输入的目录路径存在且有写入权限，建议选择存储空间充足的目录。</p>"
+            }
+        ]
+    }
+]
