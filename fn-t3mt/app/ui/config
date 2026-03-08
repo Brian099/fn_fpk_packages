@@ -2,7 +2,7 @@
     ".url": {
         "t3mt.APPLICATION": {
             "title": "T3MT",
-            "icon": "images/icon-{0}.png",
+            "icon": "images/icon_{0}.png",
             "type": "url",
             "protocol": "http",
             "port": "8520",
