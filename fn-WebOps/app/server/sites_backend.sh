@@ -626,6 +626,8 @@ php_remove_json() {
     printf '{"ok":false,"error":"no packages"}'
     return 1
   fi
+  # Define core packages that must not be removed
+  core_pkgs=("php8.2-common" "php8.2-cli" "php8.2-fpm" "php8.2-opcache")
   pkgs=()
   while IFS= read -r line; do
     pkg=$(printf '%s' "$line" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
@@ -645,6 +647,16 @@ EOF
     printf '{"ok":false,"error":"no valid packages"}'
     return 1
   fi
+  # Check core package protection
+  for pkg in "${pkgs[@]}"; do
+    for core in "${core_pkgs[@]}"; do
+      if [ "$pkg" = "$core" ]; then
+        esc=$(echo "$pkg" | sed 's/\\/\\\\/g; s/"/\\"/g')
+        printf '{"ok":false,"error":"core package cannot be removed: %s"}' "$esc"
+        return 1
+      fi
+    done
+  done
   for pkg in "${pkgs[@]}"; do
     apt-get remove -y "$pkg" >>/tmp/webops_php_install.log 2>&1 || true
   done

@@ -7,6 +7,7 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
 
   var apiBase = "/cgi/ThirdParty/webops/index.cgi";
   var defaultPhpExtensions = "php8.2-common\nphp8.2-mysql\nphp8.2-xml\nphp8.2-xmlrpc\nphp8.2-curl\nphp8.2-gd\nphp8.2-imagick\nphp8.2-cli\nphp8.2-dev\nphp8.2-imap\nphp8.2-mbstring\nphp8.2-opcache\nphp8.2-soap\nphp8.2-zip\nphp8.2-bcmath\nphp8.2-intl\nphp8.2-readline\nphp8.2-ldap\nphp8.2-msgpack\nphp8.2-igbinary\nphp8.2-redis\nphp8.2-memcached\nphp8.2-pgsql\nphp8.2-sqlite3\nphp8.2-odbc\nphp8.2-ssh2\nphp8.2-tidy\nphp8.2-xsl\nphp8.2-yaml\nphp8.2-cgi\nphp8.2-fpm";
+  var corePhpPackages = new Set(['php8.2-common','php8.2-cli','php8.2-fpm','php8.2-opcache']);
 
   // --- Common Helpers ---
   function reloadSites() {
@@ -272,7 +273,12 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
                   return d.installed ? '<span class="layui-badge layui-bg-green">已安装</span>' : '<span class="layui-badge layui-bg-gray">未安装</span>';
               }},
               {title: '操作', width: 100, templet: function(d){
-                  if(d.installed) return `<a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="uninstall">卸载</a>`;
+                  if(d.installed) {
+                      if(corePhpPackages.has(d.name)) {
+                          return `<span class="layui-badge layui-bg-gray" title="核心组件不可卸载">核心</span>`;
+                      }
+                      return `<a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="uninstall">卸载</a>`;
+                  }
                   return `<a class="layui-btn layui-btn-xs" lay-event="install">安装</a>`;
               }}
           ]],
@@ -290,6 +296,10 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
               showInstallLog('php', "/api/php/install", data.name, "安装完成", function(){ loadPluginTable(); });
           });
       } else if(obj.event === 'uninstall'){
+          if(corePhpPackages.has(data.name)) {
+              layer.msg('核心组件不可卸载', {icon: 0});
+              return;
+          }
           layer.confirm('卸载插件 '+data.name+'?', function(i){
               layer.close(i);
               apiPost("/api/php/remove", data.name, "卸载完成", function(){ loadPluginTable(); });
