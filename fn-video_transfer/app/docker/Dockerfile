@@ -17,6 +17,11 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 # 复制应用代码
 COPY . /app
 
+# 给予 ffmpeg 可执行权限 (如果存在)
+RUN if [ -d "/app/ffmpeg_linux" ]; then \
+    chmod +x /app/ffmpeg_linux/ffmpeg /app/ffmpeg_linux/ffprobe; \
+    fi
+
 # 创建数据目录和配置目录
 ENV DATA_DIR=/data
 ENV CONFIG_DIR=/config

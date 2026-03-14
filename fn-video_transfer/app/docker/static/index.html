@@ -371,6 +371,9 @@
                             <button type="button" class="btn btn-danger btn-sm mr-1" onclick="cancelAllJobs()" title="取消所有正在运行或等待中的任务">
                                 <i class="fas fa-ban"></i> 取消进行中
                             </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm mr-1" onclick="clearFailedJobs()" title="清除所有失败的任务">
+                                <i class="fas fa-times-circle"></i> 清理失败任务
+                            </button>
                             <button type="button" class="btn btn-success btn-sm" onclick="clearCompletedJobs()" title="清除所有已完成的任务">
                                 <i class="fas fa-check"></i> 清除已完成
                             </button>
@@ -859,6 +862,19 @@
         
         try {
             const res = await fetch('/jobs/clear-completed', { method: 'POST' });
+            const data = await res.json();
+            alert(data.message);
+            loadJobs();
+        } catch (e) {
+            alert("操作失败: " + e.message);
+        }
+    }
+
+    async function clearFailedJobs() {
+        if (!confirm("确定要清除所有失败的任务记录吗？")) return;
+        
+        try {
+            const res = await fetch('/jobs/clear-failed', { method: 'POST' });
             const data = await res.json();
             alert(data.message);
             loadJobs();

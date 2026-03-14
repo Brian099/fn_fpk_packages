@@ -6,6 +6,8 @@ import subprocess
 import re
 import json
 import threading
+import stat
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any
@@ -29,6 +31,34 @@ INPUT_DIR = DATA_DIR / "input"
 OUTPUT_DIR = DATA_DIR / "output"
 STATIC_DIR = BASE_DIR / "static"
 PREVIEW_DIR = DATA_DIR / "previews"
+TODO_DIR = DATA_DIR / "todo"
+
+# 工具路径
+# 优先检查 ffmpeg_linux 目录 (用户自定义的 Linux 版本)
+LINUX_FFMPEG_DIR = BASE_DIR / "ffmpeg_linux"
+
+FFMPEG_BIN = "ffmpeg"
+FFPROBE_BIN = "ffprobe"
+
+if LINUX_FFMPEG_DIR.exists():
+    ffmpeg_path = LINUX_FFMPEG_DIR / "ffmpeg"
+    ffprobe_path = LINUX_FFMPEG_DIR / "ffprobe"
+    
+    if ffmpeg_path.exists():
+        try:
+            st = os.stat(ffmpeg_path)
+            os.chmod(ffmpeg_path, st.st_mode | stat.S_IEXEC)
+        except Exception:
+            pass
+        FFMPEG_BIN = str(ffmpeg_path)
+        
+    if ffprobe_path.exists():
+        try:
+            st = os.stat(ffprobe_path)
+            os.chmod(ffprobe_path, st.st_mode | stat.S_IEXEC)
+        except Exception:
+            pass
+        FFPROBE_BIN = str(ffprobe_path)
 
 # 允许的视频扩展名
 ALLOWED_EXTS = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".mpeg", ".mpg", ".flv", ".ts", ".m4v"}
@@ -39,6 +69,7 @@ CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 INPUT_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
+TODO_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI()
 
@@ -70,6 +101,10 @@ class JobStatus(BaseModel):
 
 JOBS: Dict[str, JobStatus] = {}
 JOB_PROCESSES: Dict[str, subprocess.Popen] = {}
+JOBS_LOCK = threading.RLock()
+JOBS_FILE = TODO_DIR / "jobs.json"
+_PERSIST_LOCK = threading.Lock()
+_LAST_PERSIST_TS = 0.0
 
 # 并发控制
 MAX_CONCURRENT_JOBS = int(os.environ.get("MAX_CONCURRENT_JOBS", 2))
@@ -78,6 +113,60 @@ PREVIEW_SEMAPHORE = threading.Semaphore(1)
 
 # 使用足够大的线程池来容纳可能的并发任务，实际调度由逻辑控制
 executor = ThreadPoolExecutor(max_workers=20)
+
+def persist_jobs(force: bool = False):
+    global _LAST_PERSIST_TS
+    now = time.time()
+    if not force and now - _LAST_PERSIST_TS < 1.0:
+        return
+    with _PERSIST_LOCK:
+        now = time.time()
+        if not force and now - _LAST_PERSIST_TS < 1.0:
+            return
+        tmp_path = str(JOBS_FILE) + ".tmp"
+        try:
+            with JOBS_LOCK:
+                payload = {job_id: job.model_dump() for job_id, job in JOBS.items()}
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+            os.replace(tmp_path, JOBS_FILE)
+            _LAST_PERSIST_TS = now
+        except Exception:
+            try:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+            except Exception:
+                pass
+
+def load_persisted_jobs():
+    if not JOBS_FILE.exists():
+        return
+    try:
+        raw = JOBS_FILE.read_text(encoding="utf-8")
+        if not raw.strip():
+            return
+        data = json.loads(raw)
+        if not isinstance(data, dict):
+            return
+        restored: Dict[str, JobStatus] = {}
+        for _, job_data in data.items():
+            if not isinstance(job_data, dict):
+                continue
+            try:
+                job = JobStatus(**job_data)
+            except Exception:
+                continue
+            if job.status == "running":
+                job.status = "failed"
+                if not job.error:
+                    job.error = "服务重启导致任务中断"
+                job.completed_at = None
+            restored[job.id] = job
+        with JOBS_LOCK:
+            JOBS.clear()
+            JOBS.update(restored)
+    except Exception:
+        pass
 
 def try_start_jobs():
     """尝试启动更多任务，直到达到最大并发数"""
@@ -97,6 +186,7 @@ def try_start_jobs():
             if job.status != "pending":
                 continue
             job.status = "running"
+            persist_jobs()
             executor.submit(run_transcode_job_wrapper, job.id)
 
 def run_transcode_job_wrapper(job_id: str):
@@ -106,6 +196,9 @@ def run_transcode_job_wrapper(job_id: str):
     finally:
         # 任务结束（无论成功失败），尝试启动新任务
         try_start_jobs()
+
+load_persisted_jobs()
+try_start_jobs()
 
 class TranscodeParams(BaseModel):
     vcodec: Optional[str] = "libx264"
@@ -230,8 +323,10 @@ def get_video_duration(input_path: Path) -> float:
     """使用 ffprobe 获取视频时长(秒)"""
     try:
         cmd = [
-            "ffprobe", 
+            FFPROBE_BIN, 
             "-v", "error", 
+            "-analyzeduration", "1000000000", 
+            "-probesize", "1000000000",
             "-show_entries", "format=duration", 
             "-of", "default=noprint_wrappers=1:nokey=1", 
             str(input_path)
@@ -245,7 +340,11 @@ def get_video_duration(input_path: Path) -> float:
 
 # 核心转码逻辑
 def build_ffmpeg_cmd(input_path: Path, output_path: Path, params: TranscodeParams, input_options: List[str] = None) -> List[str]:
-    cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "info"]
+    cmd = [FFMPEG_BIN, "-y", "-hide_banner", "-loglevel", "info"]
+
+    # 增加分析时长和探测大小，解决 TS 文件识别失败问题
+    # 2G 缓冲区，应对超大码率或损坏的 TS 头
+    cmd.extend(["-analyzeduration", "2000000000", "-probesize", "2000000000"])
 
     # 硬件加速配置 (必须在 -i 之前)
     use_cuda = False
@@ -279,8 +378,10 @@ def build_ffmpeg_cmd(input_path: Path, output_path: Path, params: TranscodeParam
 
     cmd.extend(["-i", str(input_path)])
     
-    # 关键：映射所有流 (视频/音频/字幕)
-    cmd.extend(["-map", "0"])
+    # 关键修改：不再使用 -map 0 (映射所有流)，因为 TS 文件常包含导致错误的数据流或未知流
+    # 改为显式映射视频和音频流
+    cmd.extend(["-map", "0:v"])
+    cmd.extend(["-map", "0:a?"]) # ? 表示如果不存在音频流也不报错
 
     # 视频编码器自动切换
     vcodec = params.vcodec
@@ -298,6 +399,7 @@ def build_ffmpeg_cmd(input_path: Path, output_path: Path, params: TranscodeParam
     
     # 字幕处理
     if params.scodec and params.scodec.lower() != "none":
+        cmd.extend(["-map", "0:s?"]) # 仅在需要时映射字幕流
         cmd.extend(["-c:s", params.scodec])
     else:
         # 显式禁用字幕
@@ -402,6 +504,7 @@ def run_transcode_job(job_id: str):
             
             # 更新任务信息中的命令（仅记录最后一条）
             job.command = " ".join(cmd)
+            persist_jobs()
             
             # 执行命令
             # 使用 -progress pipe:1 将进度信息输出到 stdout，方便解析
@@ -430,6 +533,7 @@ def run_transcode_job(job_id: str):
                                 if job.duration and job.duration > 0:
                                     progress = min(100.0, (current_seconds / job.duration) * 100)
                                     job.progress = progress
+                                    persist_jobs()
                         except:
                             pass
             
@@ -472,12 +576,14 @@ def run_transcode_job(job_id: str):
                             job.compression_ratio = job.output_size / job.input_size
             except Exception as e:
                 print(f"Error calculating stats: {e}")
+            persist_jobs(force=True)
                 
     except Exception as e:
         # 如果是取消导致的错误，不标记为失败
         if job.status != "cancelled":
             job.status = "failed"
             job.error = str(e)
+            persist_jobs(force=True)
 
 # --- Auth Endpoints ---
 
@@ -592,7 +698,8 @@ async def get_thumbnail(path: str):
         # Generate thumbnail using ffmpeg
         try:
             cmd = [
-                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                FFMPEG_BIN, "-y", "-hide_banner", "-loglevel", "error",
+                "-analyzeduration", "2000000000", "-probesize", "2000000000",
                 "-ss", "00:00:05", # Try to take frame at 5s
                 "-i", str(p),
                 "-vframes", "1",
@@ -824,13 +931,15 @@ def create_transcode_job(req: TranscodeRequest, background_tasks: BackgroundTask
             progress=0.0
         )
         
-        JOBS[job_id] = job
+        with JOBS_LOCK:
+            JOBS[job_id] = job
         # background_tasks.add_task(run_transcode_job, job_id)
         # executor.submit(run_transcode_job, job_id)
         created_jobs.append(job_id)
     
     # 尝试启动任务
     try_start_jobs()
+    persist_jobs(force=True)
     
     # 返回第一个 job_id 兼容旧前端，或者可以返回列表（前端需要适配）
     # 为了兼容现有前端（只接收一个 job_id），我们返回最后一个创建的 ID，
@@ -843,64 +952,81 @@ def create_transcode_job(req: TranscodeRequest, background_tasks: BackgroundTask
 @app.post("/jobs/cancel-all")
 def cancel_all_jobs(current_user: User = Depends(get_current_user)):
     cancelled_count = 0
-    for job_id, job in JOBS.items():
-        if job.status in ["pending", "running"]:
-            # If running, terminate process
-            if job.status == "running" and job_id in JOB_PROCESSES:
-                try:
-                    JOB_PROCESSES[job_id].terminate()
-                except:
-                    pass
-            
-            job.status = "cancelled"
-            cancelled_count += 1
-            
+    with JOBS_LOCK:
+        for job_id, job in JOBS.items():
+            if job.status in ["pending", "running"]:
+                if job.status == "running" and job_id in JOB_PROCESSES:
+                    try:
+                        JOB_PROCESSES[job_id].terminate()
+                    except:
+                        pass
+                
+                job.status = "cancelled"
+                cancelled_count += 1
+    persist_jobs(force=True)
     return {"message": f"已取消 {cancelled_count} 个任务", "count": cancelled_count}
 
 @app.post("/jobs/retry-all")
 def retry_all_jobs(current_user: User = Depends(get_current_user)):
     retried_count = 0
-    for job in JOBS.values():
-        if job.status in ["failed", "cancelled"]:
-            job.status = "pending"
-            job.progress = 0.0
-            job.error = None
-            job.completed_at = None
-            job.output_size = None
-            job.compression_ratio = None
-            retried_count += 1
+    with JOBS_LOCK:
+        for job in JOBS.values():
+            if job.status in ["failed", "cancelled"]:
+                job.status = "pending"
+                job.progress = 0.0
+                job.error = None
+                job.completed_at = None
+                job.output_size = None
+                job.compression_ratio = None
+                retried_count += 1
             
     if retried_count > 0:
         try_start_jobs()
+    persist_jobs(force=True)
         
     return {"message": f"已重置 {retried_count} 个任务", "count": retried_count}
+
+@app.post("/jobs/clear-failed")
+def clear_failed_jobs(current_user: User = Depends(get_current_user)):
+    with JOBS_LOCK:
+        to_remove = []
+        for job_id, job in JOBS.items():
+            if job.status == "failed":
+                to_remove.append(job_id)
+        
+        for job_id in to_remove:
+            del JOBS[job_id]
+    persist_jobs(force=True)
+        
+    return {"message": f"已清除 {len(to_remove)} 个失败任务", "count": len(to_remove)}
 
 @app.post("/jobs/clear-completed")
 def clear_completed_jobs(current_user: User = Depends(get_current_user)):
     """清除所有已完成的任务"""
-    to_remove = []
-    for job_id, job in JOBS.items():
-        if job.status == "completed":
-            to_remove.append(job_id)
-    
-    for job_id in to_remove:
-        del JOBS[job_id]
-        # 可选：是否删除相关的预览文件？
-        # 目前预览文件保留，直到下次同名文件上传时覆盖。
+    with JOBS_LOCK:
+        to_remove = []
+        for job_id, job in JOBS.items():
+            if job.status == "completed":
+                to_remove.append(job_id)
         
+        for job_id in to_remove:
+            del JOBS[job_id]
+        
+    persist_jobs(force=True)
     return {"message": f"已清除 {len(to_remove)} 个已完成的任务", "count": len(to_remove)}
 
 @app.post("/jobs/{job_id}/cancel")
 def cancel_job(job_id: str, current_user: User = Depends(get_current_user)):
-    if job_id not in JOBS:
-        raise HTTPException(status_code=404, detail="任务不存在")
-    
-    job = JOBS[job_id]
-    if job.status in ["completed", "failed", "cancelled"]:
-        return {"status": job.status, "message": "任务已结束"}
+    with JOBS_LOCK:
+        if job_id not in JOBS:
+            raise HTTPException(status_code=404, detail="任务不存在")
         
-    # 标记为已取消
-    job.status = "cancelled"
+        job = JOBS[job_id]
+        if job.status in ["completed", "failed", "cancelled"]:
+            return {"status": job.status, "message": "任务已结束"}
+            
+        job.status = "cancelled"
+    persist_jobs(force=True)
     
     # 终止进程
     if job_id in JOB_PROCESSES:
@@ -974,7 +1100,8 @@ def create_preview(req: TranscodeRequest, current_user: User = Depends(get_curre
             # 使用 ffmpeg 提取帧
             # -vf fps=2 保证 5秒视频输出约 10 帧
             extract_cmd = [
-                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                FFMPEG_BIN, "-y", "-hide_banner", "-loglevel", "error",
+                "-analyzeduration", "2000000000", "-probesize", "2000000000",
                 "-i", str(preview_path),
                 "-vf", "fps=2",
                 str(frame_output_path)
