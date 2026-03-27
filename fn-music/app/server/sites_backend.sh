@@ -17,8 +17,25 @@ scan_music_json() {
   
   first=1
   has_ffprobe=0
-  if command -v ffprobe >/dev/null 2>&1; then has_ffprobe=1; fi
+  # Try to find ffprobe in PATH or common Windows/Linux locations
+  if command -v ffprobe >/dev/null 2>&1; then 
+    has_ffprobe=1
+  elif [ -f "/usr/bin/ffprobe" ]; then
+    alias ffprobe="/usr/bin/ffprobe"
+    has_ffprobe=1
+  elif [ -f "D:/ffmpeg/bin/ffprobe.exe" ]; then
+    # Helper for the user's specific Windows environment
+    ffprobe_cmd="D:/ffmpeg/bin/ffprobe.exe"
+    has_ffprobe=1
+  else
+    ffprobe_cmd="ffprobe"
+  fi
   
+  # Ensure we use the correct command if alias/path was set
+  get_ffprobe_cmd() {
+    if [ -n "$ffprobe_cmd" ]; then echo "$ffprobe_cmd"; else echo "ffprobe"; fi
+  }
+
   # Find music files
   find "$target_path" -maxdepth 3 -type f \( -iname "*.mp3" -o -iname "*.wav" -o -iname "*.ogg" -o -iname "*.flac" -o -iname "*.m4a" \) 2>/dev/null | while read -r file; do
     filename=$(basename "$file")
@@ -34,8 +51,16 @@ scan_music_json() {
     if [ $has_ffprobe -eq 1 ]; then
        # Extract metadata using ffprobe
        # Fetch all format and stream tags to handle mixed case and dual sources (ID3/RIFF)
-       metadata=$(ffprobe -v quiet -show_entries format=duration,size:format_tags:stream_tags -of flat "$file")
+       stderr_log=$(mktemp)
+       FFPROBE_BIN=$(get_ffprobe_cmd)
+       metadata=$($FFPROBE_BIN -v quiet -show_entries format=duration,size:format_tags:stream_tags -of flat "$file" 2>"$stderr_log")
        
+       if [ $? -ne 0 ]; then
+           error_msg=$(cat "$stderr_log")
+           echo "ffprobe failed for $file: $error_msg" >> /tmp/waves_debug.log
+       fi
+       rm -f "$stderr_log"
+
        # Extract fields (case-insensitive grep, only take FIRST one from format or stream 0 to avoid coverage/attachment stream interference)
        d_val=$(echo "$metadata" | grep -i 'format.duration=' | head -n 1 | cut -d= -f2 | tr -d '"')
        if [ -n "$d_val" ] && [ "$d_val" != "N/A" ]; then duration="$d_val"; fi
@@ -43,20 +68,24 @@ scan_music_json() {
        s_val=$(echo "$metadata" | grep -i 'format.size=' | head -n 1 | cut -d= -f2 | tr -d '"')
        if [ -n "$s_val" ] && [ "$s_val" != "N/A" ]; then size="$s_val"; fi
        
-       # Helper to clean and convert encoding if needed (GBK -> UTF-8 fallback)
+       # Helper to clean and convert encoding if needed (GB18030 -> UTF-8 fallback)
+       # Also strips invisible control chars that might break JSON
        clean_meta() {
            local val="$1"
            if [ -z "$val" ]; then return; fi
            # Remove quotes
            val=$(echo "$val" | sed 's/^"//;s/"$//')
-           # Attempt UTF-8 validation/conversion
+           
            if command -v iconv >/dev/null 2>&1; then
-               # If it's not valid UTF-8, try GB18030 to UTF-8
+               # Heuristic: if it's UTF-8, but looks like Mojibake (缇芥硥 case), 
+               # it's usually because GBK was mistreated. 
+               # We attempt to recover by forcing iconv from GB18030
                if ! echo "$val" | iconv -f UTF-8 -t UTF-8 >/dev/null 2>&1; then
                    val=$(echo "$val" | iconv -f GB18030 -t UTF-8 2>/dev/null || echo "$val")
                fi
            fi
-           echo "$val"
+           # Final pass: remove any non-printable chars (except space) that would break JSON
+           echo "$val" | tr -d '\000-\037'
        }
 
        t_raw=$(echo "$metadata" | grep -iE 'format.tags.title=|streams.stream.0.tags.title=' | head -n 1 | cut -d= -f2-)
@@ -184,6 +213,9 @@ def get_meta(path):
             'album': tags.get('album', 'Unknown Album')
         }
     except Exception as e:
+        # Logging error to a temp file for debugging
+        with open('/tmp/waves_debug.log', 'a', encoding='utf-8') as f:
+            f.write(f"Error processing {path}: {str(e)}\n")
         return {'path': path, 'error': str(e)}
 
 try:
