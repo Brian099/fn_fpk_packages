@@ -36,27 +36,37 @@ scan_music_json() {
        # Fetch all format and stream tags to handle mixed case and dual sources (ID3/RIFF)
        metadata=$(ffprobe -v quiet -show_entries format=duration,size:format_tags:stream_tags -of flat "$file")
        
-       # Extract fields (case-insensitive grep, only take FIRST one using head -n 1 to avoid multi-line JSON breaks)
+       # Extract fields (case-insensitive grep, only take FIRST one from format or stream 0 to avoid coverage/attachment stream interference)
        d_val=$(echo "$metadata" | grep -i 'format.duration=' | head -n 1 | cut -d= -f2 | tr -d '"')
        if [ -n "$d_val" ] && [ "$d_val" != "N/A" ]; then duration="$d_val"; fi
        
        s_val=$(echo "$metadata" | grep -i 'format.size=' | head -n 1 | cut -d= -f2 | tr -d '"')
        if [ -n "$s_val" ] && [ "$s_val" != "N/A" ]; then size="$s_val"; fi
        
-       t_val=$(echo "$metadata" | grep -iE 'format.tags.title=|stream.tags.title=' | head -n 1 | cut -d= -f2-)
-       if [ -n "$t_val" ]; then 
-            title=$(echo "$t_val" | sed 's/^"//;s/"$//')
-       fi
+       # Helper to clean and convert encoding if needed (GBK -> UTF-8 fallback)
+       clean_meta() {
+           local val="$1"
+           if [ -z "$val" ]; then return; fi
+           # Remove quotes
+           val=$(echo "$val" | sed 's/^"//;s/"$//')
+           # Attempt UTF-8 validation/conversion
+           if command -v iconv >/dev/null 2>&1; then
+               # If it's not valid UTF-8, try GB18030 to UTF-8
+               if ! echo "$val" | iconv -f UTF-8 -t UTF-8 >/dev/null 2>&1; then
+                   val=$(echo "$val" | iconv -f GB18030 -t UTF-8 2>/dev/null || echo "$val")
+               fi
+           fi
+           echo "$val"
+       }
+
+       t_raw=$(echo "$metadata" | grep -iE 'format.tags.title=|streams.stream.0.tags.title=' | head -n 1 | cut -d= -f2-)
+       if [ -n "$t_raw" ]; then title=$(clean_meta "$t_raw"); fi
        
-       a_val=$(echo "$metadata" | grep -iE 'format.tags.artist=|stream.tags.artist=' | head -n 1 | cut -d= -f2-)
-       if [ -n "$a_val" ]; then 
-            artist=$(echo "$a_val" | sed 's/^"//;s/"$//')
-       fi
+       a_raw=$(echo "$metadata" | grep -iE 'format.tags.artist=|streams.stream.0.tags.artist=' | head -n 1 | cut -d= -f2-)
+       if [ -n "$a_raw" ]; then artist=$(clean_meta "$a_raw"); fi
        
-       al_val=$(echo "$metadata" | grep -iE 'format.tags.album=|stream.tags.album=' | head -n 1 | cut -d= -f2-)
-       if [ -n "$al_val" ]; then 
-            album=$(echo "$al_val" | sed 's/^"//;s/"$//')
-       fi
+       al_raw=$(echo "$metadata" | grep -iE 'format.tags.album=|streams.stream.0.tags.album=' | head -n 1 | cut -d= -f2-)
+       if [ -n "$al_raw" ]; then album=$(clean_meta "$al_raw"); fi
     else
        # Fallback size
        size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null || echo 0)
@@ -145,11 +155,25 @@ def get_meta(path):
         
         # Merge format tags and first stream tags
         raw_tags = fmt.get('tags', {}).copy()
-        if streams and 'tags' in streams[0]:
+        if streams and streams[0].get('codec_type') == 'audio' and 'tags' in streams[0]:
             raw_tags.update(streams[0]['tags'])
             
         # Normalize tags to lowercase keys for case-insensitive lookup
-        tags = {k.lower(): v for k, v in raw_tags.items()}
+        # and handle potential encoding issues (common for GBK/GB18030 tags)
+        tags = {}
+        for k, v in raw_tags.items():
+            key = k.lower()
+            val = v
+            # If it's a string, try to fix common Chinese mis-decoding (Mojibake)
+            if isinstance(val, str):
+                try:
+                    # If it looks like it was GBK but interpreted as Latin1/UTF-8 incorrectly
+                    # This is a common heuristic
+                    val_bytes = val.encode('iso-8859-1')
+                    val = val_bytes.decode('gb18030')
+                except Exception:
+                    pass
+            tags[key] = val
         
         return {
             'path': path,
