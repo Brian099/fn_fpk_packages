@@ -7,9 +7,9 @@
 # ============================================================================
 
 # Configuration
-BASE_PATH="$APP_ROOT/www"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+BASE_PATH="$APP_ROOT/www"
 BACKEND_SCRIPT="$APP_ROOT/server/sites_backend.sh"
 
 # Parse Request
