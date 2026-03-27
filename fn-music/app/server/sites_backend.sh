@@ -33,27 +33,27 @@ scan_music_json() {
     
     if [ $has_ffprobe -eq 1 ]; then
        # Extract metadata using ffprobe
-       # -of flat returns keys like format.tags.title="Value"
-       metadata=$(ffprobe -v quiet -show_entries format=duration,size:format_tags=title,artist,album -of flat "$file")
+       # Fetch all format tags to handle mixed case keys for different formats (esp. WAV)
+       metadata=$(ffprobe -v quiet -show_entries format=duration,size:format_tags -of flat "$file")
        
-       # Extract fields
-       d_val=$(echo "$metadata" | grep 'format.duration=' | cut -d= -f2 | tr -d '"')
+       # Extract fields (case-insensitive grep for robustness)
+       d_val=$(echo "$metadata" | grep -i 'format.duration=' | cut -d= -f2 | tr -d '"')
        if [ -n "$d_val" ] && [ "$d_val" != "N/A" ]; then duration="$d_val"; fi
        
-       s_val=$(echo "$metadata" | grep 'format.size=' | cut -d= -f2 | tr -d '"')
+       s_val=$(echo "$metadata" | grep -i 'format.size=' | cut -d= -f2 | tr -d '"')
        if [ -n "$s_val" ] && [ "$s_val" != "N/A" ]; then size="$s_val"; fi
        
-       t_val=$(echo "$metadata" | grep 'format.tags.title=' | cut -d= -f2-)
+       t_val=$(echo "$metadata" | grep -i 'format.tags.title=' | cut -d= -f2-)
        if [ -n "$t_val" ]; then 
             title=$(echo "$t_val" | sed 's/^"//;s/"$//')
        fi
        
-       a_val=$(echo "$metadata" | grep 'format.tags.artist=' | cut -d= -f2-)
+       a_val=$(echo "$metadata" | grep -i 'format.tags.artist=' | cut -d= -f2-)
        if [ -n "$a_val" ]; then 
             artist=$(echo "$a_val" | sed 's/^"//;s/"$//')
        fi
        
-       al_val=$(echo "$metadata" | grep 'format.tags.album=' | cut -d= -f2-)
+       al_val=$(echo "$metadata" | grep -i 'format.tags.album=' | cut -d= -f2-)
        if [ -n "$al_val" ]; then 
             album=$(echo "$al_val" | sed 's/^"//;s/"$//')
        fi
@@ -141,7 +141,9 @@ def get_meta(path):
         res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         data = json.loads(res.stdout)
         fmt = data.get('format', {})
-        tags = fmt.get('tags', {})
+        # Normalize tags to lowercase keys for case-insensitive lookup
+        raw_tags = fmt.get('tags', {})
+        tags = {k.lower(): v for k, v in raw_tags.items()}
         
         return {
             'path': path,
