@@ -33,27 +33,27 @@ scan_music_json() {
     
     if [ $has_ffprobe -eq 1 ]; then
        # Extract metadata using ffprobe
-       # Fetch all format tags to handle mixed case keys for different formats (esp. WAV)
-       metadata=$(ffprobe -v quiet -show_entries format=duration,size:format_tags -of flat "$file")
+       # Fetch all format and stream tags to handle mixed case and dual sources (ID3/RIFF)
+       metadata=$(ffprobe -v quiet -show_entries format=duration,size:format_tags:stream_tags -of flat "$file")
        
-       # Extract fields (case-insensitive grep for robustness)
-       d_val=$(echo "$metadata" | grep -i 'format.duration=' | cut -d= -f2 | tr -d '"')
+       # Extract fields (case-insensitive grep, only take FIRST one using head -n 1 to avoid multi-line JSON breaks)
+       d_val=$(echo "$metadata" | grep -i 'format.duration=' | head -n 1 | cut -d= -f2 | tr -d '"')
        if [ -n "$d_val" ] && [ "$d_val" != "N/A" ]; then duration="$d_val"; fi
        
-       s_val=$(echo "$metadata" | grep -i 'format.size=' | cut -d= -f2 | tr -d '"')
+       s_val=$(echo "$metadata" | grep -i 'format.size=' | head -n 1 | cut -d= -f2 | tr -d '"')
        if [ -n "$s_val" ] && [ "$s_val" != "N/A" ]; then size="$s_val"; fi
        
-       t_val=$(echo "$metadata" | grep -i 'format.tags.title=' | cut -d= -f2-)
+       t_val=$(echo "$metadata" | grep -iE 'format.tags.title=|stream.tags.title=' | head -n 1 | cut -d= -f2-)
        if [ -n "$t_val" ]; then 
             title=$(echo "$t_val" | sed 's/^"//;s/"$//')
        fi
        
-       a_val=$(echo "$metadata" | grep -i 'format.tags.artist=' | cut -d= -f2-)
+       a_val=$(echo "$metadata" | grep -iE 'format.tags.artist=|stream.tags.artist=' | head -n 1 | cut -d= -f2-)
        if [ -n "$a_val" ]; then 
             artist=$(echo "$a_val" | sed 's/^"//;s/"$//')
        fi
        
-       al_val=$(echo "$metadata" | grep -i 'format.tags.album=' | cut -d= -f2-)
+       al_val=$(echo "$metadata" | grep -iE 'format.tags.album=|stream.tags.album=' | head -n 1 | cut -d= -f2-)
        if [ -n "$al_val" ]; then 
             album=$(echo "$al_val" | sed 's/^"//;s/"$//')
        fi
@@ -137,12 +137,18 @@ import sys, json, subprocess, os
 
 def get_meta(path):
     try:
-        cmd = ['ffprobe', '-v', 'quiet', '-show_entries', 'format=duration,size:format_tags=title,artist,album', '-of', 'json', path]
+        cmd = ['ffprobe', '-v', 'quiet', '-show_entries', 'format=duration,size:format_tags:stream_tags', '-of', 'json', path]
         res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         data = json.loads(res.stdout)
         fmt = data.get('format', {})
+        streams = data.get('streams', [])
+        
+        # Merge format tags and first stream tags
+        raw_tags = fmt.get('tags', {}).copy()
+        if streams and 'tags' in streams[0]:
+            raw_tags.update(streams[0]['tags'])
+            
         # Normalize tags to lowercase keys for case-insensitive lookup
-        raw_tags = fmt.get('tags', {})
         tags = {k.lower(): v for k, v in raw_tags.items()}
         
         return {
