@@ -17,25 +17,8 @@ scan_music_json() {
   
   first=1
   has_ffprobe=0
-  # Try to find ffprobe in PATH or common Windows/Linux locations
-  if command -v ffprobe >/dev/null 2>&1; then 
-    has_ffprobe=1
-  elif [ -f "/usr/bin/ffprobe" ]; then
-    alias ffprobe="/usr/bin/ffprobe"
-    has_ffprobe=1
-  elif [ -f "D:/ffmpeg/bin/ffprobe.exe" ]; then
-    # Helper for the user's specific Windows environment
-    ffprobe_cmd="D:/ffmpeg/bin/ffprobe.exe"
-    has_ffprobe=1
-  else
-    ffprobe_cmd="ffprobe"
-  fi
+  if command -v ffprobe >/dev/null 2>&1; then has_ffprobe=1; fi
   
-  # Ensure we use the correct command if alias/path was set
-  get_ffprobe_cmd() {
-    if [ -n "$ffprobe_cmd" ]; then echo "$ffprobe_cmd"; else echo "ffprobe"; fi
-  }
-
   # Find music files
   find "$target_path" -maxdepth 3 -type f \( -iname "*.mp3" -o -iname "*.wav" -o -iname "*.ogg" -o -iname "*.flac" -o -iname "*.m4a" \) 2>/dev/null | while read -r file; do
     filename=$(basename "$file")
@@ -52,8 +35,7 @@ scan_music_json() {
        # Extract metadata using ffprobe
        # Fetch all format and stream tags to handle mixed case and dual sources (ID3/RIFF)
        stderr_log=$(mktemp)
-       FFPROBE_BIN=$(get_ffprobe_cmd)
-       metadata=$($FFPROBE_BIN -v quiet -show_entries format=duration,size:format_tags:stream_tags -of flat "$file" 2>"$stderr_log")
+       metadata=$(ffprobe -v quiet -show_entries format=duration,size:format_tags:stream_tags -of flat "$file" 2>"$stderr_log")
        
        if [ $? -ne 0 ]; then
            error_msg=$(cat "$stderr_log")
