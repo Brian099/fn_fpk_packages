@@ -33,51 +33,30 @@ scan_music_json() {
     
     if [ $has_ffprobe -eq 1 ]; then
        # Extract metadata using ffprobe
-       # Fetch all format and stream tags to handle mixed case and dual sources (ID3/RIFF)
-       stderr_log=$(mktemp)
-       metadata=$(ffprobe -v quiet -show_entries format=duration,size:format_tags:stream_tags -of flat "$file" 2>"$stderr_log")
+       # Fetch all format tags to handle mixed case keys for different formats (esp. WAV)
+       metadata=$(ffprobe -v quiet -show_entries format=duration,size:format_tags -of flat "$file")
        
-       if [ $? -ne 0 ]; then
-           error_msg=$(cat "$stderr_log")
-           echo "ffprobe failed for $file: $error_msg" >> /tmp/waves_debug.log
-       fi
-       rm -f "$stderr_log"
-
-       # Extract fields (case-insensitive grep, only take FIRST one from format or stream 0 to avoid coverage/attachment stream interference)
-       d_val=$(echo "$metadata" | grep -i 'format.duration=' | head -n 1 | cut -d= -f2 | tr -d '"')
+       # Extract fields (case-insensitive grep for robustness)
+       d_val=$(echo "$metadata" | grep -i 'format.duration=' | cut -d= -f2 | tr -d '"')
        if [ -n "$d_val" ] && [ "$d_val" != "N/A" ]; then duration="$d_val"; fi
        
-       s_val=$(echo "$metadata" | grep -i 'format.size=' | head -n 1 | cut -d= -f2 | tr -d '"')
+       s_val=$(echo "$metadata" | grep -i 'format.size=' | cut -d= -f2 | tr -d '"')
        if [ -n "$s_val" ] && [ "$s_val" != "N/A" ]; then size="$s_val"; fi
        
-       # Helper to clean and convert encoding if needed (GB18030 -> UTF-8 fallback)
-       # Also strips invisible control chars that might break JSON
-       clean_meta() {
-           local val="$1"
-           if [ -z "$val" ]; then return; fi
-           # Remove quotes
-           val=$(echo "$val" | sed 's/^"//;s/"$//')
-           
-           if command -v iconv >/dev/null 2>&1; then
-               # Heuristic: if it's UTF-8, but looks like Mojibake (缇芥硥 case), 
-               # it's usually because GBK was mistreated. 
-               # We attempt to recover by forcing iconv from GB18030
-               if ! echo "$val" | iconv -f UTF-8 -t UTF-8 >/dev/null 2>&1; then
-                   val=$(echo "$val" | iconv -f GB18030 -t UTF-8 2>/dev/null || echo "$val")
-               fi
-           fi
-           # Final pass: remove any non-printable chars (except space) that would break JSON
-           echo "$val" | tr -d '\000-\037'
-       }
-
-       t_raw=$(echo "$metadata" | grep -iE 'format.tags.title=|streams.stream.0.tags.title=' | head -n 1 | cut -d= -f2-)
-       if [ -n "$t_raw" ]; then title=$(clean_meta "$t_raw"); fi
+       t_val=$(echo "$metadata" | grep -i 'format.tags.title=' | cut -d= -f2-)
+       if [ -n "$t_val" ]; then 
+            title=$(echo "$t_val" | sed 's/^"//;s/"$//')
+       fi
        
-       a_raw=$(echo "$metadata" | grep -iE 'format.tags.artist=|streams.stream.0.tags.artist=' | head -n 1 | cut -d= -f2-)
-       if [ -n "$a_raw" ]; then artist=$(clean_meta "$a_raw"); fi
+       a_val=$(echo "$metadata" | grep -i 'format.tags.artist=' | cut -d= -f2-)
+       if [ -n "$a_val" ]; then 
+            artist=$(echo "$a_val" | sed 's/^"//;s/"$//')
+       fi
        
-       al_raw=$(echo "$metadata" | grep -iE 'format.tags.album=|streams.stream.0.tags.album=' | head -n 1 | cut -d= -f2-)
-       if [ -n "$al_raw" ]; then album=$(clean_meta "$al_raw"); fi
+       al_val=$(echo "$metadata" | grep -i 'format.tags.album=' | cut -d= -f2-)
+       if [ -n "$al_val" ]; then 
+            album=$(echo "$al_val" | sed 's/^"//;s/"$//')
+       fi
     else
        # Fallback size
        size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null || echo 0)
@@ -158,33 +137,13 @@ import sys, json, subprocess, os
 
 def get_meta(path):
     try:
-        cmd = ['ffprobe', '-v', 'quiet', '-show_entries', 'format=duration,size:format_tags:stream_tags', '-of', 'json', path]
+        cmd = ['ffprobe', '-v', 'quiet', '-show_entries', 'format=duration,size:format_tags=title,artist,album', '-of', 'json', path]
         res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         data = json.loads(res.stdout)
         fmt = data.get('format', {})
-        streams = data.get('streams', [])
-        
-        # Merge format tags and first stream tags
-        raw_tags = fmt.get('tags', {}).copy()
-        if streams and streams[0].get('codec_type') == 'audio' and 'tags' in streams[0]:
-            raw_tags.update(streams[0]['tags'])
-            
         # Normalize tags to lowercase keys for case-insensitive lookup
-        # and handle potential encoding issues (common for GBK/GB18030 tags)
-        tags = {}
-        for k, v in raw_tags.items():
-            key = k.lower()
-            val = v
-            # If it's a string, try to fix common Chinese mis-decoding (Mojibake)
-            if isinstance(val, str):
-                try:
-                    # If it looks like it was GBK but interpreted as Latin1/UTF-8 incorrectly
-                    # This is a common heuristic
-                    val_bytes = val.encode('iso-8859-1')
-                    val = val_bytes.decode('gb18030')
-                except Exception:
-                    pass
-            tags[key] = val
+        raw_tags = fmt.get('tags', {})
+        tags = {k.lower(): v for k, v in raw_tags.items()}
         
         return {
             'path': path,
@@ -195,9 +154,6 @@ def get_meta(path):
             'album': tags.get('album', 'Unknown Album')
         }
     except Exception as e:
-        # Logging error to a temp file for debugging
-        with open('/tmp/waves_debug.log', 'a', encoding='utf-8') as f:
-            f.write(f"Error processing {path}: {str(e)}\n")
         return {'path': path, 'error': str(e)}
 
 try:
