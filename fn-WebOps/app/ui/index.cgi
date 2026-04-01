@@ -13,11 +13,13 @@
 # License         : MIT
 # ============================================================================
 
-# 【注意】修改你自己的静态文件根目录，以本应用为例：
-BASE_PATH="/var/apps/webops/target/www"
+# 获取脚本所在目录及应用根目录 (target)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_ROOT="${TRIM_APPDEST:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+BASE_PATH="${APP_ROOT}/www"
 
 # 1. 从 REQUEST_URI 里拿到 index.cgi 后面的路径
-#    例如：/cgi/ThirdParty/webops/index.cgi/index.html?foo=bar
+#    例如：/cgi/ThirdParty/WebServer/index.cgi/index.html?foo=bar
 #    先去掉 ? 后面的 query string
 URI_NO_QUERY="${REQUEST_URI%%\?*}"
 
@@ -28,7 +30,7 @@ REL_PATH="/"
 case "$URI_NO_QUERY" in
   *index.cgi*)
     # 去掉前面所有直到 index.cgi 为止的内容，保留后面的
-    # /cgi/ThirdParty/webops/index.cgi/index.html -> /index.html
+    # /cgi/ThirdParty/WebServer/index.cgi/index.html -> /index.html
     REL_PATH="${URI_NO_QUERY#*index.cgi}"
     ;;
 esac
@@ -39,8 +41,6 @@ if [ -z "$REL_PATH" ] || [ "$REL_PATH" = "/" ]; then
 fi
 
 if [ "$REL_PATH" = "/api/nginx/status" ] || [ "$REL_PATH" = "/api/sites" ] || [ "$REL_PATH" = "/api/php/status" ] || [ "$REL_PATH" = "/api/nginx/install" ] || [ "$REL_PATH" = "/api/php/install" ] || [ "$REL_PATH" = "/api/php/remove" ] || [ "$REL_PATH" = "/api/php/extensions" ] || [ "$REL_PATH" = "/api/fs/list" ] || [ "$REL_PATH" = "/api/sites/create" ] || [ "$REL_PATH" = "/api/settings/get-upload-limit" ] || [ "$REL_PATH" = "/api/settings/set-upload-limit" ] || [ "$REL_PATH" = "/api/sites/update-port" ] || [ "$REL_PATH" = "/api/sites/delete" ] || [ "$REL_PATH" = "/api/sites/enable" ] || [ "$REL_PATH" = "/api/sites/disable" ] || [ "$REL_PATH" = "/api/sites/fix-permissions" ] || [ "$REL_PATH" = "/api/nginx/restart" ] || [ "$REL_PATH" = "/api/db/status" ] || [ "$REL_PATH" = "/api/db/install" ] || [ "$REL_PATH" = "/api/install/log" ]; then
-  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-  APP_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
   BACKEND_SCRIPT="$APP_ROOT/server/sites_backend.sh"
   if [ ! -f "$BACKEND_SCRIPT" ]; then
     echo "Status: 500 Internal Server Error"
@@ -108,7 +108,7 @@ if [ "$REL_PATH" = "/api/nginx/status" ] || [ "$REL_PATH" = "/api/sites" ] || [ 
 fi
 
 if [[ $REL_PATH == /api* ]]; then
-  BACKEND_UNIX_SOCKET="${BACKEND_UNIX_SOCKET:-${SCHEDULER_UNIX_SOCKET:-/usr/local/apps/@appdata/webops/scheduler.sock}}"
+  BACKEND_UNIX_SOCKET="${BACKEND_UNIX_SOCKET:-${SCHEDULER_UNIX_SOCKET:-/usr/local/apps/@appdata/WebServer/scheduler.sock}}"
   BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
   BACKEND_PORT="${BACKEND_PORT:-28256}"
 

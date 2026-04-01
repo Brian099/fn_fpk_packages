@@ -5,7 +5,7 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
   var form = layui.form;
   var $ = layui.$;
 
-  var apiBase = "/cgi/ThirdParty/webops/index.cgi";
+  var apiBase = "/cgi/ThirdParty/WebServer/index.cgi";
   var defaultPhpExtensions = "php8.2-common\nphp8.2-mysql\nphp8.2-xml\nphp8.2-xmlrpc\nphp8.2-curl\nphp8.2-gd\nphp8.2-imagick\nphp8.2-cli\nphp8.2-dev\nphp8.2-imap\nphp8.2-mbstring\nphp8.2-opcache\nphp8.2-soap\nphp8.2-zip\nphp8.2-bcmath\nphp8.2-intl\nphp8.2-readline\nphp8.2-ldap\nphp8.2-msgpack\nphp8.2-igbinary\nphp8.2-redis\nphp8.2-memcached\nphp8.2-pgsql\nphp8.2-sqlite3\nphp8.2-odbc\nphp8.2-ssh2\nphp8.2-tidy\nphp8.2-xsl\nphp8.2-yaml\nphp8.2-cgi\nphp8.2-fpm";
   var corePhpPackages = new Set(['php8.2-common','php8.2-cli','php8.2-fpm','php8.2-opcache']);
 
