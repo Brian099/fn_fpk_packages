@@ -552,7 +552,45 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
     // --- Initialize ---
     switchTab('system'); // Clear state and show default tab
 
-    // --- External Trigger for Rebranding verification ---
+    // --- Help Center ---
+  $('#btn-help').click(function(){
+      var helpHtml = `
+      <div style="padding: 25px; line-height: 1.6; color: #333;">
+          <h2 style="font-weight: 800; margin-bottom: 20px; color: var(--primary-blue);">WebServer 使用指南</h2>
+          
+          <h3 style="font-weight: 700; margin-bottom: 10px;"><i class="layui-icon layui-icon-home"></i> 1. 系统概览</h3>
+          <p style="margin-bottom: 15px; color: #666;">在概览页面，您可以查看已安装网站总数。下方提供 Nginx 和 PHP 的版本及运行状态检查，同时支持一键部署 Docker 版 MySQL 数据库。</p>
+          
+          <h3 style="font-weight: 700; margin-bottom: 10px;"><i class="layui-icon layui-icon-website"></i> 2. 网站管理</h3>
+          <ul style="margin-bottom: 15px; padding-left: 20px; list-style-type: disc; color: #666;">
+              <li><b>端口模式</b>：适用于本地测试或内网通过 IP:Port 访问。</li>
+              <li><b>域名模式</b>：输入域名即可关联 Nginx 配置，适合映射公网访问。</li>
+              <li><b>一键修复权限</b>：若网站提示 403 Forbidden，请在操作中选择“修复权限”，系统将自动匹配 www-data 用户。</li>
+          </ul>
+
+          <h3 style="font-weight: 700; margin-bottom: 10px;"><i class="layui-icon layui-icon-component"></i> 3. 扩展中心</h3>
+          <p style="margin-bottom: 15px; color: #666;">支持 PHP 8.2 的官方扩展一键安装。您可以根据业务需要（如 Redis, PDO_MySQL 等）勾选安装，系统会自动重启 PHP-FPM 服务生效。</p>
+
+          <h3 style="font-weight: 700; margin-bottom: 10px;"><i class="layui-icon layui-icon-set"></i> 4. 数据库安全</h3>
+          <p style="margin-bottom: 15px; color: #666;">为了防止实例冲突，本面板为数据库容器分配了唯一的 <b>实例 ID</b>。此 ID 持久化存储，确保面板仅管理由其自身创建的容器环境，数据目录位于 /opt/webserver/db 目录下。</p>
+
+          <div style="margin-top: 30px; padding: 15px; background: #f8f8f8; border-radius: 12px; font-size: 13px; color: #999;">
+              提示：若需修改 PHP 上传限制，请前往“系统设置”页面。
+          </div>
+      </div>
+      `;
+      layer.open({
+          type: 1,
+          title: false, // Hide default title for a cleaner look
+          area: ['650px', '550px'],
+          shadeClose: true,
+          content: helpHtml,
+          skin: 'layui-layer-rim', // Added border for better contrast
+          style: 'border-radius: 16px; overflow: hidden;'
+      });
+  });
+
+  // --- External Trigger for Rebranding verification ---
     console.log("WebServer Panel Initialized");
 
 });
