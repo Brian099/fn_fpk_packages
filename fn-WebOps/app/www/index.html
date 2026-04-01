@@ -10,55 +10,46 @@
 <body class="layui-layout-body">
 <div class="layui-layout layui-layout-admin">
   
-  <!-- Removed layui-header -->
-  
   <div class="layui-side">
     <div class="layui-side-scroll">
-      <!-- Logo in Sidebar -->
-      <div style="padding: 20px 0 10px 20px; font-size: 20px; font-weight: bold; color: var(--primary-blue);">
+      <!-- Logo Area -->
+      <div style="padding: 24px 20px 20px 20px; font-size: 22px; font-weight: 800; color: var(--primary-blue); letter-spacing: -0.5px;">
           WebServer
-      </div>
-      <!-- Search Box Mock -->
-      <div style="padding: 15px 15px 5px 15px;">
-        <div style="position: relative;">
-          <i class="layui-icon layui-icon-search" style="position: absolute; left: 10px; top: 10px; color: #999;"></i>
-          <input type="text" placeholder="搜索功能..." class="layui-input" style="height: 34px; padding-left: 32px; background: #eee; border: none;">
-        </div>
       </div>
 
       <ul class="layui-nav layui-nav-tree" lay-filter="nav-menu">
-        <li class="layui-nav-item layui-this"><a href="javascript:;" data-id="system"><i class="layui-icon layui-icon-home" style="margin-right: 8px;"></i> 全部</a></li>
-        <li class="layui-nav-item"><a href="javascript:;" data-id="sites"><i class="layui-icon layui-icon-website" style="margin-right: 8px;"></i> 网站列表</a></li>
-        <li class="layui-nav-item"><a href="javascript:;" data-id="plugins"><i class="layui-icon layui-icon-component" style="margin-right: 8px;"></i> 开发工具</a></li>
-        <li class="layui-nav-item"><a href="javascript:;" data-id="settings"><i class="layui-icon layui-icon-set" style="margin-right: 8px;"></i> 通用设置</a></li>
+        <li class="layui-nav-item layui-this"><a href="javascript:;" data-id="system"><i class="layui-icon layui-icon-home" style="margin-right: 10px;"></i> 概览</a></li>
+        <li class="layui-nav-item"><a href="javascript:;" data-id="sites"><i class="layui-icon layui-icon-website" style="margin-right: 10px;"></i> 网站管理</a></li>
+        <li class="layui-nav-item"><a href="javascript:;" data-id="plugins"><i class="layui-icon layui-icon-component" style="margin-right: 10px;"></i> 扩展中心</a></li>
+        <li class="layui-nav-item"><a href="javascript:;" data-id="settings"><i class="layui-icon layui-icon-set" style="margin-right: 10px;"></i> 系统设置</a></li>
       </ul>
 
-      <div style="position: absolute; bottom: 20px; left: 0; width: 100%; padding: 0 20px; box-sizing: border-box;">
-         <hr class="layui-border-black" style="opacity: 0.05; margin-bottom: 15px;">
-         <a href="javascript:;" style="color: #666; font-size: 13px;"><i class="layui-icon layui-icon-upload-circle"></i> 手动安装</a>
+      <div style="position: absolute; bottom: 25px; left: 0; width: 100%; padding: 0 20px; box-sizing: border-box;">
+         <hr style="border: none; border-top: 1px solid rgba(0,0,0,0.05); margin-bottom: 15px;">
+         <a href="javascript:;" style="color: var(--text-secondary); font-size: 13px; display: flex; align-items: center; gap: 8px;">
+            <i class="layui-icon layui-icon-help"></i> 帮助中心
+         </a>
       </div>
     </div>
   </div>
   
   <div class="layui-body">
-    <div style="padding: 20px;">
-      <!-- Breadcrumb moved here -->
-      <div id="header-breadcrumb" style="margin-bottom: 20px; font-size: 13px; color: var(--text-secondary);">
-          控制台 / 全部
-      </div>
+    <div style="padding: 25px; min-height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
+      
+      <!-- Breadcrumb Header -->
+      <div id="header-breadcrumb">控制台 / 概览</div>
       
       <!-- View: System Environment -->
-      <div id="view-system" class="layui-anim layui-anim-fadein">
-        <!-- Native Style Banner -->
+      <div id="view-system" class="layui-anim layui-anim-fadein" style="flex: 1;">
         <div class="native-banner">
             <h1>WebServer</h1>
-            <p>飞牛原生应用 · 无需代码 · 一键配置 Web 环境</p>
+            <p>飞牛原生 Web 服务中心 · 极简配置 · 高效稳定</p>
         </div>
 
-        <div class="layui-row layui-col-space15">
+        <div class="layui-row layui-col-space20">
           <div class="layui-col-md4">
             <div class="layui-card">
-              <div class="layui-card-header">Nginx 状态</div>
+              <div class="layui-card-header">Nginx 服务状态</div>
               <div class="layui-card-body" id="nginx-status">
                 <i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 检测中...
               </div>
@@ -66,7 +57,7 @@
           </div>
           <div class="layui-col-md4">
             <div class="layui-card">
-              <div class="layui-card-header">PHP 状态</div>
+              <div class="layui-card-header">PHP 引擎状态</div>
               <div class="layui-card-body" id="php-status">
                 <i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 检测中...
               </div>
@@ -74,7 +65,7 @@
           </div>
           <div class="layui-col-md4">
             <div class="layui-card">
-              <div class="layui-card-header">数据库状态</div>
+              <div class="layui-card-header">数据库服务状态</div>
               <div class="layui-card-body" id="db-status">
                 <i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 检测中...
               </div>
@@ -84,52 +75,69 @@
       </div>
 
       <!-- View: Site List -->
-      <div id="view-sites" class="layui-anim layui-anim-fadein" style="display:none;">
-        <div class="layui-card">
-          <div class="layui-card-header">
-            <span>已安装网站</span>
-            <span class="layui-badge layui-bg-gray" style="margin-left: 5px;" id="site-count">0</span>
-          </div>
-          <div class="layui-card-body">
-            <div class="layui-btn-container">
-              <button class="layui-btn layui-btn-normal" id="btn-create-site"><i class="layui-icon layui-icon-add-1"></i> 新建网站</button>
-              <button class="layui-btn layui-btn-primary" id="btn-refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新列表</button>
+      <div id="view-sites" class="layui-anim layui-anim-fadein" style="display:none; flex: 1; display: flex; flex-direction: column;">
+        <div class="layui-card" style="flex: 1; display: flex; flex-direction: column; margin-bottom: 0;">
+          <div class="layui-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <span>已部署网站</span>
+              <span class="layui-badge layui-bg-gray" style="margin-left: 8px; font-weight: normal;" id="site-count">0</span>
             </div>
-            <table id="site-table" lay-filter="site-table"></table>
+            <!-- Search Filter for Sites -->
+            <div style="width: 220px;">
+              <input type="text" id="search-sites" placeholder="搜索名称或域名..." class="layui-input" style="height: 32px !important; line-height: 32px !important;">
+            </div>
+          </div>
+          <div class="layui-card-body" style="flex: 1; display: flex; flex-direction: column; padding-top: 15px !important;">
+            <div class="layui-btn-container" style="margin-bottom: 15px;">
+              <button class="layui-btn layui-btn-normal" id="btn-create-site"><i class="layui-icon layui-icon-add-1"></i> 新建网站</button>
+              <button class="layui-btn layui-btn-primary" id="btn-refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+            </div>
+            <div style="flex: 1; min-height: 200px;">
+                <table id="site-table" lay-filter="site-table"></table>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- View: Plugin Management -->
-      <div id="view-plugins" class="layui-anim layui-anim-fadein" style="display:none;">
-        <div class="layui-card">
-          <div class="layui-card-header">PHP 扩展与工具</div>
-          <div class="layui-card-body">
-            <div style="margin-bottom: 15px; display:flex; gap:10px;">
-              <input type="text" id="input-plugin-custom" placeholder="输入 apt 软件包名..." class="layui-input" style="width: 250px;">
+      <div id="view-plugins" class="layui-anim layui-anim-fadein" style="display:none; flex: 1; display: flex; flex-direction: column;">
+        <div class="layui-card" style="flex: 1; display: flex; flex-direction: column; margin-bottom: 0;">
+          <div class="layui-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+             <span>扩展与工具管理</span>
+             <!-- Search Filter for Plugins -->
+             <div style="width: 220px;">
+               <input type="text" id="search-plugins" placeholder="快速查找扩展..." class="layui-input" style="height: 32px !important; line-height: 32px !important;">
+             </div>
+          </div>
+          <div class="layui-card-body" style="flex: 1; display: flex; flex-direction: column; padding-top: 15px !important;">
+            <div style="margin-bottom: 15px; display:flex; gap:10px; align-items: center;">
+              <input type="text" id="input-plugin-custom" placeholder="输入 apt 软件包名称" class="layui-input" style="width: 250px;">
               <button class="layui-btn layui-btn-normal" id="btn-install-custom-plugin">手动安装</button>
-              <button class="layui-btn layui-btn-primary" id="btn-install-all-plugins">一键安装推荐</button>
+              <div style="flex: 1;"></div>
+              <button class="layui-btn layui-btn-primary" id="btn-install-all-plugins">安装推荐集</button>
             </div>
-            <table id="plugin-table" lay-filter="plugin-table"></table>
+            <div style="flex: 1; min-height: 200px;">
+              <table id="plugin-table" lay-filter="plugin-table"></table>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- View: General Settings -->
-      <div id="view-settings" class="layui-anim layui-anim-fadein" style="display:none;">
+      <div id="view-settings" class="layui-anim layui-anim-fadein" style="display:none; flex: 1;">
         <div class="layui-card">
-          <div class="layui-card-header">系统参数设置</div>
+          <div class="layui-card-header">基础参数配置</div>
           <div class="layui-card-body">
-             <form class="layui-form" lay-filter="form-settings" style="max-width: 600px;">
+             <form class="layui-form" lay-filter="form-settings" style="max-width: 650px;">
               <div class="layui-form-item">
-                 <blockquote class="layui-elem-quote layui-quote-nm" style="font-size:13px; color: #666; border-radius: 8px;">此设置会同步调整 Nginx 的 client_max_body_size 和 PHP 的 post_max_size / upload_max_filesize。</blockquote>
+                 <blockquote class="layui-elem-quote layui-quote-nm" style="font-size:13px; color: #777; border-radius: 12px; background: #fafafa;">此操作将同步调整 PHP (post_max_size) 与 Nginx (client_max_body_size) 的限制。</blockquote>
               </div>
-              <div class="layui-form-item">
-                <label class="layui-form-label">最大上传限制</label>
-                <div class="layui-input-block">
-                  <div style="display:flex; gap:10px;">
-                    <input type="text" name="upload_limit" id="input-upload-limit" placeholder="例如: 100M" class="layui-input">
-                    <button type="button" class="layui-btn layui-btn-normal" id="btn-save-upload-limit">保存更改</button>
+              <div class="layui-form-item" style="margin-top: 20px;">
+                <label class="layui-form-label" style="width: 100px;">最大上传大小</label>
+                <div class="layui-input-block" style="margin-left: 120px;">
+                  <div style="display:flex; gap:12px;">
+                    <input type="text" name="upload_limit" id="input-upload-limit" placeholder="例如: 1024M" class="layui-input">
+                    <button type="button" class="layui-btn layui-btn-normal" id="btn-save-upload-limit">保存配置</button>
                   </div>
                 </div>
               </div>
@@ -138,17 +146,14 @@
         </div>
 
         <div class="layui-card">
-          <div class="layui-card-header">高级服务管理</div>
+          <div class="layui-card-header">进阶维护操作</div>
           <div class="layui-card-body">
-            <form class="layui-form" style="max-width: 600px;">
-              <div class="layui-form-item">
-                <label class="layui-form-label">服务控制</label>
-                <div class="layui-input-block">
-                  <button type="button" class="layui-btn layui-btn-primary" id="btn-restart-nginx" style="color: #FF5722; border-color: #FF5722;">重启 Nginx 服务</button>
-                  <div style="margin-top: 10px; font-size: 12px; color: #999;">重启服务会导致当前所有网站连接短暂中断。</div>
-                </div>
-              </div>
-            </form>
+            <div style="display: flex; align-items: center; justify-content: space-between; max-width: 650px; background: #fff5f5; padding: 15px; border-radius: 12px; border: 1px solid #ffe3e3;">
+               <div style="color: #e03131; font-size: 14px;">
+                  <i class="layui-icon layui-icon-tips"></i> 重启 Nginx 服务可能会导致现有连接瞬时中断。
+               </div>
+               <button type="button" class="layui-btn" id="btn-restart-nginx" style="background: #fa5252;">立即重启</button>
+            </div>
           </div>
         </div>
       </div>
@@ -160,22 +165,20 @@
 <!-- Template: Operation Bar -->
 <script type="text/html" id="site-bar">
   <div class="layui-btn-group">
-    <a class="layui-btn layui-btn-xs layui-btn-primary" lay-event="fix-permissions">权限</a>
+    <a class="layui-btn layui-btn-xs layui-btn-primary" lay-event="fix-permissions">权限修复</a>
     {{# if(d.enabled){ }}
     <a class="layui-btn layui-btn-xs layui-btn-warm" lay-event="disable">停用</a>
     {{# } else { }}
     <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="enable">启用</a>
     {{# } }}
-    <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="del">删除</a>
+    <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="del">移除</a>
   </div>
 </script>
 
-<!-- Dialog templates and scripts remain consistent with functional requirements -->
-<div id="tpl-create-site" style="display:none; padding:20px;">
-  <!-- (Content of create site form remains the same but styled by global CSS) -->
-</div>
-
-<!-- (Rest of templates for edit-port and dir-selector stay same as functional logic is priority) -->
+<!-- Modals and scripts follow same functional pattern -->
+<div id="tpl-create-site" style="display:none; padding:25px;"></div>
+<div id="tpl-edit-port" style="display:none; padding:25px;"></div>
+<div id="tpl-dir-selector" style="display:none; padding:15px; display:flex; flex-direction:column; height: 380px;"></div>
 
 <script src="layui.js"></script>
 <script src="script.js"></script>

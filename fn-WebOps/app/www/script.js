@@ -108,14 +108,14 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
       // Hide all views
       $('#view-system, #view-sites, #view-plugins, #view-settings').hide();
       // Show target
-      $('#view-' + id).show();
+      $('#view-' + id).css('display', 'flex').show();
       
       // Update breadcrumb
       var breadcrumb = "控制台 / ";
-      if(id === 'system') breadcrumb += "全部";
-      else if(id === 'sites') breadcrumb += "网站列表";
-      else if(id === 'plugins') breadcrumb += "开发工具";
-      else if(id === 'settings') breadcrumb += "通用设置";
+      if(id === 'system') breadcrumb += "概览";
+      else if(id === 'sites') breadcrumb += "网站管理";
+      else if(id === 'plugins') breadcrumb += "扩展中心";
+      else if(id === 'settings') breadcrumb += "系统设置";
       $('#header-breadcrumb').text(breadcrumb);
       
       // Load content if needed
@@ -227,7 +227,25 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
       {fixed: 'right', title:'操作', toolbar: '#site-bar', minWidth: 220}
     ]],
     page: false,
+    height: 'full-330', // Adapt to screen height
     text: {none: '暂无网站配置'}
+  });
+
+  // --- Site Filter Logic ---
+  $('#search-sites').on('input', function(){
+      var val = $(this).val().toLowerCase();
+      table.reload('site-table', {
+        url: '', // Avoid re-fetching from server, filter locally if possible? 
+        // Note: Layui's url data mode doesn't support easy local filtering via reload without data-array.
+        // But since we have the data, let's just use the 'where' to filter server-side if the API supports it,
+        // or just use table.render with data for local filtering. 
+        // For now, let's use the 'where' as a hint, or just filter via CSS for simplicity if data is small.
+      });
+      // Better way for small data: just use jquery to show/hide rows
+      $('#site-table').next().find('.layui-table-body tbody tr').each(function(){
+          var text = $(this).text().toLowerCase();
+          $(this).toggle(text.indexOf(val) > -1);
+      });
   });
 
   table.on('tool(site-table)', function(obj){
@@ -293,9 +311,18 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
           ]],
           page: false,
           limit: 1000,
-          height: 'full-200' // Auto fill
+          height: 'full-330' // Adapt to screen height
       });
   }
+
+  // --- Plugin Filter Logic ---
+  $('#search-plugins').on('input', function(){
+      var val = $(this).val().toLowerCase();
+      $('#plugin-table').next().find('.layui-table-body tbody tr').each(function(){
+          var text = $(this).text().toLowerCase();
+          $(this).toggle(text.indexOf(val) > -1);
+      });
+  });
 
   table.on('tool(plugin-table)', function(obj){
       var data = obj.data;

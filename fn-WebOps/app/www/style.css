@@ -1,6 +1,6 @@
 /* 
   fnOS Native Style Overrides for WebServer
-  Inspired by fnOS App Center & Desktop UI
+  Complete UI Redesign (Final Version)
 */
 
 :root {
@@ -11,10 +11,11 @@
   --card-bg: #ffffff;
   --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   --radius-lg: 16px;
-  --radius-md: 10px;
+  --radius-md: 12px;
   --radius-sm: 6px;
   --text-main: #333333;
   --text-secondary: #86868b;
+  --ctrl-height: 38px;
 }
 
 /* Global Styles */
@@ -25,33 +26,23 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Layout Overrides */
+/* Layout Overrides (No Header) */
 .layui-layout-admin .layui-header {
   display: none !important;
 }
 
-.layui-layout-admin .layui-logo {
-  color: var(--text-main) !important;
-  font-weight: 700;
-  font-size: 18px;
-  width: 220px;
-  text-align: left;
-  padding-left: 20px;
-}
-
 .layui-layout-admin .layui-side {
   background-color: var(--sidebar-bg) !important;
-  top: 0;
+  top: 0 !important;
   width: 220px;
-  border-right: 1px solid rgba(0, 0, 0, 0.03);
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .layui-layout-admin .layui-body {
   background-color: var(--bg-color);
-  top: 0;
+  top: 0 !important;
   left: 220px;
   bottom: 0;
-  padding: 20px;
 }
 
 /* Sidebar Navigation */
@@ -62,55 +53,39 @@ body {
 }
 
 .layui-nav-tree .layui-nav-item {
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .layui-nav-tree .layui-nav-item a {
-  height: 40px;
-  line-height: 40px;
+  height: 42px;
+  line-height: 42px;
   color: var(--text-main) !important;
   border-radius: var(--radius-md);
   margin: 0 8px;
   transition: all 0.2s;
-  padding-left: 35px !important;
+  padding-left: 15px !important; /* Adjusted since square is gone */
   position: relative;
-}
-
-/* Mock sub-icons or better spacing */
-.layui-nav-tree .layui-nav-item a::before {
-  content: "";
-  position: absolute;
-  left: 12px;
-  top: 12px;
-  width: 16px;
-  height: 16px;
-  background-color: rgba(0,0,0,0.1);
-  border-radius: 4px;
 }
 
 .layui-nav-tree .layui-nav-item a:hover {
   background-color: rgba(0, 0, 0, 0.05) !important;
 }
 
+/* Strictly Remove Green Background (#16baaa) */
 .layui-nav-tree .layui-this,
 .layui-nav-tree .layui-this > a,
-.layui-nav-tree .layui-this > a:hover,
-.layui-nav-tree .layui-this > a:focus {
+.layui-nav-tree .layui-this > a:hover {
   background-color: var(--sidebar-active) !important;
   color: var(--primary-blue) !important;
   font-weight: 600;
 }
 
-/* Force removal of default layui green (#16baaa) */
-.layui-nav-tree .layui-this .layui-nav-child dd.layui-this, 
-.layui-nav-tree .layui-this .layui-nav-child dd.layui-this a,
 .layui-this::after {
-  background-color: transparent !important;
   display: none !important;
 }
 
 .layui-nav-bar {
-  display: none !important; /* Remove the vertical line */
+  display: none !important;
 }
 
 /* Cards */
@@ -126,8 +101,8 @@ body {
   font-size: 15px;
   font-weight: 600;
   padding: 0 20px;
-  height: 45px;
-  line-height: 45px;
+  height: 50px;
+  line-height: 50px;
 }
 
 .layui-card-body {
@@ -138,7 +113,7 @@ body {
 .native-banner {
   background: linear-gradient(135deg, #3478f6 0%, #1e5fc9 100%);
   border-radius: var(--radius-lg);
-  padding: 30px;
+  padding: 35px;
   color: white;
   margin-bottom: 25px;
   box-shadow: 0 10px 30px rgba(52, 120, 246, 0.2);
@@ -146,84 +121,95 @@ body {
   overflow: hidden;
 }
 
-.native-banner::after {
-  content: "";
-  position: absolute;
-  right: -50px;
-  bottom: -50px;
-  width: 250px;
-  height: 250px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
-}
-
 .native-banner h1 {
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 800;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .native-banner p {
   opacity: 0.9;
+  font-size: 15px;
+}
+
+/* Breadcrumb style */
+#header-breadcrumb {
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding-left: 5px;
+}
+
+/* Unified Control Style (Inputs and Buttons) */
+.layui-btn, .layui-input, .layui-select, .layui-textarea {
+  height: var(--ctrl-height) !important;
+  line-height: var(--ctrl-height) !important;
+  border-radius: var(--radius-md) !important;
   font-size: 14px;
 }
 
-/* Capsule Buttons */
 .layui-btn {
-  border-radius: 30px !important; /* Capsule style */
   font-weight: 500;
-  padding: 0 16px;
+  padding: 0 18px;
+  border: none;
 }
 
 .layui-btn-primary {
-  border-color: #e5e5e5;
-  background-color: transparent !important;
+  border: 1px solid #e1e1e1 !important;
+  color: #555;
 }
 
 .layui-btn-normal {
   background-color: var(--primary-blue) !important;
 }
 
-/* Form Styles */
-.layui-input, .layui-textarea, .layui-select {
-  border-radius: var(--radius-md) !important;
-  border: 1px solid #e5e5e5 !important;
-  transition: border-color 0.2s;
-  padding-left: 12px !important;
+.layui-input {
+  border: 1px solid #e1e1e1 !important;
+  background-color: #fafafa !important;
 }
 
 .layui-input:focus {
   border-color: var(--primary-blue) !important;
+  background-color: #fff !important;
+  box-shadow: 0 0 0 3px rgba(52, 120, 246, 0.1);
 }
 
-/* Table Style */
+/* Table Style & Scrollbar alignment */
 .layui-table-view {
   border-radius: var(--radius-lg) !important;
   border: none !important;
-  box-shadow: var(--card-shadow);
+  box-shadow: none !important;
   background-color: white;
-  overflow: hidden;
 }
 
 .layui-table-header {
   background-color: #fafafa;
 }
 
-/* Badges and Tags */
-.layui-badge {
-  border-radius: var(--radius-sm) !important;
-  padding: 2px 6px;
+.layui-table-cell {
+  height: 48px;
+  line-height: 48px;
 }
 
-/* Hide potential checkboxes in tables */
+/* Scrollbar styling for native feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.1);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.2);
+}
+
+/* Hide checkboxes in tables globally */
 .layui-table-cell .layui-form-checkbox {
   display: none !important;
 }
-th[data-field="0"] .layui-table-cell, td[data-field="0"] .layui-table-cell {
-  display: none !important; /* Often used for index or checkbox column */
-}
 
-/* --- Fix for Icons --- */
+/* Icons */
 @font-face {
   font-family: 'layui-icon';
   src: url('font/iconfont.woff2') format('woff2'),
