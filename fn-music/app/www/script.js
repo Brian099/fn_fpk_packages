@@ -10,6 +10,8 @@ let isLoop = false; // true = loop one, false = loop all (default) or no loop?
 // For simplicity: Loop All (default) vs Shuffle.
 // Let's make the loop button toggle "Loop One" (Repeat Track).
 let isLoopOne = false;
+let lastPlaybackState = null; // { path, position, timestamp }
+let isInitialRestore = false;
 
 // API Base Path (Matches installation path)
 const apiBase = "/cgi/ThirdParty/waves/index.cgi";
@@ -124,6 +126,20 @@ async function loadSettings() {
         
         renderDirList();
         
+        // Load last playback from config if exists
+        if (data && data.lastPlayback) {
+            lastPlaybackState = data.lastPlayback;
+        }
+        
+        // Override with localStorage if newer
+        const localPlayback = localStorage.getItem('waves_last_playback');
+        if (localPlayback) {
+            const local = JSON.parse(localPlayback);
+            if (!lastPlaybackState || local.timestamp > lastPlaybackState.timestamp) {
+                lastPlaybackState = local;
+            }
+        }
+        
         // Auto scan if not direct play mode
         const urlParams = new URLSearchParams(window.location.search);
         if (!urlParams.get('file') && !urlParams.get('path')) {
@@ -145,6 +161,11 @@ async function loadSettings() {
                  } catch (e) {
                      rescanAll();
                  }
+
+                 // Only restore if we are not in direct play mode
+                 if (lastPlaybackState && lastPlaybackState.path) {
+                     restoreLastPlayback();
+                 }
              }
         }
     } catch (e) {
@@ -158,7 +179,10 @@ async function saveSettings() {
     renderDirList();
     
     try {
-        const config = { dirs: directories };
+        const config = { 
+            dirs: directories,
+            lastPlayback: lastPlaybackState
+        };
         const res = await fetch(`${apiBase}?api_route=/api/music/config/save`, {
             method: 'POST',
             body: JSON.stringify(config)
@@ -426,6 +450,11 @@ async function rescanAll(isSilent = false) {
     
     // Save to cache (even if partial)
     saveLibrary();
+    
+    // If we have a pending restore, try it again now that library is refreshed
+    if (lastPlaybackState && currentIndex === -1) {
+        restoreLastPlayback();
+    }
 }
 
 async function fetchMetadataBatch(tracksToFetch) {
@@ -679,6 +708,72 @@ function renderPlaylist() {
 
 let lyricsData = [];
 let lyricsTimer = null;
+let lastSaveTime = 0;
+function savePlaybackState(force = false) {
+    if (currentIndex === -1 || !playlist[currentIndex]) return;
+    
+    const now = Date.now();
+    // Throttle saves to every 5 seconds unless forced
+    if (!force && now - lastSaveTime < 5000) return;
+    
+    lastSaveTime = now;
+    const song = playlist[currentIndex];
+    
+    lastPlaybackState = {
+        path: song.path,
+        position: audio.currentTime,
+        timestamp: now
+    };
+    
+    localStorage.setItem('waves_last_playback', JSON.stringify(lastPlaybackState));
+    
+    // Periodically sync to server (roughly every 30-60s)
+    if (force || (now - lastSaveTime > 60000)) { 
+        // We sync if forced or if 1 minute has passed since last save attempt
+        // Note: we update lastSaveTime only after success or bypass to avoid retrying too fast
+        saveSettings();
+    }
+}
+
+function restoreLastPlayback() {
+    if (!lastPlaybackState || !lastPlaybackState.path || playlist.length === 0) return;
+    
+    const index = playlist.findIndex(p => p.path === lastPlaybackState.path);
+    if (index === -1) return;
+    
+    currentIndex = index;
+    const song = playlist[index];
+    
+    // Update UI without playing
+    document.getElementById('track-name').innerText = song.name;
+    document.getElementById('track-artist').innerText = song.artist || 'Unknown Artist';
+    
+    const coverImg = document.getElementById('cover-art');
+    const coverUrl = `${apiBase}?api_route=/api/music/cover&path=${encodeURIComponent(song.path)}&t=${Date.now()}`;
+    coverImg.src = coverUrl;
+    document.getElementById('lyrics-bg').style.backgroundImage = `url('${coverUrl}')`;
+    
+    // Highlight in list
+    renderPlaylist();
+    
+    // Set source and prepare seek
+    const streamUrl = `${apiBase}?api_route=/api/music/stream&path=${encodeURIComponent(song.path)}`;
+    audio.src = streamUrl;
+    
+    // We can't seek until metadata is loaded
+    isInitialRestore = true;
+    
+    // Update time displays manually before play
+    if (lastPlaybackState.position) {
+        // Need to wait for element to exist? No, they assume they are already there.
+        const timeCurrent = document.getElementById('time-current');
+        const seekBar = document.getElementById('seek-bar');
+        if (timeCurrent) timeCurrent.innerText = formatTime(lastPlaybackState.position);
+        if (seekBar) seekBar.value = lastPlaybackState.position;
+    }
+    
+    fetchLyrics(song.path);
+}
 
 // Player Logic
 function play(index) {
@@ -721,9 +816,17 @@ function play(index) {
 
     // Play
     const streamUrl = `${apiBase}?api_route=/api/music/stream&path=${encodeURIComponent(song.path)}`;
-    audio.src = streamUrl;
+    
+    // Only update src if it changed (optimization for resume)
+    if (audio.src !== new URL(streamUrl, window.location.origin).href) {
+        audio.src = streamUrl;
+    }
+    
     audio.play();
     updatePlayPauseIcon(true);
+    
+    // Save immediately on play
+    savePlaybackState(true);
 }
 
 async function fetchLyrics(path) {
@@ -998,6 +1101,25 @@ function setupPlayerEvents() {
             timeTotal.innerText = formatTime(dur);
         }
         updateLyricsDisplay();
+        savePlaybackState();
+    });
+
+    audio.addEventListener('loadedmetadata', () => {
+        if (isInitialRestore && lastPlaybackState) {
+            audio.currentTime = lastPlaybackState.position || 0;
+            seekBar.max = audio.duration;
+            seekBar.value = audio.currentTime;
+            timeTotal.innerText = formatTime(audio.duration);
+            isInitialRestore = false;
+        }
+    });
+
+    audio.addEventListener('play', () => {
+        savePlaybackState(true);
+    });
+
+    audio.addEventListener('pause', () => {
+        savePlaybackState(true);
     });
     
     audio.addEventListener('ended', () => {
