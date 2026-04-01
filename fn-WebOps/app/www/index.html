@@ -46,14 +46,39 @@
             <p>飞牛原生 Web 服务中心 · 极简配置 · 高效稳定</p>
         </div>
 
+        <!-- Hero Statistic Part -->
         <div class="layui-row layui-col-space20" style="margin-top: 10px;">
           <div class="layui-col-md12">
             <div class="layui-card" style="text-align: center; padding: 40px 0; border-radius: 20px !important;">
               <div style="font-size: 16px; color: var(--text-secondary); margin-bottom: 10px;">已安装网站总数</div>
               <div id="site-count-hero" style="font-size: 64px; font-weight: 800; color: var(--primary-blue);">0</div>
-              <div style="margin-top: 20px; color: var(--text-secondary); font-size: 13px; display: flex; justify-content: center; gap: 20px;">
-                  <span id="nginx-status-mini">Nginx: <i class="layui-icon layui-icon-loading"></i></span>
-                  <span id="php-status-mini">PHP: <i class="layui-icon layui-icon-loading"></i></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detailed Status Part -->
+        <div class="layui-row layui-col-space20">
+          <div class="layui-col-md4">
+            <div class="layui-card">
+              <div class="layui-card-header">Nginx 服务状态</div>
+              <div class="layui-card-body" id="nginx-status">
+                <i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 检测中...
+              </div>
+            </div>
+          </div>
+          <div class="layui-col-md4">
+            <div class="layui-card">
+              <div class="layui-card-header">PHP 引擎状态</div>
+              <div class="layui-card-body" id="php-status">
+                <i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 检测中...
+              </div>
+            </div>
+          </div>
+          <div class="layui-col-md4">
+            <div class="layui-card">
+              <div class="layui-card-header">数据库服务状态</div>
+              <div class="layui-card-body" id="db-status">
+                <i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 检测中...
               </div>
             </div>
           </div>
