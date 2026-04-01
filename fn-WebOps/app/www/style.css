@@ -115,6 +115,28 @@ body {
   padding: 20px !important;
 }
 
+/* Eliminate the 10px side-padding from the grid to align with edges */
+.layui-row.layui-col-space20 {
+  margin-left: -10px !important;
+  margin-right: -10px !important;
+}
+.layui-row.layui-col-space20 > [class*="layui-col-"] {
+  padding: 10px !important;
+}
+.layui-row.layui-col-space20 > [class*="layui-col-"]:first-child { view-system { padding-left: 0; } }
+/* Since the user specifically wants the 10px shrink removed to fit edges */
+.layui-body > div {
+  padding: 25px 25px 25px 25px !important;
+}
+.layui-col-space20 {
+  margin: 0 !important;
+}
+.layui-col-space20 > * {
+  padding: 10px !important;
+}
+.layui-col-space20 > *:first-child { padding-left: 0 !important; }
+.layui-col-space20 > *:last-child { padding-right: 0 !important; }
+
 /* Banner Component */
 .native-banner {
   background: linear-gradient(135deg, #3478f6 0%, #1e5fc9 100%);
