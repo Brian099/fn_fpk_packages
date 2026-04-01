@@ -10,15 +10,14 @@
 <body class="layui-layout-body">
 <div class="layui-layout layui-layout-admin">
   
-  <div class="layui-header">
-    <div class="layui-logo">WebServer</div>
-    <ul class="layui-nav layui-layout-left">
-      <li class="layui-nav-item"><a href="javascript:;" id="header-breadcrumb">控制台 / 系统环境</a></li>
-    </ul>
-  </div>
+  <!-- Removed layui-header -->
   
   <div class="layui-side">
     <div class="layui-side-scroll">
+      <!-- Logo in Sidebar -->
+      <div style="padding: 20px 0 10px 20px; font-size: 20px; font-weight: bold; color: var(--primary-blue);">
+          WebServer
+      </div>
       <!-- Search Box Mock -->
       <div style="padding: 15px 15px 5px 15px;">
         <div style="position: relative;">
@@ -43,6 +42,10 @@
   
   <div class="layui-body">
     <div style="padding: 20px;">
+      <!-- Breadcrumb moved here -->
+      <div id="header-breadcrumb" style="margin-bottom: 20px; font-size: 13px; color: var(--text-secondary);">
+          控制台 / 全部
+      </div>
       
       <!-- View: System Environment -->
       <div id="view-system" class="layui-anim layui-anim-fadein">

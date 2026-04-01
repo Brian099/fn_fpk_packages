@@ -27,11 +27,7 @@ body {
 
 /* Layout Overrides */
 .layui-layout-admin .layui-header {
-  background-color: rgba(255, 255, 255, 0.8) !important;
-  backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  height: 50px;
-  line-height: 50px;
+  display: none !important;
 }
 
 .layui-layout-admin .layui-logo {
@@ -45,13 +41,14 @@ body {
 
 .layui-layout-admin .layui-side {
   background-color: var(--sidebar-bg) !important;
-  top: 50px;
+  top: 0;
   width: 220px;
+  border-right: 1px solid rgba(0, 0, 0, 0.03);
 }
 
 .layui-layout-admin .layui-body {
   background-color: var(--bg-color);
-  top: 50px;
+  top: 0;
   left: 220px;
   bottom: 0;
   padding: 20px;
@@ -95,10 +92,21 @@ body {
   background-color: rgba(0, 0, 0, 0.05) !important;
 }
 
-.layui-nav-tree .layui-this a {
+.layui-nav-tree .layui-this,
+.layui-nav-tree .layui-this > a,
+.layui-nav-tree .layui-this > a:hover,
+.layui-nav-tree .layui-this > a:focus {
   background-color: var(--sidebar-active) !important;
   color: var(--primary-blue) !important;
   font-weight: 600;
+}
+
+/* Force removal of default layui green (#16baaa) */
+.layui-nav-tree .layui-this .layui-nav-child dd.layui-this, 
+.layui-nav-tree .layui-this .layui-nav-child dd.layui-this a,
+.layui-this::after {
+  background-color: transparent !important;
+  display: none !important;
 }
 
 .layui-nav-bar {
@@ -205,6 +213,14 @@ body {
 .layui-badge {
   border-radius: var(--radius-sm) !important;
   padding: 2px 6px;
+}
+
+/* Hide potential checkboxes in tables */
+.layui-table-cell .layui-form-checkbox {
+  display: none !important;
+}
+th[data-field="0"] .layui-table-cell, td[data-field="0"] .layui-table-cell {
+  display: none !important; /* Often used for index or checkbox column */
 }
 
 /* --- Fix for Icons --- */
