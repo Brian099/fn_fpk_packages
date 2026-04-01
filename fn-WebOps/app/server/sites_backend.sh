@@ -1079,6 +1079,16 @@ fix_permissions_json() {
   echo '{"ok":true,"message":"permissions fixed"}'
 }
 
+# --- Database Instance ID Logic ---
+get_db_instance_id() {
+    local id_file="/opt/webserver/.db_instance_id"
+    if [ ! -f "$id_file" ]; then
+        mkdir -p "/opt/webserver"
+        printf "%06d" $((RANDOM % 1000000)) > "$id_file"
+    fi
+    cat "$id_file"
+}
+
 nginx_restart_json() {
   if systemctl restart nginx >/dev/null 2>&1; then
     echo '{"ok":true,"message":"Nginx restarted successfully"}'
@@ -1091,6 +1101,7 @@ check_db_status_json() {
   status="not_installed"
   type="none"
   details="数据库未安装"
+  db_id=$(get_db_instance_id)
 
   # 1. Check systemd services
   if systemctl is-active mariadb --quiet 2>/dev/null || systemctl is-active mysql --quiet 2>/dev/null; then
@@ -1104,16 +1115,16 @@ check_db_status_json() {
   else
       # 2. Check Docker containers
       if command -v docker >/dev/null 2>&1; then
-          # Check for running containers with "mysql" in name
-          if docker ps --format '{{.Names}}' | grep -q "mysql"; then
+          # Check for specific container name with instance ID
+          if docker ps --format '{{.Names}}' | grep -q "^WebServer_MySql_${db_id}$"; then
               status="running"
               type="docker"
-              details="Docker版数据库正在运行"
-          # Check for stopped containers with "mysql" in name
-          elif docker ps -a --format '{{.Names}}' | grep -q "mysql"; then
+              details="Docker版数据库正在运行 (${db_id})"
+          # Check for stopped containers with same ID
+          elif docker ps -a --format '{{.Names}}' | grep -q "^WebServer_MySql_${db_id}$"; then
               status="installed"
               type="docker"
-              details="Docker版数据库已安装但未运行"
+              details="Docker版数据库已安装但未运行 (${db_id})"
           fi
       fi
   fi
@@ -1126,6 +1137,7 @@ install_db_json() {
     input=$(dd bs=1 count="$CONTENT_LENGTH" 2>/dev/null || cat)
   fi
   password=$(echo "$input" | grep "^password=" | cut -d= -f2- | tr -d '\r')
+  db_id=$(get_db_instance_id)
 
   if [ -z "$password" ]; then
     echo '{"ok":false,"error":"Missing password"}'
@@ -1148,14 +1160,12 @@ install_db_json() {
            echo '{"ok":true,"message":"Existing database stack started"}'
            return 0
       fi
-      # If start failed, we might want to overwrite, but for safety let's just proceed to overwrite 
-      # only if the user specifically requested install (which they did by calling this).
-      # But actually, let's just overwrite config with new password as requested.
   fi
 
   cat > "$DB_DIR/docker-compose.yml" <<EOF
 services:
   mysql:
+    container_name: WebServer_MySql_${db_id}
     image: mysql:latest
     restart: always
     ports:
@@ -1173,6 +1183,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   phpmyadmin:
+    container_name: WebServer_PhpMyAdmin_${db_id}
     image: phpmyadmin:latest
     restart: always
     ports:
@@ -1188,7 +1199,7 @@ EOF
   cd "$DB_DIR" || return 1
   
   if docker compose up -d >/tmp/webserver_db_install.log 2>&1; then
-      echo '{"ok":true,"message":"Docker版数据库安装成功"}'
+      echo '{"ok":true,"message":"Docker版数据库安装成功 (ID: '"${db_id}"')"}'
   else
       echo '{"ok":false,"error":"Docker compose 启动失败"}'
   fi
