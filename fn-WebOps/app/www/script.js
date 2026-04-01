@@ -237,7 +237,7 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
       {fixed: 'right', title:'操作', toolbar: '#site-bar', minWidth: 220}
     ]],
     page: false,
-    height: 'full-330', // Adapt to screen height
+    height: 'full-190', // Optimized offset (was 330)
     text: {none: '暂无网站配置'}
   });
 
@@ -314,7 +314,7 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
           ]],
           page: false,
           limit: 1000,
-          height: 'full-330' // Adapt to screen height
+          height: 'full-190' // Optimized offset (was 330)
       });
   }
 
