@@ -65,6 +65,7 @@ body {
 
 .layui-nav-tree .layui-nav-item a:hover { background-color: rgba(0, 0, 0, 0.05) !important; }
 
+.layui-nav-tree .layui-this { background-color: transparent !important; }
 .layui-nav-tree .layui-this > a,
 .layui-nav-tree .layui-this > a:hover {
   background-color: var(--sidebar-active) !important;
