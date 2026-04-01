@@ -1,6 +1,6 @@
 /* 
   fnOS Native Style Overrides for WebServer
-  Complete UI Redesign (Final Version)
+  Refined & Audited Production Version
 */
 
 :root {
@@ -18,7 +18,7 @@
   --ctrl-height: 38px;
 }
 
-/* Global Styles */
+/* --- 1. Global & Layout --- */
 body {
   background-color: var(--bg-color);
   font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -26,52 +26,45 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Layout Overrides (No Header) */
-.layui-layout-admin .layui-header {
-  display: none !important;
-}
+.layui-layout-admin .layui-header { display: none !important; }
 
 .layui-layout-admin .layui-side {
   background-color: var(--sidebar-bg) !important;
-  top: 0 !important;
-  width: 220px;
+  top: 0 !important; width: 220px;
   border-right: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .layui-layout-admin .layui-body {
   background-color: var(--bg-color);
-  top: 0 !important;
-  left: 220px;
-  bottom: 0;
+  top: 0 !important; left: 220px; bottom: 0;
 }
 
-/* Sidebar Navigation */
+.layui-body > div {
+  padding: 25px !important;
+  min-height: 100%; display: flex; flex-direction: column; box-sizing: border-box;
+}
+
+/* --- 2. Sidebar Navigation --- */
 .layui-nav-tree {
   width: 100% !important;
   background-color: transparent !important;
-  padding: 10px;
+  padding: 15px 0 !important;
 }
 
-.layui-nav-tree .layui-nav-item {
-  margin-bottom: 6px;
-}
+.layui-nav-tree .layui-nav-item { margin-bottom: 6px; }
 
 .layui-nav-tree .layui-nav-item a {
-  height: 42px;
-  line-height: 42px;
+  height: 42px; line-height: 42px;
   color: var(--text-main) !important;
   border-radius: var(--radius-md);
-  margin: 0 8px;
+  margin: 0 10px !important;
   transition: all 0.2s;
-  padding-left: 15px !important; /* Adjusted since square is gone */
-  position: relative;
+  padding-left: 18px !important;
+  position: relative; display: block; width: auto !important;
 }
 
-.layui-nav-tree .layui-nav-item a:hover {
-  background-color: rgba(0, 0, 0, 0.05) !important;
-}
+.layui-nav-tree .layui-nav-item a:hover { background-color: rgba(0, 0, 0, 0.05) !important; }
 
-/* Strictly Remove Green Background (#16baaa) */
 .layui-nav-tree .layui-this,
 .layui-nav-tree .layui-this > a,
 .layui-nav-tree .layui-this > a:hover {
@@ -81,94 +74,42 @@ body {
   border-radius: var(--radius-md) !important;
 }
 
-/* Ensure the selection rectangle is padded from edges within the 8px margin */
-.layui-nav-tree .layui-this > a {
-  margin: 0 8px !important;
-}
+.layui-this::after, .layui-nav-bar { display: none !important; }
 
-.layui-this::after {
-  display: none !important;
-}
-
-.layui-nav-bar {
-  display: none !important;
-}
-
-/* Cards */
+/* --- 3. Cards & Grid --- */
 .layui-card {
   border-radius: var(--radius-lg) !important;
   border: none !important;
   box-shadow: var(--card-shadow) !important;
   margin-bottom: 20px;
+  background-color: var(--card-bg);
 }
 
 .layui-card-header {
   border-bottom: 1px solid rgba(0, 0, 0, 0.04) !important;
-  font-size: 15px;
-  font-weight: 600;
-  padding: 0 20px;
-  height: 50px;
-  line-height: 50px;
+  font-size: 15px; font-weight: 600; padding: 0 20px;
+  height: 50px; line-height: 50px;
 }
 
-.layui-card-body {
-  padding: 20px !important;
-}
+.layui-card-body { padding: 20px !important; }
 
-/* Eliminate the 10px side-padding from the grid to align with edges */
-.layui-row.layui-col-space20 {
-  margin-left: -10px !important;
-  margin-right: -10px !important;
-}
-.layui-row.layui-col-space20 > [class*="layui-col-"] {
-  padding: 10px !important;
-}
-.layui-row.layui-col-space20 > [class*="layui-col-"]:first-child { view-system { padding-left: 0; } }
-/* Since the user specifically wants the 10px shrink removed to fit edges */
-.layui-body > div {
-  padding: 25px 25px 25px 25px !important;
-}
-.layui-col-space20 {
-  margin: 0 !important;
-}
-.layui-col-space20 > * {
-  padding: 10px !important;
-}
-.layui-col-space20 > *:first-child { padding-left: 0 !important; }
-.layui-col-space20 > *:last-child { padding-right: 0 !important; }
+/* Eliminate the 10px side-padding from grid to align with edges */
+.layui-row.layui-col-space20 { margin: 0 !important; }
+.layui-row.layui-col-space20 > [class*="layui-col-"] { padding: 10px !important; }
+.layui-row.layui-col-space20 > [class*="layui-col-"]:first-child { padding-left: 0 !important; }
+.layui-row.layui-col-space20 > [class*="layui-col-"]:last-child { padding-right: 0 !important; }
 
-/* Banner Component */
+/* --- 4. Special Components (Banner) --- */
 .native-banner {
   background: linear-gradient(135deg, #3478f6 0%, #1e5fc9 100%);
-  border-radius: var(--radius-lg);
-  padding: 35px;
-  color: white;
-  margin-bottom: 25px;
-  box-shadow: 0 10px 30px rgba(52, 120, 246, 0.2);
-  position: relative;
-  overflow: hidden;
+  border-radius: var(--radius-lg); padding: 35px; color: white;
+  margin-bottom: 25px; box-shadow: 0 10px 30px rgba(52, 120, 246, 0.2);
 }
 
-.native-banner h1 {
-  font-size: 30px;
-  font-weight: 800;
-  margin-bottom: 10px;
-}
+.native-banner h1 { font-size: 30px; font-weight: 800; margin-bottom: 10px; }
+.native-banner p { opacity: 0.9; font-size: 15px; }
 
-.native-banner p {
-  opacity: 0.9;
-  font-size: 15px;
-}
-
-/* Breadcrumb style */
-#header-breadcrumb {
-  margin-bottom: 20px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  padding-left: 5px;
-}
-
-/* Unified Control Style (Inputs and Standard Buttons) */
+/* --- 5. Form Controls --- */
 .layui-input, .layui-select, .layui-textarea, 
 .layui-btn:not(.layui-btn-xs):not(.layui-btn-sm):not(.layui-btn-lg) {
   height: var(--ctrl-height) !important;
@@ -177,79 +118,33 @@ body {
   font-size: 14px;
 }
 
-/* Adjust form-item height for unified control size */
-.layui-form-item {
-  margin-bottom: 20px;
-  clear: both;
-  min-height: var(--ctrl-height);
-}
-
+.layui-form-item { margin-bottom: 20px; clear: both; min-height: var(--ctrl-height); }
 .layui-form-label {
   height: var(--ctrl-height) !important;
-  line-height: calc(var(--ctrl-height) - 10px) !important; /* Center with 38px inputs */
+  line-height: calc(var(--ctrl-height) - 10px) !important;
   padding: 5px 15px !important;
 }
 
-.layui-btn {
-  font-weight: 500;
-  padding: 0 18px;
-  border: none;
-}
+.layui-btn { font-weight: 500; padding: 0 18px; border: none; }
+.layui-btn-primary { border: 1px solid #e1e1e1 !important; color: #555; }
+.layui-btn-normal { background-color: var(--primary-blue) !important; }
 
-.layui-btn-primary {
-  border: 1px solid #e1e1e1 !important;
-  color: #555;
-}
-
-.layui-btn-normal {
-  background-color: var(--primary-blue) !important;
-}
-
-.layui-input {
-  border: 1px solid #e1e1e1 !important;
-  background-color: #fafafa !important;
-}
-
+.layui-input { border: 1px solid #e1e1e1 !important; background-color: #fafafa !important; }
 .layui-input:focus {
   border-color: var(--primary-blue) !important;
-  background-color: #fff !important;
-  box-shadow: 0 0 0 3px rgba(52, 120, 246, 0.1);
+  background-color: #fff !important; box-shadow: 0 0 0 3px rgba(52, 120, 246, 0.1);
 }
 
-/* Table Style & Scrollbar alignment */
-.layui-table-view {
-  border-radius: var(--radius-lg) !important;
-  border: none !important;
-  box-shadow: none !important;
-  background-color: white;
-}
-
-.layui-table-header {
-  background-color: #fafafa;
-}
-
-.layui-table-cell {
-  height: 48px;
-  line-height: 48px;
-}
+/* --- 6. Table & Scrollbar --- */
+.layui-table-view { border-radius: var(--radius-lg) !important; border: none !important; background-color: white; }
+.layui-table-header { background-color: #fafafa; }
+.layui-table-cell { height: 48px; line-height: 48px; }
+.layui-table-cell .layui-form-checkbox { display: none !important; }
 
 /* Scrollbar styling for native feel */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.1);
-  border-radius: 10px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0,0,0,0.2);
-}
-
-/* Hide checkboxes in tables globally */
-.layui-table-cell .layui-form-checkbox {
-  display: none !important;
-}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
 
 /* Icons */
 @font-face {
