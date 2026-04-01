@@ -133,71 +133,34 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
 
   // --- System Environment ---
   function loadStatus() {
-      // Nginx
+      // Update Hero Site Count (Fetch from sites API)
+      fetch(apiBase + '/api/sites').then(r=>r.json()).then(res => {
+          if(res) {
+              var count = res.length || 0;
+              $('#site-count-hero').text(count);
+              $('#site-count').text(count);
+          }
+      });
+
+      // Nginx Mini Status
       fetch(apiBase+"/api/nginx/status").then(r=>r.json()).then(data => {
-          var el = $('#nginx-status');
+          var el = $('#nginx-status-mini');
           if(data.installed){
-              var html = `<div style="color:#5FB878"><i class="layui-icon layui-icon-ok-circle"></i> 已安装 (${data.version||''})</div>`;
-              html += data.config_exists ? '<div>配置文件: <span style="color:#5FB878">正常</span></div>' : '<div>配置文件: <span style="color:#FF5722">缺失</span></div>';
-              el.html(html);
+             el.html('Nginx: <span style="color:#5FB878">在线</span> (' + (data.version||'') + ')');
           } else {
-              el.html('<span style="color:#FF5722">未发现适用的nginx</span> <button class="layui-btn layui-btn-xs layui-btn-primary" id="btn-install-nginx">一键安装</button>');
-              $('#btn-install-nginx').click(function(){
-                  layer.confirm('确认安装 Nginx?', function(i){
-                      layer.close(i);
-                      showInstallLog('nginx', "/api/nginx/install", "", "安装完成", loadStatus);
-                  });
-              });
+             el.html('Nginx: <span style="color:#FF5722">未安装</span>');
           }
-      }).catch(()=> $('#nginx-status').text('获取失败'));
+      });
 
-      // PHP
+      // PHP Mini Status
       fetch(apiBase+"/api/php/status").then(r=>r.json()).then(data => {
-          var el = $('#php-status');
+          var el = $('#php-status-mini');
           if(data.installed){
-              var html = `<div style="color:#5FB878"><i class="layui-icon layui-icon-ok-circle"></i> 已安装 (${data.version||''})</div>`;
-              html += data.fpm_running ? '<div>FPM状态: <span style="color:#5FB878">运行中</span></div>' : '<div>FPM状态: <span style="color:#FF5722">未运行</span></div>';
-              el.html(html);
+             el.html('PHP: <span style="color:#5FB878">在线</span> (' + (data.version||'') + ')');
           } else {
-              el.html('<span style="color:#FF5722">未发现适用的php</span> <button class="layui-btn layui-btn-xs layui-btn-primary" id="btn-install-php">一键安装</button>');
-              $('#btn-install-php').click(function(){
-                  layer.confirm('确认安装 PHP?', function(i){
-                      layer.close(i);
-                      showInstallLog('php', "/api/php/install", "", "安装完成", loadStatus);
-                  });
-              });
+             el.html('PHP: <span style="color:#FF5722">未安装</span>');
           }
-      }).catch(()=> $('#php-status').text('获取失败'));
-
-      // Database
-      fetch(apiBase+"/api/db/status").then(r=>r.json()).then(data => {
-          var el = $('#db-status');
-          if(data.status === 'running' || data.status === 'installed'){
-              var color = data.status === 'running' ? '#5FB878' : '#FFB800';
-              var icon = data.status === 'running' ? 'layui-icon-ok-circle' : 'layui-icon-about';
-              var html = `<div style="color:${color}"><i class="layui-icon ${icon}"></i> ${data.details}</div>`;
-              if(data.type === 'docker'){
-                 html += '<div style="margin-top:5px;font-size:12px;color:#666">类型: Docker容器 (mysql + phpmyadmin)</div>';
-                 if(data.status === 'running'){
-                     html += '<div style="margin-top:5px"><a href="http://'+window.location.hostname+':8080" target="_blank" class="layui-btn layui-btn-xs layui-btn-normal">打开 phpMyAdmin</a></div>';
-                 }
-              } else {
-                 html += '<div style="margin-top:5px;font-size:12px;color:#666">类型: 系统服务</div>';
-              }
-              el.html(html);
-          } else {
-              el.html('未安装 <button class="layui-btn layui-btn-xs layui-btn-normal" id="btn-install-db">安装 Docker版数据库</button>');
-              $('#btn-install-db').click(function(){
-                  layer.prompt({title: '请设置 MySQL root 密码', formType: 1}, function(pass, index){
-                      layer.close(index);
-                      if(!pass) return;
-                      // el.html('<i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></i> 安装中 (Docker compose)...');
-                      // apiPost("/api/db/install", "password="+encodeURIComponent(pass), "安装完成", loadStatus);
-                      showInstallLog('db', "/api/db/install", "password="+encodeURIComponent(pass), "安装完成", loadStatus);
-                  });
-              });
-          }
-      }).catch(()=> $('#db-status').text('获取失败'));
+      });
   }
 
   // --- Site Management ---
@@ -205,7 +168,10 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
     elem: '#site-table',
     url: apiBase + '/api/sites',
     parseData: function(res){
-      if(res) $('#site-count').text(res.length);
+      if(res) {
+          $('#site-count').text(res.length);
+          $('#site-count-hero').text(res.length);
+      }
       return {
         "code": 0,
         "msg": "",
@@ -234,14 +200,7 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
   // --- Site Filter Logic ---
   $('#search-sites').on('input', function(){
       var val = $(this).val().toLowerCase();
-      table.reload('site-table', {
-        url: '', // Avoid re-fetching from server, filter locally if possible? 
-        // Note: Layui's url data mode doesn't support easy local filtering via reload without data-array.
-        // But since we have the data, let's just use the 'where' to filter server-side if the API supports it,
-        // or just use table.render with data for local filtering. 
-        // For now, let's use the 'where' as a hint, or just filter via CSS for simplicity if data is small.
-      });
-      // Better way for small data: just use jquery to show/hide rows
+      // Use jQuery to show/hide rows in the currently rendered table body
       $('#site-table').next().find('.layui-table-body tbody tr').each(function(){
           var text = $(this).text().toLowerCase();
           $(this).toggle(text.indexOf(val) > -1);
