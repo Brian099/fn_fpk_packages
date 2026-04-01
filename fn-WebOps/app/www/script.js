@@ -110,6 +110,14 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
       // Show target
       $('#view-' + id).show();
       
+      // Update breadcrumb
+      var breadcrumb = "控制台 / ";
+      if(id === 'system') breadcrumb += "全部";
+      else if(id === 'sites') breadcrumb += "网站列表";
+      else if(id === 'plugins') breadcrumb += "开发工具";
+      else if(id === 'settings') breadcrumb += "通用设置";
+      $('#header-breadcrumb').text(breadcrumb);
+      
       // Load content if needed
       if(id === 'system') {
           loadStatus();
@@ -197,6 +205,7 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
     elem: '#site-table',
     url: apiBase + '/api/sites',
     parseData: function(res){
+      if(res) $('#site-count').text(res.length);
       return {
         "code": 0,
         "msg": "",
