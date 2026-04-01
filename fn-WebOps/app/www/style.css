@@ -168,12 +168,26 @@ body {
   padding-left: 5px;
 }
 
-/* Unified Control Style (Inputs and Buttons) */
-.layui-btn, .layui-input, .layui-select, .layui-textarea {
+/* Unified Control Style (Inputs and Standard Buttons) */
+.layui-input, .layui-select, .layui-textarea, 
+.layui-btn:not(.layui-btn-xs):not(.layui-btn-sm):not(.layui-btn-lg) {
   height: var(--ctrl-height) !important;
   line-height: var(--ctrl-height) !important;
   border-radius: var(--radius-md) !important;
   font-size: 14px;
+}
+
+/* Adjust form-item height for unified control size */
+.layui-form-item {
+  margin-bottom: 20px;
+  clear: both;
+  min-height: var(--ctrl-height);
+}
+
+.layui-form-label {
+  height: var(--ctrl-height) !important;
+  line-height: calc(var(--ctrl-height) - 10px) !important; /* Center with 38px inputs */
+  padding: 5px 15px !important;
 }
 
 .layui-btn {
