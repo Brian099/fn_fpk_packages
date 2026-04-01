@@ -548,6 +548,9 @@ layui.use(['element', 'table', 'layer', 'form'], function(){
   }
 
   // --- Initialize ---
-  loadStatus(); // Default tab is system
+  switchTab('system'); // Clear state and show default tab
+
+  // --- External Trigger for Rebranding verification ---
+  console.log("WebServer Panel Initialized");
 
 });
