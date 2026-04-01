@@ -177,6 +177,50 @@ button:hover {
   color: var(--accent-color);
 }
 
+/* Settings Page Layout */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.section-header h2 { 
+  margin: 0; 
+}
+
+.settings-actions {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.input-group {
+  display: flex;
+  gap: 10px;
+}
+
+.input-group input {
+  flex: 1;
+  padding: 8px 12px;
+  background: #252526;
+  border: 1px solid #3e3e42;
+  color: #ccc;
+  border-radius: 4px;
+  outline: none;
+}
+
+.primary-action {
+  width: 100%;
+  padding: 10px;
+  background-color: var(--accent-color);
+  font-weight: bold;
+}
+
+.primary-action:hover {
+  background-color: #006eb8;
+}
+
 /* Artists Grid */
 .grid-container {
   display: grid;

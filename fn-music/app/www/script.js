@@ -1196,7 +1196,7 @@ async function loadBrowserPath(path) {
                     btn.innerText = '选择';
                     btn.onclick = (e) => {
                         e.stopPropagation();
-                        addDirectory(data.current === '/' ? `/${dir}` : `${data.current}/${dir}`);
+                        selectDirectory(data.current === '/' ? `/${dir}` : `${data.current}/${dir}`);
                     };
                     div.appendChild(btn);
                     
@@ -1212,11 +1212,11 @@ async function loadBrowserPath(path) {
     }
 }
 
-function addDirectory(path) {
-    if (!directories.includes(path)) {
-        directories.push(path);
-        saveSettings();
-        rescanAll();
+function selectDirectory(path) {
+    const input = document.getElementById('manual-dir-input');
+    if (input) {
+        input.value = path;
+        // Trigger any potential change events if needed? No, just setting value is fine for this app.
     }
     closeModal();
 }
