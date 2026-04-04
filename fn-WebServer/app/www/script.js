@@ -6,8 +6,6 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
     var $ = layui.$;
 
     var apiBase = "/cgi/ThirdParty/WebServer/index.cgi";
-    var defaultPhpExtensions = "php8.2-common\nphp8.2-mysql\nphp8.2-xml\nphp8.2-xmlrpc\nphp8.2-curl\nphp8.2-gd\nphp8.2-imagick\nphp8.2-cli\nphp8.2-dev\nphp8.2-imap\nphp8.2-mbstring\nphp8.2-opcache\nphp8.2-soap\nphp8.2-zip\nphp8.2-bcmath\nphp8.2-intl\nphp8.2-readline\nphp8.2-ldap\nphp8.2-msgpack\nphp8.2-igbinary\nphp8.2-redis\nphp8.2-memcached\nphp8.2-pgsql\nphp8.2-sqlite3\nphp8.2-odbc\nphp8.2-ssh2\nphp8.2-tidy\nphp8.2-xsl\nphp8.2-yaml\nphp8.2-cgi\nphp8.2-fpm";
-    var corePhpPackages = new Set(['php8.2-common', 'php8.2-cli', 'php8.2-fpm', 'php8.2-opcache']);
 
     // --- Common Helpers ---
     function reloadSites() {
@@ -106,7 +104,7 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
 
     function switchTab(id) {
         // Hide all views
-        $('#view-system, #view-sites, #view-plugins, #view-settings').hide();
+        $('#view-system, #view-sites, #view-settings').hide();
         // Show target with vertical flex layout to prevent elements from sitting side-by-side
         $('#view-' + id).css('display', 'flex').css('flex-direction', 'column').show();
 
@@ -118,8 +116,6 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
         } else if (id === 'sites') {
             // Table auto-renders, but maybe resize?
             table.resize('site-table');
-        } else if (id === 'plugins') {
-            loadPluginTable();
         } else if (id === 'settings') {
             loadUploadLimit();
         }
@@ -140,9 +136,17 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
         fetch(apiBase + "/api/nginx/status").then(r => r.json()).then(data => {
             var el = $('#nginx-status');
             if (data.installed) {
-                var html = `<div style="color:#5FB878"><i class="layui-icon layui-icon-ok-circle"></i> 已安装 (${data.version || ''})</div>`;
+                var statusColor = data.running ? '#5FB878' : '#FF5722';
+                var statusText = data.running ? '运行中' : '未运行';
+                var html = `<div style="color:${statusColor}"><i class="layui-icon ${data.running ? 'layui-icon-ok-circle' : 'layui-icon-close-fill'}"></i> ${statusText} (${data.version || ''})</div>`;
                 html += data.config_exists ? '<div>配置文件: <span style="color:#5FB878">正常</span></div>' : '<div>配置文件: <span style="color:#FF5722">缺失</span></div>';
+                if (!data.running) {
+                    html += '<button class="layui-btn layui-btn-xs layui-btn-warm" style="margin-top:8px" id="btn-start-nginx-hero">立即启动</button>';
+                }
                 el.html(html);
+                $('#btn-start-nginx-hero').click(function () {
+                    apiPost("/api/nginx/restart", "", "启动尝试中", loadStatus);
+                });
             } else {
                 el.html('<span style="color:#FF5722">未发现适用的nginx</span> <button class="layui-btn layui-btn-xs layui-btn-primary" id="btn-install-nginx">一键安装</button>');
                 $('#btn-install-nginx').click(function () {
@@ -157,46 +161,64 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
         // PHP
         fetch(apiBase + "/api/php/status").then(r => r.json()).then(data => {
             var el = $('#php-status');
-            if (data.installed) {
-                var html = `<div style="color:#5FB878"><i class="layui-icon layui-icon-ok-circle"></i> 已安装 (${data.version || ''})</div>`;
-                html += data.fpm_running ? '<div>FPM状态: <span style="color:#5FB878">运行中</span></div>' : '<div>FPM状态: <span style="color:#FF5722">未运行</span></div>';
+            if (data.installed && data.versions && data.versions.length > 0) {
+                var html = '';
+                data.versions.forEach(v => {
+                    var statusColor = v.running ? '#5FB878' : '#FF5722';
+                    var statusText = v.running ? '运行中' : '未运行';
+                    html += `<div style="margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid #f6f6f6 last-child:border-0">
+                                <span style="font-weight:bold; color:var(--primary-blue)">PHP ${v.version}</span> 
+                                <span style="margin-left:10px; color:${statusColor}"><i class="layui-icon layui-icon-circle-dot"></i> ${statusText}</span>
+                             </div>`;
+                });
                 el.html(html);
             } else {
-                el.html('<span style="color:#FF5722">未发现适用的php</span> <button class="layui-btn layui-btn-xs layui-btn-primary" id="btn-install-php">一键安装</button>');
-                $('#btn-install-php').click(function () {
-                    layer.confirm('确认安装 PHP?', function (i) {
-                        layer.close(i);
-                        showInstallLog('php', "/api/php/install", "", "安装完成", loadStatus);
-                    });
-                });
+                el.html('<span style="color:#FF5722">系统未检测到已安装的 PHP-FPM</span><div style="font-size:12px;color:#999;margin-top:5px">请手动通过 apt 安装所需版本</div>');
             }
         }).catch(() => $('#php-status').text('获取失败'));
 
         // Database
         fetch(apiBase + "/api/db/status").then(r => r.json()).then(data => {
             var el = $('#db-status');
-            if (data.status === 'running' || data.status === 'installed') {
-                var color = data.status === 'running' ? '#5FB878' : '#FFB800';
-                var icon = data.status === 'running' ? 'layui-icon-ok-circle' : 'layui-icon-about';
-                var html = `<div style="color:${color}"><i class="layui-icon ${icon}"></i> ${data.details}</div>`;
-                if (data.type === 'docker') {
-                    html += '<div style="margin-top:5px;font-size:12px;color:#666">类型: Docker容器 (mysql + phpmyadmin)</div>';
-                    if (data.status === 'running') {
-                        html += '<div style="margin-top:5px"><a href="http://' + window.location.hostname + ':8080" target="_blank" class="layui-btn layui-btn-xs layui-btn-normal">打开 phpMyAdmin</a></div>';
-                    }
-                } else {
-                    html += '<div style="margin-top:5px;font-size:12px;color:#666">类型: 系统服务</div>';
-                }
-                el.html(html);
-            } else {
-                el.html('未安装 <button class="layui-btn layui-btn-xs layui-btn-normal" id="btn-install-db">安装 Docker版数据库</button>');
-                $('#btn-install-db').click(function () {
+            var bindDbEvents = function() {
+                $('#btn-install-db').off('click').on('click', function () {
                     layer.prompt({ title: '请设置 MySQL root 密码', formType: 1 }, function (pass, index) {
                         layer.close(index);
                         if (!pass) return;
                         showInstallLog('db', "/api/db/install", "password=" + encodeURIComponent(pass), "安装完成", loadStatus);
                     });
                 });
+            };
+
+            if (data.ok && data.databases && data.databases.length > 0) {
+                var html = '';
+                data.databases.forEach(db => {
+                    var color = db.status === 'running' ? '#5FB878' : '#FFB800';
+                    var icon = db.status === 'running' ? 'layui-icon-ok-circle' : 'layui-icon-about';
+                    var typeLabel = db.type === 'system' ? '系统服务' : 'Docker容器';
+                    var nameLabel = db.type === 'system' ? db.name.charAt(0).toUpperCase() + db.name.slice(1) : 'MySQL (Docker版)';
+                    
+                    html += `<div style="margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid #f6f6f6; last-child: border-bottom:0;">
+                                <div style="color:${color}"><i class="layui-icon ${icon}"></i> <b>${nameLabel}</b> - ${db.status === 'running' ? '运行中' : '未运行'}</div>
+                                <div style="margin-top:5px;font-size:12px;color:#666">类型: ${typeLabel}</div>`;
+                    
+                    if (db.type === 'docker' && db.status === 'running') {
+                        html += '<div style="margin-top:5px"><a href="http://' + window.location.hostname + ':8080" target="_blank" class="layui-btn layui-btn-xs layui-btn-normal">打开 phpMyAdmin</a></div>';
+                    }
+                    html += `</div>`;
+                });
+                
+                // If NO docker db is managed, offer to install
+                var hasDocker = data.databases.some(db => db.type === 'docker');
+                if (!hasDocker) {
+                    html += '<div style="margin-top:10px; color:#999; font-size:12px;">未检测到面板管理的 Docker 数据库</div>';
+                    html += '<button class="layui-btn layui-btn-xs layui-btn-normal" style="margin-top:5px" id="btn-install-db">安装 Docker版数据库</button>';
+                }
+                el.html(html);
+                bindDbEvents();
+            } else {
+                el.html('未发现数据库 <button class="layui-btn layui-btn-xs layui-btn-normal" id="btn-install-db">安装 Docker版数据库</button>');
+                bindDbEvents();
             }
         }).catch(() => $('#db-status').text('获取失败'));
     }
@@ -218,17 +240,23 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
             };
         },
         cols: [[
-            { field: 'name', title: '网站名称', width: 150 },
-            { field: 'mode', title: '类型', width: 80, templet: function (d) { return d.mode === 'domain' ? '域名' : '端口'; } },
+            { field: 'name', title: '网站名称', width: 140 },
+            { field: 'mode', title: '类型', width: 70, templet: function (d) { return d.mode === 'domain' ? '域名' : '端口'; } },
             {
-                field: 'port', title: '监听端口', width: 120, templet: function (d) {
+                field: 'port', title: '监听端口', width: 110, templet: function (d) {
                     if (d.port) return d.port.split(',').map(p => `<span class="layui-badge layui-bg-gray">${p}</span>`).join(' ');
                     return '-';
                 }
             },
-            { field: 'root', title: '根目录', minWidth: 200 },
             {
-                field: 'enabled', title: '状态', width: 100, templet: function (d) {
+                field: 'php', title: 'PHP版本', width: 90, templet: function (d) {
+                    if (d.php === '-') return '-';
+                    return `<span class="layui-badge layui-bg-blue" style="background-color: var(--primary-blue) !important;">${d.php}</span>`;
+                }
+            },
+            { field: 'root', title: '根目录', minWidth: 150 },
+            {
+                field: 'enabled', title: '状态', width: 90, templet: function (d) {
                     return d.enabled ? '<span class="layui-badge layui-bg-green">已启用</span>' : '<span class="layui-badge layui-bg-orange">已停用</span>';
                 }
             },
@@ -272,98 +300,6 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
 
     $('#btn-refresh').click(function () { reloadSites(); });
 
-    // --- Plugin Management ---
-    var pluginTableRendered = false;
-    function loadPluginTable() {
-        if (pluginTableRendered) {
-            table.reload('plugin-table');
-            return;
-        }
-        pluginTableRendered = true;
-
-        table.render({
-            elem: '#plugin-table',
-            url: apiBase + '/api/php/extensions',
-            parseData: function (res) {
-                var installedMap = {};
-                if (res && Array.isArray(res)) res.forEach(r => installedMap[r.name] = r.installed);
-
-                var allPkgs = defaultPhpExtensions.split('\n').filter(x => x.trim());
-                var gridData = allPkgs.map(name => {
-                    return { name: name, installed: !!installedMap[name] };
-                });
-
-                return { "code": 0, "data": gridData, "count": gridData.length };
-            },
-            cols: [[
-                { field: 'name', title: '插件名' },
-                {
-                    field: 'installed', title: '状态', width: 100, templet: function (d) {
-                        return d.installed ? '<span class="layui-badge layui-bg-green">已安装</span>' : '<span class="layui-badge layui-bg-gray">未安装</span>';
-                    }
-                },
-                {
-                    title: '操作', width: 100, templet: function (d) {
-                        if (d.installed) {
-                            if (corePhpPackages.has(d.name)) {
-                                return `<span class="layui-badge layui-bg-gray" title="核心组件不可卸载">核心</span>`;
-                            }
-                            return `<a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="uninstall">卸载</a>`;
-                        }
-                        return `<a class="layui-btn layui-btn-xs" lay-event="install">安装</a>`;
-                    }
-                }
-            ]],
-            page: false,
-            limit: 1000,
-            height: 'full-190' // Optimized offset further after breadcrumb removal
-        });
-    }
-
-    // --- Plugin Filter Logic ---
-    $('#search-plugins').on('input', function () {
-        var val = $(this).val().toLowerCase();
-        $('#plugin-table').next().find('.layui-table-body tbody tr').each(function () {
-            var text = $(this).text().toLowerCase();
-            $(this).toggle(text.indexOf(val) > -1);
-        });
-    });
-
-    table.on('tool(plugin-table)', function (obj) {
-        var data = obj.data;
-        if (obj.event === 'install') {
-            layer.confirm('安装插件 ' + data.name + '?', function (i) {
-                layer.close(i);
-                showInstallLog('php', "/api/php/install", data.name, "安装完成", function () { loadPluginTable(); });
-            });
-        } else if (obj.event === 'uninstall') {
-            if (corePhpPackages.has(data.name)) {
-                layer.msg('核心组件不可卸载', { icon: 0 });
-                return;
-            }
-            layer.confirm('卸载插件 ' + data.name + '?', function (i) {
-                layer.close(i);
-                apiPost("/api/php/remove", data.name, "卸载完成", function () { loadPluginTable(); });
-            });
-        }
-    });
-
-    $('#btn-install-all-plugins').click(function () {
-        var allPkgs = defaultPhpExtensions.split('\n').filter(x => x.trim());
-        layer.confirm('确定安装所有推荐插件?', function (i) {
-            layer.close(i);
-            showInstallLog('php', "/api/php/install", allPkgs.join('\n'), "批量安装完成", function () { loadPluginTable(); });
-        });
-    });
-
-    $('#btn-install-custom-plugin').click(function () {
-        var name = $('#input-plugin-custom').val().trim();
-        if (!name) return layer.msg('请输入包名');
-        layer.confirm('安装自定义插件 ' + name + '?', function (i) {
-            layer.close(i);
-            showInstallLog('php', "/api/php/install", name, "安装完成", function () { loadPluginTable(); });
-        });
-    });
 
     // --- General Settings ---
     function loadUploadLimit() {
@@ -400,19 +336,27 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
             var nginxData = results[0];
             var phpData = results[1];
 
-            if (!nginxData.installed || !phpData.installed) {
+            if (!nginxData.installed || !phpData.installed || !phpData.versions || phpData.versions.length === 0) {
                 var msg = "新建网站前必须安装基础环境：<br>";
                 if (!nginxData.installed) msg += "- Nginx <span style='color:#FF5722'>(未安装)</span><br>";
-                if (!phpData.installed) msg += "- PHP <span style='color:#FF5722'>(未安装)</span><br>";
-                msg += "<br>请先在“系统环境”页面完成安装。";
+                if (!phpData.installed || !phpData.versions || phpData.versions.length === 0) msg += "- PHP-FPM <span style='color:#FF5722'>(未检测到已安装的版本)</span><br>";
+                msg += "<br>请确保系统中已安装 Nginx 和 PHP-FPM。";
                 layer.alert(msg, { icon: 0, title: '环境缺失' });
                 return;
             }
 
+            // Populate PHP versions
+            var phpSelect = $('#select-php-version');
+            phpSelect.empty();
+            phpData.versions.forEach(v => {
+                var label = 'PHP ' + v.version + (v.running ? '' : ' (服务未启动)');
+                phpSelect.append(`<option value="${v.version}">${label}</option>`);
+            });
+
             // Environment OK, proceed to open dialog
             form.val('form-create-site', {
                 "name": "", "mode": "port", "domain": "", "port": "",
-                "https_enabled": false, "port_ssl": "",
+                "https_enabled": false, "port_ssl": "", "php_version": phpData.versions[0].version,
                 "root": "", "rewrite": ""
             });
             $('input[name=mode][value=port]').prop('checked', true);
@@ -452,6 +396,7 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
         var body = "mode=" + field.mode + "\nroot=" + field.root;
         if (field.name) body += "\nname=" + encodeURIComponent(field.name);
         body += "\nhttps_enabled=" + (field.https_enabled ? "true" : "false");
+        body += "\nphp_version=" + field.php_version;
 
         if (field.mode === 'domain') {
             if (!field.domain) { layer.msg('请输入域名'); return false; }
@@ -553,44 +498,42 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
     switchTab('system'); // Clear state and show default tab
 
     // --- Help Center ---
-  $('#btn-help').click(function(){
-      var helpHtml = `
+    $('#btn-help').click(function () {
+        var helpHtml = `
       <div style="padding: 25px; line-height: 1.6; color: #333;">
           <h2 style="font-weight: 800; margin-bottom: 20px; color: var(--primary-blue);">WebServer 使用指南</h2>
           
           <h3 style="font-weight: 700; margin-bottom: 10px;"><i class="layui-icon layui-icon-home"></i> 1. 系统概览</h3>
-          <p style="margin-bottom: 15px; color: #666;">在概览页面，您可以查看已安装网站总数。下方提供 Nginx 和 PHP 的版本及运行状态检查，同时支持一键部署 Docker 版 MySQL 数据库。</p>
+          <p style="margin-bottom: 15px; color: #666;">在概览页面，您可以查看已安装网站总数。下方提供 Nginx 和 PHP 的运行状态检查。系统会自动检测已安装的 PHP-FPM 版本并列出其状态。</p>
           
           <h3 style="font-weight: 700; margin-bottom: 10px;"><i class="layui-icon layui-icon-website"></i> 2. 网站管理</h3>
           <ul style="margin-bottom: 15px; padding-left: 20px; list-style-type: disc; color: #666;">
               <li><b>端口模式</b>：适用于本地测试或内网通过 IP:Port 访问。</li>
               <li><b>域名模式</b>：输入域名即可关联 Nginx 配置，适合映射公网访问。</li>
+              <li><b>PHP 版本选择</b>：创建网站时，可以从系统中检测到的 PHP 版本中选择该网站使用的引擎版本。</li>
               <li><b>一键修复权限</b>：若网站提示 403 Forbidden，请在操作中选择“修复权限”，系统将自动匹配 www-data 用户。</li>
           </ul>
-
-          <h3 style="font-weight: 700; margin-bottom: 10px;"><i class="layui-icon layui-icon-component"></i> 3. 扩展中心</h3>
-          <p style="margin-bottom: 15px; color: #666;">支持 PHP 8.2 的官方扩展一键安装。您可以根据业务需要（如 Redis, PDO_MySQL 等）勾选安装，系统会自动重启 PHP-FPM 服务生效。</p>
 
           <h3 style="font-weight: 700; margin-bottom: 10px;"><i class="layui-icon layui-icon-set"></i> 4. 数据库安全</h3>
           <p style="margin-bottom: 15px; color: #666;">为了防止实例冲突，本面板为数据库容器分配了唯一的 <b>实例 ID</b>。此 ID 持久化存储，确保面板仅管理由其自身创建的容器环境，数据目录位于 /opt/webserver/db 目录下。</p>
 
           <div style="margin-top: 30px; padding: 15px; background: #f8f8f8; border-radius: 12px; font-size: 13px; color: #999;">
-              提示：若需修改 PHP 上传限制，请前往“系统设置”页面。
+              提示：若需修改全站 Nginx 上传通道限制，还需在具体的 PHP 内部限制（upload_max_filesize）进行管理。
           </div>
       </div>
       `;
-      layer.open({
-          type: 1,
-          title: false, // Hide default title for a cleaner look
-          area: ['650px', '550px'],
-          shadeClose: true,
-          content: helpHtml,
-          skin: 'layui-layer-rim', // Added border for better contrast
-          style: 'border-radius: 16px; overflow: hidden;'
-      });
-  });
+        layer.open({
+            type: 1,
+            title: false, // Hide default title for a cleaner look
+            area: ['650px', '550px'],
+            shadeClose: true,
+            content: helpHtml,
+            skin: 'layui-layer-rim', // Added border for better contrast
+            style: 'border-radius: 16px; overflow: hidden;'
+        });
+    });
 
-  // --- External Trigger for Rebranding verification ---
+    // --- External Trigger for Rebranding verification ---
     console.log("WebServer Panel Initialized");
 
 });

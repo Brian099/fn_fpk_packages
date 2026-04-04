@@ -40,7 +40,7 @@ if [ -z "$REL_PATH" ] || [ "$REL_PATH" = "/" ]; then
   REL_PATH="/index.html"
 fi
 
-if [ "$REL_PATH" = "/api/nginx/status" ] || [ "$REL_PATH" = "/api/sites" ] || [ "$REL_PATH" = "/api/php/status" ] || [ "$REL_PATH" = "/api/nginx/install" ] || [ "$REL_PATH" = "/api/php/install" ] || [ "$REL_PATH" = "/api/php/remove" ] || [ "$REL_PATH" = "/api/php/extensions" ] || [ "$REL_PATH" = "/api/fs/list" ] || [ "$REL_PATH" = "/api/sites/create" ] || [ "$REL_PATH" = "/api/settings/get-upload-limit" ] || [ "$REL_PATH" = "/api/settings/set-upload-limit" ] || [ "$REL_PATH" = "/api/sites/update-port" ] || [ "$REL_PATH" = "/api/sites/delete" ] || [ "$REL_PATH" = "/api/sites/enable" ] || [ "$REL_PATH" = "/api/sites/disable" ] || [ "$REL_PATH" = "/api/sites/fix-permissions" ] || [ "$REL_PATH" = "/api/nginx/restart" ] || [ "$REL_PATH" = "/api/db/status" ] || [ "$REL_PATH" = "/api/db/install" ] || [ "$REL_PATH" = "/api/install/log" ]; then
+if [ "$REL_PATH" = "/api/nginx/status" ] || [ "$REL_PATH" = "/api/sites" ] || [ "$REL_PATH" = "/api/php/status" ] || [ "$REL_PATH" = "/api/fs/list" ] || [ "$REL_PATH" = "/api/sites/create" ] || [ "$REL_PATH" = "/api/settings/get-upload-limit" ] || [ "$REL_PATH" = "/api/settings/set-upload-limit" ] || [ "$REL_PATH" = "/api/sites/update-port" ] || [ "$REL_PATH" = "/api/sites/delete" ] || [ "$REL_PATH" = "/api/sites/enable" ] || [ "$REL_PATH" = "/api/sites/disable" ] || [ "$REL_PATH" = "/api/sites/fix-permissions" ] || [ "$REL_PATH" = "/api/nginx/restart" ] || [ "$REL_PATH" = "/api/db/status" ] || [ "$REL_PATH" = "/api/db/install" ] || [ "$REL_PATH" = "/api/install/log" ]; then
   BACKEND_SCRIPT="$APP_ROOT/server/sites_backend.sh"
   if [ ! -f "$BACKEND_SCRIPT" ]; then
     echo "Status: 500 Internal Server Error"
@@ -59,10 +59,6 @@ if [ "$REL_PATH" = "/api/nginx/status" ] || [ "$REL_PATH" = "/api/sites" ] || [ 
     ACTION="php-status"
   elif [ "$REL_PATH" = "/api/nginx/install" ]; then
     ACTION="nginx-install"
-  elif [ "$REL_PATH" = "/api/php/install" ]; then
-    ACTION="php-install"
-  elif [ "$REL_PATH" = "/api/php/extensions" ]; then
-    ACTION="php-extensions-status"
   elif [ "$REL_PATH" = "/api/fs/list" ]; then
     ACTION="list-dirs"
   elif [ "$REL_PATH" = "/api/sites/create" ]; then
@@ -89,8 +85,6 @@ if [ "$REL_PATH" = "/api/nginx/status" ] || [ "$REL_PATH" = "/api/sites" ] || [ 
     ACTION="install-db"
   elif [ "$REL_PATH" = "/api/install/log" ]; then
     ACTION="get-install-log"
-  else
-    ACTION="php-remove"
   fi
   if bash "$BACKEND_SCRIPT" "$ACTION" >"$TMP_OUTPUT" 2>/dev/null; then
     echo "Status: 200 OK"

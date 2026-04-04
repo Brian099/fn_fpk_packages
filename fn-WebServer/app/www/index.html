@@ -20,7 +20,6 @@
       <ul class="layui-nav layui-nav-tree" lay-filter="nav-menu">
         <li class="layui-nav-item layui-this"><a href="javascript:;" data-id="system"><i class="layui-icon layui-icon-home" style="margin-right: 10px;"></i> 概览</a></li>
         <li class="layui-nav-item"><a href="javascript:;" data-id="sites"><i class="layui-icon layui-icon-website" style="margin-right: 10px;"></i> 网站管理</a></li>
-        <li class="layui-nav-item"><a href="javascript:;" data-id="plugins"><i class="layui-icon layui-icon-component" style="margin-right: 10px;"></i> 扩展中心</a></li>
         <li class="layui-nav-item"><a href="javascript:;" data-id="settings"><i class="layui-icon layui-icon-set" style="margin-right: 10px;"></i> 系统设置</a></li>
       </ul>
 
@@ -56,7 +55,7 @@
         </div>
 
         <!-- Detailed Status Part -->
-        <div class="layui-row layui-col-space20">
+        <div class="layui-row layui-col-space20 status-row">
           <div class="layui-col-md4">
             <div class="layui-card">
               <div class="layui-card-header">Nginx 服务状态</div>
@@ -109,29 +108,6 @@
         </div>
       </div>
 
-      <!-- View: Plugin Management -->
-      <div id="view-plugins" class="layui-anim layui-anim-fadein" style="display:none; flex: 1;">
-        <div class="layui-card" style="flex: 1; display: flex; flex-direction: column; margin-bottom: 0;">
-          <div class="layui-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-             <span>扩展与工具管理</span>
-             <!-- Search Filter for Plugins -->
-             <div style="width: 220px;">
-               <input type="text" id="search-plugins" placeholder="快速查找扩展..." class="layui-input" style="height: 32px !important; line-height: 32px !important;">
-             </div>
-          </div>
-          <div class="layui-card-body" style="flex: 1; display: flex; flex-direction: column; padding-top: 15px !important;">
-            <div style="margin-bottom: 15px; display:flex; gap:10px; align-items: center;">
-              <input type="text" id="input-plugin-custom" placeholder="输入 apt 软件包名称" class="layui-input" style="width: 250px;">
-              <button class="layui-btn layui-btn-normal" id="btn-install-custom-plugin">手动安装</button>
-              <div style="flex: 1;"></div>
-              <button class="layui-btn layui-btn-primary" id="btn-install-all-plugins">安装推荐集</button>
-            </div>
-            <div style="flex: 1; min-height: 200px;">
-              <table id="plugin-table" lay-filter="plugin-table"></table>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!-- View: General Settings -->
       <div id="view-settings" class="layui-anim layui-anim-fadein" style="display:none; flex: 1;">
@@ -140,7 +116,7 @@
           <div class="layui-card-body">
              <form class="layui-form" lay-filter="form-settings" style="max-width: 650px;">
               <div class="layui-form-item">
-                 <blockquote class="layui-elem-quote layui-quote-nm" style="font-size:13px; color: #777; border-radius: 12px; background: #fafafa;">此操作将同步调整 PHP (post_max_size) 与 Nginx (client_max_body_size) 的限制。</blockquote>
+                 <blockquote class="layui-elem-quote layui-quote-nm" style="font-size:13px; color: #777; border-radius: 12px; background: #fafafa;">此操作将统一调整所有站点的 Nginx (client_max_body_size) 限制。具体 PHP (upload_max_filesize) 请在您的应用或 PHP 环境中自行管理。</blockquote>
               </div>
               <div class="layui-form-item" style="margin-top: 20px;">
                 <label class="layui-form-label" style="width: 100px;">最大上传大小</label>
@@ -186,9 +162,103 @@
 </script>
 
 <!-- Modals and scripts follow same functional pattern -->
-<div id="tpl-create-site" style="display:none; padding:25px;"></div>
-<div id="tpl-edit-port" style="display:none; padding:25px;"></div>
-<div id="tpl-dir-selector" style="display:none; padding:15px; display:flex; flex-direction:column; height: 380px;"></div>
+<div id="tpl-create-site" style="display:none; padding:25px;">
+  <form class="layui-form" lay-filter="form-create-site">
+    <div class="layui-form-item">
+      <label class="layui-form-label">网站名称</label>
+      <div class="layui-input-block">
+        <input type="text" name="name" placeholder="例如: 我的网站 (可选)" class="layui-input">
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">访问模式</label>
+      <div class="layui-input-block">
+        <input type="radio" name="mode" value="port" title="端口" checked lay-filter="site-mode">
+        <input type="radio" name="mode" value="domain" title="域名" lay-filter="site-mode">
+      </div>
+    </div>
+    <div class="layui-form-item" id="field-domain" style="display:none;">
+      <label class="layui-form-label">网站域名</label>
+      <div class="layui-input-block">
+        <input type="text" name="domain" placeholder="example.com" class="layui-input">
+      </div>
+    </div>
+    <div class="layui-form-item" id="field-port-http">
+      <label class="layui-form-label">HTTP端口</label>
+      <div class="layui-input-block">
+        <input type="number" name="port" placeholder="80" class="layui-input">
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">启用HTTPS</label>
+      <div class="layui-input-block">
+        <input type="checkbox" name="https_enabled" lay-skin="switch" lay-text="ON|OFF" lay-filter="https-enabled">
+      </div>
+    </div>
+    <div class="layui-form-item" id="field-port-https" style="display:none;">
+      <label class="layui-form-label">HTTPS端口</label>
+      <div class="layui-input-block">
+        <input type="number" name="port_ssl" placeholder="443" class="layui-input">
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">PHP 版本</label>
+      <div class="layui-input-block">
+        <select name="php_version" id="select-php-version" lay-search>
+          <option value="">载入中...</option>
+        </select>
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">根目录</label>
+      <div class="layui-input-block" style="display:flex; gap:10px;">
+        <input type="text" name="root" id="input-root-path" placeholder="/vol1/1000/..." class="layui-input">
+        <button type="button" class="layui-btn layui-btn-primary" id="btn-browse-root">浏览</button>
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">伪静态</label>
+      <div class="layui-input-block">
+        <textarea name="rewrite" placeholder="Nginx rewrite 规则 (可选)" class="layui-textarea"></textarea>
+      </div>
+    </div>
+    <div class="layui-form-item" style="margin-top:25px; text-align:right;">
+      <button class="layui-btn layui-btn-normal" lay-submit lay-filter="submit-create-site">确认创建</button>
+    </div>
+  </form>
+</div>
+<div id="tpl-edit-port" style="display:none; padding:25px;">
+  <form class="layui-form" lay-filter="form-edit-port">
+    <input type="hidden" name="site_name">
+    <div class="layui-form-item">
+      <label class="layui-form-label">HTTP端口</label>
+      <div class="layui-input-block">
+        <input type="number" name="port" required lay-verify="required" class="layui-input">
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">HTTPS端口</label>
+      <div class="layui-input-block">
+        <input type="number" name="port_https" placeholder="留空则禁用 HTTPS" class="layui-input">
+      </div>
+    </div>
+    <div class="layui-form-item" style="margin-top:20px; text-align:right;">
+      <button class="layui-btn layui-btn-normal" lay-submit lay-filter="submit-edit-port">保存修改</button>
+    </div>
+  </form>
+</div>
+<div id="tpl-dir-selector" style="display:none; padding:15px; display:flex; flex-direction:column; height: 380px;">
+  <div style="display:flex; gap:10px; margin-bottom:10px;">
+    <input type="text" id="dir-selector-current" class="layui-input" readonly style="flex:1; background:#f8f8f8;">
+    <button type="button" class="layui-btn layui-btn-primary" id="btn-dir-up">上级目录</button>
+  </div>
+  <div id="dir-list-container" style="flex:1; border:1px solid #eee; border-radius:4px; overflow:auto; margin-bottom:15px; background:#fff;">
+    <!-- 目录列表加载处 -->
+  </div>
+  <div style="text-align:right;">
+    <button type="button" class="layui-btn layui-btn-normal" id="btn-dir-confirm">确认选择</button>
+  </div>
+</div>
 
 <script src="layui.js"></script>
 <script src="script.js"></script>

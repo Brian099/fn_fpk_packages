@@ -10,6 +10,18 @@ reload_nginx_safe() {
   fi
 }
 
+urldecode() {
+  local encoded="$1"
+  if [ -z "$encoded" ]; then return; fi
+  if command -v php >/dev/null 2>&1; then
+    php -r "echo rawurldecode(\$argv[1]);" -- "$encoded"
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 -c "import sys, urllib.parse; print(urllib.parse.unquote(sys.argv[1]))" "$encoded"
+  else
+    echo "$encoded"
+  fi
+}
+
 create_certificate_placeholder() {
     local cert_file="$1"
     local key_file="$2"
@@ -143,9 +155,7 @@ create_site_json() {
   domain=$(echo "$input" | grep "^domain=" | cut -d= -f2- | tr -d '\r')
   custom_name=$(echo "$input" | grep "^name=" | cut -d= -f2- | tr -d '\r')
   if [ -n "$custom_name" ]; then
-      if command -v php >/dev/null 2>&1; then
-        custom_name=$(php -r "echo rawurldecode(\$argv[1]);" -- "$custom_name")
-      fi
+      custom_name=$(urldecode "$custom_name")
       # Validate custom name (alphanumeric, dot, hyphen, underscore)
       if echo "$custom_name" | grep -q "[^a-zA-Z0-9._-]"; then
           echo '{"ok":false,"error":"invalid site name (only alphanumeric, dot, hyphen, underscore allowed)"}'
@@ -156,6 +166,14 @@ create_site_json() {
   port_https=$(echo "$input" | grep "^port_https=" | cut -d= -f2- | tr -d '\r')
   root_dir=$(echo "$input" | grep "^root=" | cut -d= -f2- | tr -d '\r')
   https_enabled=$(echo "$input" | grep "^https_enabled=" | cut -d= -f2- | tr -d '\r')
+  php_version=$(echo "$input" | grep "^php_version=" | cut -d= -f2- | tr -d '\r')
+
+  # Fallback to the first available version if not specified
+  if [ -z "$php_version" ]; then
+      php_version=$(ls /etc/php/ 2>/dev/null | head -1)
+      if [ -z "$php_version" ]; then php_version="8.2"; fi
+  fi
+  php_socket="/run/php/php${php_version}-fpm.sock"
 
   # Fallback for legacy calls or simple port mode
   if [ -z "$mode" ]; then
@@ -235,7 +253,7 @@ server {
     $root_location_block
     location ~ \.php$ {
         include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_pass unix:$php_socket;
         fastcgi_param HTTPS on;
     }
 }
@@ -255,7 +273,7 @@ server {
     $root_location_block
     location ~ \.php$ {
         include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_pass unix:$php_socket;
     }
 }
 EOF
@@ -336,7 +354,7 @@ server {
     $root_location_block
     location ~ \.php$ {
         include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_pass unix:$php_socket;
     }
 }
 EOF
@@ -355,7 +373,7 @@ server {
     $root_location_block
     location ~ \.php$ {
         include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_pass unix:$php_socket;
     }
 }
 EOF
@@ -410,10 +428,17 @@ list_sites_json() {
         mode="port"
     fi
     
+    # Extract PHP version from fastcgi_pass
+    php_ver=$(grep "fastcgi_pass unix:/run/php/php" "$config_file" | head -1 | sed 's/.*php\(.*\)-fpm\.sock.*/\1/')
+    if [ -z "$php_ver" ]; then
+        php_ver="-"
+    fi
+    
     enabled=false
     if [ -L "/etc/nginx/sites-enabled/$site" ]; then
       enabled=true
     fi
+    
     if [ $first -eq 0 ]; then
       echo ','
     fi
@@ -421,57 +446,86 @@ list_sites_json() {
     esc_site=$(echo "$site" | sed 's/\\/\\\\/g; s/"/\\"/g')
     esc_port=$(echo "$port" | sed 's/\\/\\\\/g; s/"/\\"/g')
     esc_root=$(echo "$root_dir" | sed 's/\\/\\\\/g; s/"/\\"/g')
-    echo "{\"name\":\"$esc_site\",\"port\":\"$esc_port\",\"root\":\"$esc_root\",\"enabled\":$enabled,\"mode\":\"$mode\"}"
+    esc_php=$(echo "$php_ver" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    echo "{\"name\":\"$esc_site\",\"port\":\"$esc_port\",\"root\":\"$esc_root\",\"php\":\"$esc_php\",\"enabled\":$enabled,\"mode\":\"$mode\"}"
   done
   echo ']'
 }
 
 nginx_status_json() {
   # Strict check: Must have binary at /usr/sbin/nginx AND config at /etc/nginx/nginx.conf
+  local installed=false
+  local version_raw=""
+  local running=false
+  
   if [ -x "/usr/sbin/nginx" ] && [ -f "/etc/nginx/nginx.conf" ]; then
     installed=true
     version_raw=$(/usr/sbin/nginx -v 2>&1 | sed 's/^[^:]*: //')
-  else
-    installed=false
-    version_raw=""
+    
+    # Precise check for the instance using /etc/nginx
+    local pids=$(pgrep -x nginx 2>/dev/null)
+    for pid in $pids; do
+        # Check if this process has the main /etc/nginx config file open
+        if ls -l "/proc/$pid/fd" 2>/dev/null | grep -q "/etc/nginx/nginx.conf"; then
+            running=true
+            break
+        fi
+        # Fallback: if it's the system binary and no explicit config path in cmdline, 
+        # it defaults to /etc/nginx
+        local exe_path=$(readlink -f /proc/$pid/exe 2>/dev/null)
+        if [ "$exe_path" = "/usr/sbin/nginx" ]; then
+            if ! grep -q -E "\-c|\-p" "/proc/$pid/cmdline" 2>/dev/null; then
+                running=true
+                break
+            fi
+        fi
+    done
   fi
   
+  local config_exists=false
   if [ -f "/etc/nginx/nginx.conf" ]; then
     config_exists=true
-  else
-    config_exists=false
   fi
+
+  local version_json="\"\""
   if [ -n "$version_raw" ]; then
-    esc_version=$(echo "$version_raw" | sed 's/\\/\\\\/g; s/"/\\"/g')
-    version_json="\"$esc_version\""
-  else
-    version_json="\"\""
+    version_json="\"$(echo "$version_raw" | sed 's/\\/\\\\/g; s/"/\\"/g')\""
   fi
-  echo "{\"installed\":$installed,\"version\":$version_json,\"config_exists\":$config_exists}"
+  
+  echo "{\"installed\":$installed,\"running\":$running,\"version\":$version_json,\"config_exists\":$config_exists}"
 }
 
 php_status_json() {
+  # 检测系统中安装的所有 PHP 版本及其 FPM 状态
+  local installed_php=false
   if command -v php >/dev/null 2>&1; then
-    installed=true
-    version_raw=$(php -v 2>&1 | head -n1 | sed 's/^[^ ]\+ //')
-  else
-    installed=false
-    version_raw=""
+    installed_php=true
   fi
-  fpm_running=false
-  for svc in php-fpm php8.3-fpm php8.2-fpm php8.1-fpm php8.0-fpm php7.4-fpm; do
-    if systemctl is-active --quiet "$svc"; then
-      fpm_running=true
-      break
+
+  # 寻找所有 php*-fpm.sock
+  local fpm_sockets=$(ls /run/php/php*-fpm.sock 2>/dev/null)
+  
+  echo -n "{\"installed\":$installed_php,\"versions\":["
+  local first=1
+  
+  # 如果没有运行中的套接字，则尝试从 /etc/php 扫描已安装版本
+  local versions=$(ls /etc/php/ 2>/dev/null)
+  for ver in $versions; do
+    # 检查是否安装了 fpm 模块
+    if [ -d "/etc/php/$ver/fpm" ]; then
+      if [ $first -eq 0 ]; then echo -n ","; fi
+      
+      local running=false
+      local socket="/run/php/php${ver}-fpm.sock"
+      if [ -S "$socket" ]; then
+        running=true
+      fi
+      
+      echo -n "{\"version\":\"$ver\",\"running\":$running,\"socket\":\"$socket\"}"
+      first=0
     fi
   done
-  if [ -n "$version_raw" ]; then
-    esc_version=$(echo "$version_raw" | sed 's/\\/\\\\/g; s/"/\\"/g')
-    version_json="\"$esc_version\""
-  else
-    version_json="\"\""
-  fi
-  echo "{\"installed\":$installed,\"version\":$version_json,\"fpm_running\":$fpm_running}"
+  echo "]}"
 }
 
 nginx_install_json() {
@@ -510,158 +564,9 @@ nginx_install_json() {
   printf '{"ok":true,"message":"nginx installed"}'
 }
 
-php_install_json() {
-  if command -v php >/dev/null 2>&1; then
-    already_php=true
-  else
-    already_php=false
-  fi
-  export DEBIAN_FRONTEND=noninteractive
-  if ! apt-get update -y >/tmp/webserver_php_install.log 2>&1; then
-    printf '{"ok":false,"step":"apt-update"}'
-    return 1
-  fi
-  extensions=(
-    php8.2-fpm
-    php8.2-cli
-    php8.2-common
-  )
-  if [ -n "$CONTENT_LENGTH" ] && [ "$CONTENT_LENGTH" -gt 0 ] 2>/dev/null; then
-    input=$(dd bs=1 count="$CONTENT_LENGTH" 2>/dev/null || cat)
-    if [ -n "$input" ]; then
-      extensions=()
-      while IFS= read -r line; do
-        pkg=$(printf '%s' "$line" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-        [ -z "$pkg" ] && continue
-        case "$pkg" in
-          *[!A-Za-z0-9.+:-]*)
-            continue
-            ;;
-          *)
-            extensions+=("$pkg")
-            ;;
-        esac
-      done <<EOF
-$input
-EOF
-    fi
-  fi
-  to_install=()
-  for extension in "${extensions[@]}"; do
-    if ! dpkg -l 2>/dev/null | grep -q "$extension"; then
-      to_install+=("$extension")
-    fi
-  done
-  
-  if [ ${#to_install[@]} -gt 0 ]; then
-    apt-get install -y "${to_install[@]}" >>/tmp/webserver_php_install.log 2>&1 || true
-  fi
-  systemctl enable --now php8.2-fpm >/dev/null 2>&1 || systemctl enable --now php-fpm >/dev/null 2>&1 || true
-  if "$already_php"; then
-    printf '{"ok":true,"message":"php packages updated or ensured"}'
-  else
-    printf '{"ok":true,"message":"php and extensions installed"}'
-  fi
-}
+# PHP installation and management functions removed as per user request
 
-php_extensions_status_json() {
-  extensions=(
-    php8.2-common
-    php8.2-mysql
-    php8.2-xml
-    php8.2-xmlrpc
-    php8.2-curl
-    php8.2-gd
-    php8.2-imagick
-    php8.2-cli
-    php8.2-dev
-    php8.2-imap
-    php8.2-mbstring
-    php8.2-opcache
-    php8.2-soap
-    php8.2-zip
-    php8.2-bcmath
-    php8.2-intl
-    php8.2-readline
-    php8.2-ldap
-    php8.2-msgpack
-    php8.2-igbinary
-    php8.2-redis
-    php8.2-memcached
-    php8.2-pgsql
-    php8.2-sqlite3
-    php8.2-odbc
-    php8.2-ssh2
-    php8.2-tidy
-    php8.2-xsl
-    php8.2-yaml
-    php8.2-cgi
-    php8.2-fpm
-  )
-  first=1
-  echo '['
-  for extension in "${extensions[@]}"; do
-    if dpkg -s "$extension" 2>/dev/null | grep -q "Status: install ok installed"; then
-      installed=true
-    else
-      installed=false
-    fi
-    if [ $first -eq 0 ]; then
-      echo ','
-    fi
-    first=0
-    esc=$(echo "$extension" | sed 's/\\/\\\\/g; s/"/\\"/g')
-    echo "{\"name\":\"$esc\",\"installed\":$installed}"
-  done
-  echo ']'
-}
-
-php_remove_json() {
-  if [ -z "$CONTENT_LENGTH" ] || [ "$CONTENT_LENGTH" -le 0 ] 2>/dev/null; then
-    printf '{"ok":false,"error":"no packages"}'
-    return 1
-  fi
-  input=$(dd bs=1 count="$CONTENT_LENGTH" 2>/dev/null || cat)
-  if [ -z "$input" ]; then
-    printf '{"ok":false,"error":"no packages"}'
-    return 1
-  fi
-  # Define core packages that must not be removed
-  core_pkgs=("php8.2-common" "php8.2-cli" "php8.2-fpm" "php8.2-opcache")
-  pkgs=()
-  while IFS= read -r line; do
-    pkg=$(printf '%s' "$line" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-    [ -z "$pkg" ] && continue
-    case "$pkg" in
-      *[!A-Za-z0-9.+:-]*)
-        continue
-        ;;
-      *)
-        pkgs+=("$pkg")
-        ;;
-    esac
-  done <<EOF
-$input
-EOF
-  if [ "${#pkgs[@]}" -eq 0 ]; then
-    printf '{"ok":false,"error":"no valid packages"}'
-    return 1
-  fi
-  # Check core package protection
-  for pkg in "${pkgs[@]}"; do
-    for core in "${core_pkgs[@]}"; do
-      if [ "$pkg" = "$core" ]; then
-        esc=$(echo "$pkg" | sed 's/\\/\\\\/g; s/"/\\"/g')
-        printf '{"ok":false,"error":"core package cannot be removed: %s"}' "$esc"
-        return 1
-      fi
-    done
-  done
-  for pkg in "${pkgs[@]}"; do
-    apt-get remove -y "$pkg" >>/tmp/webserver_php_install.log 2>&1 || true
-  done
-  printf '{"ok":true,"message":"php extensions removed"}'
-}
+# PHP remove functions removed
 
 list_dirs_json() {
   if [ -n "$CONTENT_LENGTH" ] && [ "$CONTENT_LENGTH" -gt 0 ] 2>/dev/null; then
@@ -697,17 +602,16 @@ list_dirs_json() {
 
 
 get_upload_limit_json() {
-    CUSTOM_CONF="/etc/php/8.2/fpm/conf.d/99-custom-upload.ini"
-    if [ -f "$CUSTOM_CONF" ]; then
-        UPLOAD_MAX=$(grep -E '^upload_max_filesize' "$CUSTOM_CONF" | awk -F '=' '{print $2}' | tr -d ' ')
-    else
-        if command -v php >/dev/null 2>&1; then
-            UPLOAD_MAX=$(php -r 'echo ini_get("upload_max_filesize");')
-        else
-            UPLOAD_MAX="unknown"
+    # Fetch common limit from Nginx as PHP limits are now decentralized
+    local limit="20M"
+    local first_conf=$(ls /etc/nginx/sites-available/* 2>/dev/null | head -1)
+    if [ -n "$first_conf" ] && [ -f "$first_conf" ]; then
+        local found_limit=$(grep "client_max_body_size" "$first_conf" | head -1 | awk '{print $2}' | tr -d ';')
+        if [ -n "$found_limit" ]; then
+            limit="$found_limit"
         fi
     fi
-  echo "{\"ok\":true,\"limit\":\"$UPLOAD_MAX\"}"
+    echo "{\"ok\":true,\"limit\":\"$limit\"}"
 }
 
 update_site_port_json() {
@@ -716,6 +620,7 @@ update_site_port_json() {
   fi
   
   site_name=$(echo "$input" | grep "^name=" | cut -d= -f2- | tr -d '\r')
+  site_name=$(urldecode "$site_name")
   new_port=$(echo "$input" | grep "^port=" | cut -d= -f2- | tr -d '\r')
   new_port_https=$(echo "$input" | grep "^port_https=" | cut -d= -f2- | tr -d '\r')
   
@@ -873,6 +778,7 @@ delete_site_json() {
     input=$(dd bs=1 count="$CONTENT_LENGTH" 2>/dev/null || cat)
   fi
   site_name=$(echo "$input" | grep "^name=" | cut -d= -f2- | tr -d '\r')
+  site_name=$(urldecode "$site_name")
   
   if [ -z "$site_name" ]; then
     echo '{"ok":false,"error":"missing site name"}'
@@ -920,69 +826,39 @@ set_upload_limit_json() {
         return 1
   fi
   
-  php -r "
-    function toBytes(\$size) {
-        \$unit = preg_replace('/[^bkmgtpezy]/i', '', \$size);
-        \$size = preg_replace('/[^0-9]/', '', \$size);
-        if (\$unit) {
-            return (int)(\$size * pow(1024, stripos('bkmgtpezy', \$unit[0])));
-        }
-        return (int)\$size;
-    }
-    echo toBytes('$new_size');
-    " > /tmp/new_upload_bytes 2>/dev/null
+  # 1. Cleanup legacy PHP custom settings (for any installed version)
+  rm -f /etc/php/*/fpm/conf.d/99-custom-upload.ini 2>/dev/null
 
-    if [ ! -f /tmp/new_upload_bytes ]; then
-       MEM_LIMIT="$new_size"
-    else
-       UPLOAD_BYTES=$(cat /tmp/new_upload_bytes)
-       MEM_LIMIT_BYTES=$((UPLOAD_BYTES))
-       MEM_LIMIT_MB=$(( (MEM_LIMIT_BYTES + 1024*1024 - 1)/(1024*1024) ))
-       MEM_LIMIT="${MEM_LIMIT_MB}M"
-    fi
+  # 2. Update all Nginx site configs
+  nginx_configs=$(find /etc/nginx/sites-available -type f ! -name "*.backup.*" 2>/dev/null)
+  for config in $nginx_configs; do
+      if grep -q "client_max_body_size" "$config"; then
+          sed -i "s/client_max_body_size\s*[0-9KMGkmg]*;/client_max_body_size ${new_size};/g" "$config"
+      else
+          if grep -q "root.*;" "$config"; then
+              sed -i "0,/root.*;/s/root.*;/&\n    client_max_body_size ${new_size};/" "$config"
+          elif grep -q "server {" "$config"; then
+              sed -i "0,/server {/s/server {/&\n    client_max_body_size ${new_size};/" "$config"
+          fi
+      fi
+  done
 
-    CUSTOM_CONF="/etc/php/8.2/fpm/conf.d/99-custom-upload.ini"
-    mkdir -p $(dirname "$CUSTOM_CONF")
-    
-    cat > "$CUSTOM_CONF" <<EOF
-; Custom upload config - generated by WebServer
-file_uploads = On
-upload_max_filesize = $new_size
-post_max_size = $new_size
-max_execution_time = 300
-max_input_time = 300
-memory_limit = $MEM_LIMIT
-max_file_uploads = 20
-EOF
+  main_nginx_conf="/etc/nginx/nginx.conf"
+  if [ -f "$main_nginx_conf" ]; then
+      if grep -q "client_max_body_size" "$main_nginx_conf"; then
+          sed -i "s/client_max_body_size\s*[0-9KMGkmg]*;/client_max_body_size ${new_size};/g" "$main_nginx_conf"
+      else
+          if grep -q "http {" "$main_nginx_conf"; then
+              sed -i "/http {/a\    client_max_body_size ${new_size};" "$main_nginx_conf"
+          fi
+      fi
+  fi
 
-    nginx_configs=$(find /etc/nginx/sites-available -type f ! -name "*.backup.*" 2>/dev/null)
-    for config in $nginx_configs; do
-        if grep -q "client_max_body_size" "$config"; then
-            sed -i "s/client_max_body_size\s*[0-9KMGkmg]*;/client_max_body_size ${new_size};/g" "$config"
-        else
-            if grep -q "root.*;" "$config"; then
-                sed -i "0,/root.*;/s/root.*;/&\n    client_max_body_size ${new_size};/" "$config"
-            else
-                sed -i "/server {/a\    client_max_body_size ${new_size};" "$config"
-            fi
-        fi
-    done
-    
-    main_nginx_conf="/etc/nginx/nginx.conf"
-    if [ -f "$main_nginx_conf" ]; then
-        if grep -q "client_max_body_size" "$main_nginx_conf"; then
-            sed -i "s/client_max_body_size\s*[0-9KMGkmg]*;/client_max_body_size ${new_size};/g" "$main_nginx_conf"
-        else
-            if grep -q "http {" "$main_nginx_conf"; then
-                sed -i "/http {/a\    client_max_body_size ${new_size};" "$main_nginx_conf"
-            fi
-        fi
-    fi
-    
-    systemctl restart php8.2-fpm >/dev/null 2>&1 || true
-    reload_nginx_safe >/dev/null 2>&1 || true
-    
-    printf '{"ok":true,"message":"updated"}'
+  if reload_nginx_safe; then
+      printf '{"ok":true,"message":"Nginx upload limit applied (PHP limit must be managed via applications)"}'
+  else
+      printf '{"ok":false,"error":"Nginx reload failed"}'
+  fi
 }
 
 enable_site_json() {
@@ -990,6 +866,7 @@ enable_site_json() {
     input=$(dd bs=1 count="$CONTENT_LENGTH" 2>/dev/null || cat)
   fi
   site_name=$(echo "$input" | grep "^name=" | cut -d= -f2- | tr -d '\r')
+  site_name=$(urldecode "$site_name")
   
   if [ -z "$site_name" ]; then
     echo '{"ok":false,"error":"missing site name"}'
@@ -1025,6 +902,7 @@ disable_site_json() {
     input=$(dd bs=1 count="$CONTENT_LENGTH" 2>/dev/null || cat)
   fi
   site_name=$(echo "$input" | grep "^name=" | cut -d= -f2- | tr -d '\r')
+  site_name=$(urldecode "$site_name")
   
   if [ -z "$site_name" ]; then
     echo '{"ok":false,"error":"missing site name"}'
@@ -1054,6 +932,7 @@ fix_permissions_json() {
     input=$(dd bs=1 count="$CONTENT_LENGTH" 2>/dev/null || cat)
   fi
   site_name=$(echo "$input" | grep "^name=" | cut -d= -f2- | tr -d '\r')
+  site_name=$(urldecode "$site_name")
   
   if [ -z "$site_name" ]; then
     echo '{"ok":false,"error":"missing site name"}'
@@ -1098,38 +977,97 @@ nginx_restart_json() {
 }
 
 check_db_status_json() {
-  status="not_installed"
-  type="none"
-  details="数据库未安装"
-  db_id=$(get_db_instance_id)
+  local db_id=$(get_db_instance_id)
+  
+  echo -n "{\"ok\":true,\"databases\":["
+  local first=1
 
-  # 1. Check systemd services
-  if systemctl is-active mariadb --quiet 2>/dev/null || systemctl is-active mysql --quiet 2>/dev/null; then
-      status="running"
-      type="system"
-      details="数据库服务已安装且正在运行"
-  elif dpkg -l | grep -q "mariadb-server\|mysql-server"; then
-      status="installed"
-      type="system"
-      details="数据库已安装但服务未运行"
-  else
-      # 2. Check Docker containers
-      if command -v docker >/dev/null 2>&1; then
-          # Check for specific container name with instance ID
-          if docker ps --format '{{.Names}}' | grep -q "^WebServer_MySql_${db_id}$"; then
-              status="running"
-              type="docker"
-              details="Docker版数据库正在运行 (${db_id})"
-          # Check for stopped containers with same ID
-          elif docker ps -a --format '{{.Names}}' | grep -q "^WebServer_MySql_${db_id}$"; then
-              status="installed"
-              type="docker"
-              details="Docker版数据库已安装但未运行 (${db_id})"
+  # 1. Check systemd services (MariaDB, MySQL, PostgreSQL)
+  # --- 1. Detect MariaDB / MySQL (System) ---
+  local mysql_type=""
+  local mysql_status="not_installed"
+  
+  # Try to detect via binary first for precise typing
+  if command -v mysql >/dev/null 2>&1; then
+      local version_str=$(mysql --version 2>&1)
+      if echo "$version_str" | grep -iq "MariaDB"; then
+          mysql_type="mariadb"
+      else
+          mysql_type="mysql"
+      fi
+      
+      # Check service status (common names)
+      if pgrep -x mariadbd >/dev/null 2>&1 || pgrep -x mysqld >/dev/null 2>&1 || \
+         systemctl is-active mariadb --quiet 2>/dev/null || systemctl is-active mysql --quiet 2>/dev/null; then
+          mysql_status="running"
+      else
+          mysql_status="installed"
+      fi
+  fi
+  
+  # Fallback to service/dpkg if binary not in PATH but service exists
+  if [ "$mysql_status" = "not_installed" ]; then
+      if systemctl list-unit-files "mariadb.service" --quiet 2>/dev/null | grep -q "mariadb" 2>/dev/null || \
+         dpkg -l | grep -q "mariadb-server" 2>/dev/null || \
+         [ -d "/etc/mysql/mariadb.conf.d" ]; then
+          mysql_type="mariadb"
+          mysql_status="installed"
+          # Final check if it is running under shared names
+          if pgrep -x mariadbd >/dev/null 2>&1 || pgrep -x mysqld >/dev/null 2>&1 || \
+             systemctl is-active mysql --quiet 2>/dev/null || systemctl is-active mariadb --quiet 2>/dev/null; then
+              mysql_status="running"
+          fi
+      elif systemctl list-unit-files "mysql.service" --quiet 2>/dev/null | grep -q "mysql" 2>/dev/null || \
+           dpkg -l | grep -q "mysql-server" 2>/dev/null || \
+           [ -d "/etc/mysql/mysql.conf.d" ]; then
+          mysql_type="mysql"
+          mysql_status="installed"
+          if systemctl is-active mysql --quiet 2>/dev/null; then
+              mysql_status="running"
           fi
       fi
   fi
 
-  printf '{"ok":true,"status":"%s","type":"%s","details":"%s"}' "$status" "$type" "$details"
+  if [ "$mysql_status" != "not_installed" ]; then
+    if [ $first -eq 0 ]; then echo -n ","; fi
+    echo -n "{\"type\":\"system\",\"name\":\"$mysql_type\",\"status\":\"$mysql_status\"}"
+    first=0
+  fi
+
+  # --- 2. Detect PostgreSQL (System) ---
+  local pg_status="not_installed"
+  if pgrep -x postgres >/dev/null 2>&1 || systemctl is-active postgresql --quiet 2>/dev/null; then
+      pg_status="running"
+  elif systemctl list-unit-files "postgresql.service" --quiet 2>/dev/null | grep -q "postgresql" 2>/dev/null || \
+       dpkg -l | grep -q "postgresql" 2>/dev/null || \
+       command -v psql >/dev/null 2>&1 || \
+       [ -d "/etc/postgresql" ]; then
+      pg_status="installed"
+  fi
+  
+  if [ "$pg_status" != "not_installed" ]; then
+      if [ $first -eq 0 ]; then echo -n ","; fi
+      echo -n "{\"type\":\"system\",\"name\":\"postgresql\",\"status\":\"$pg_status\"}"
+      first=0
+  fi
+
+  # 2. Check Docker containers (Always check, even if system DB exists)
+  if command -v docker >/dev/null 2>&1; then
+    local d_status="not_installed"
+    if docker ps --format '{{.Names}}' | grep -q "^WebServer_MySql_${db_id}$"; then
+      d_status="running"
+    elif docker ps -a --format '{{.Names}}' | grep -q "^WebServer_MySql_${db_id}$"; then
+      d_status="installed"
+    fi
+
+    if [ "$d_status" != "not_installed" ]; then
+      if [ $first -eq 0 ]; then echo -n ","; fi
+      echo -n "{\"type\":\"docker\",\"name\":\"mysql\",\"status\":\"$d_status\",\"db_id\":\"$db_id\"}"
+      first=0
+    fi
+  fi
+
+  echo "]}"
 }
 
 install_db_json() {
@@ -1211,6 +1149,7 @@ get_install_log_json() {
   fi
   
   log_type=$(echo "$input" | grep "^type=" | cut -d= -f2- | tr -d '\r')
+  log_type=$(urldecode "$log_type")
   
   log_file=""
   if [ "$log_type" = "nginx" ]; then
