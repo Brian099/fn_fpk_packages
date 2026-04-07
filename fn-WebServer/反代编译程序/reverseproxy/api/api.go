@@ -1,7 +1,10 @@
 package api
 
 import (
+	"fmt"
+	"log"
 	"net/http"
+	"time"
 
 	"fn-reverseproxy/config"
 	"fn-reverseproxy/proxy"
@@ -15,6 +18,10 @@ func SetupRoutes(r *gin.Engine) {
 	r.PUT("/api/proxies/:id", UpdateProxy)
 	r.DELETE("/api/proxies/:id", DeleteProxy)
 	r.POST("/api/proxies/:id/reload", ReloadProxy)
+}
+
+func auditLog(action, target, detail string) {
+	log.Printf("[AUDIT] action=%s target=%s detail=%s time=%s", action, target, detail, time.Now().Format("2006-01-02T15:04:05Z07:00"))
 }
 
 func GetProxies(c *gin.Context) {
@@ -42,6 +49,12 @@ func AddProxy(c *gin.Context) {
 
 	proxy.Reload()
 
+	auditLog("CREATE", proxyRule.ID,
+		fmt.Sprintf("name=%s domains=%v src=%s:%s tgt=%s:%s",
+			proxyRule.Name, proxyRule.Domains,
+			proxyRule.SourceProtocol, proxyRule.SourcePort,
+			proxyRule.TargetHost, proxyRule.TargetPort))
+
 	c.JSON(http.StatusOK, proxyRule)
 }
 
@@ -67,6 +80,12 @@ func UpdateProxy(c *gin.Context) {
 
 	proxy.Reload()
 
+	auditLog("UPDATE", id,
+		fmt.Sprintf("name=%s enable=%v domains=%v src=%s:%s tgt=%s:%s",
+			proxyRule.Name, proxyRule.Enable, proxyRule.Domains,
+			proxyRule.SourceProtocol, proxyRule.SourcePort,
+			proxyRule.TargetHost, proxyRule.TargetPort))
+
 	c.JSON(http.StatusOK, proxyRule)
 }
 
@@ -80,10 +99,16 @@ func DeleteProxy(c *gin.Context) {
 
 	proxy.Reload()
 
+	auditLog("DELETE", id, "rule deleted")
+
 	c.JSON(http.StatusOK, gin.H{"message": "Deleted"})
 }
 
 func ReloadProxy(c *gin.Context) {
+	id := c.Param("id")
 	proxy.Reload()
+
+	auditLog("RELOAD", id, "proxy reloaded")
+
 	c.JSON(http.StatusOK, gin.H{"message": "Reloaded"})
 }

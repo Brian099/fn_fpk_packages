@@ -10,6 +10,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -232,6 +233,24 @@ func createProxy(p *config.ProxyRule) error {
 	}
 
 	rp := httputil.NewSingleHostReverseProxy(targetURL)
+
+	timeout := 30 * time.Second
+	if p.Timeout != "" {
+		if d, err := time.ParseDuration(p.Timeout); err == nil && d > 0 {
+			timeout = d
+		} else if sec, err := strconv.Atoi(p.Timeout); err == nil && sec > 0 {
+			timeout = time.Duration(sec) * time.Second
+		}
+	}
+	rp.Transport = &http.Transport{
+		ResponseHeaderTimeout: timeout,
+		DialContext:           (&net.Dialer{Timeout: timeout}).DialContext,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+
 	rp.Director = func(req *http.Request) {
 		req.URL.Scheme = targetURL.Scheme
 		req.URL.Host = targetURL.Host
