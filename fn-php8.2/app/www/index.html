@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PHP 8.2 管理面板</title>
+    <link rel="stylesheet" href="./css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="logo-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z"></path></svg>
+                </div>
+                <div>
+                    <h1>PHP 环境配置</h1>
+                    <p class="subtitle" id="statusText">系统载入中...</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="service-controls">
+                    <button class="btn btn-sm btn-success" id="btn-start" onclick="operateService('start')">启动</button>
+                    <button class="btn btn-sm btn-danger" id="btn-stop" onclick="operateService('stop')">停止</button>
+                    <button class="btn btn-sm btn-outline" onclick="operateService('restart')">重启</button>
+                    <button class="btn btn-sm btn-outline" style="margin-left: 4px;" onclick="loadStatus()">刷新状态</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tabs -->
+        <nav class="tabs-nav">
+            <button class="tab-btn active" data-target="tab-settings">常规设置</button>
+            <button class="tab-btn" data-target="tab-extensions">扩展名</button>
+            <button class="tab-btn" data-target="tab-fpm">FPM 设置</button>
+            <button class="tab-btn" data-target="tab-core">核心设置</button>
+        </nav>
+
+        <!-- Tab Content: Settings -->
+        <main class="tab-content active" id="tab-settings">
+            <div class="card">
+                <h3>常用开发快捷选项</h3>
+                <p class="desc">您能一键式调节常用的参数功能，这些项将映射于底层服务。</p>
+                
+                <div class="form-group row-align">
+                    <div class="group-label">
+                        <label>启用 OPcache 缓存</label>
+                        <span class="tip">大幅提高 PHP 脚本的编译和执行性能</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="switch-opcache" onchange="toggleExtension('opcache', this.checked)">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+
+                <div class="form-group row-align">
+                    <div class="group-label">
+                        <label>启用 Xdebug 调试引擎</label>
+                        <span class="tip">将显著降低性能，仅建议开发环境开启</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="switch-xdebug" onchange="toggleExtension('xdebug', this.checked)">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+        </main>
+
+        <!-- Tab Content: Extensions -->
+        <main class="tab-content" id="tab-extensions">
+            <div class="card">
+                <h3>系统级拓展服务</h3>
+                <div class="search-bar">
+                    <input type="text" id="extSearch" placeholder="搜索拓展插件 (如: redis)..." onkeyup="filterExts()">
+                </div>
+                <div class="ext-grid" id="extContainer">
+                    <!-- Dynamic extension loading here -->
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Tab Content: FPM -->
+        <main class="tab-content" id="tab-fpm">
+            <div class="card">
+                <h3>FPM 进程池模式 (zzz-custom.conf)</h3>
+                <p class="desc">调整 [www] 进程池的运行模式与性能参数。</p>
+                
+                <div class="form-container">
+                    <div class="form-group row-align">
+                        <div class="group-label">
+                            <label>进程控制模式 (pm)</label>
+                            <span class="tip">建议负载波动较大的站点使用 dynamic</span>
+                        </div>
+                        <select id="fpm-pm" class="select-field" onchange="updateFpmVisibility()">
+                            <option value="static">Static (静态固定)</option>
+                            <option value="dynamic">Dynamic (动态调节)</option>
+                            <option value="ondemand">Ondemand (按需派生)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group row-align">
+                        <div class="group-label">
+                            <label>最大子进程数 (max_children)</label>
+                            <span class="tip">同一时间能处理的最大并发请求数</span>
+                        </div>
+                        <input type="number" id="fpm-max_children" class="input-field" placeholder="50">
+                    </div>
+
+                    <div class="fpm-dynamic-only">
+                        <div class="form-group row-align">
+                            <div class="group-label">
+                                <label>起始进程数 (start_servers)</label>
+                                <span class="tip">服务启动时预先创建的进程数量</span>
+                            </div>
+                            <input type="number" id="fpm-start_servers" class="input-field" placeholder="5">
+                        </div>
+                        <div class="form-group row-align">
+                            <div class="group-label">
+                                <label>最小空闲进程 (min_spare_servers)</label>
+                            </div>
+                            <input type="number" id="fpm-min_spare_servers" class="input-field" placeholder="5">
+                        </div>
+                        <div class="form-group row-align">
+                            <div class="group-label">
+                                <label>最大空闲进程 (max_spare_servers)</label>
+                            </div>
+                            <input type="number" id="fpm-max_spare_servers" class="input-field" placeholder="35">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="group-label" style="margin-bottom: 10px; margin-top: 20px;">
+                            <label>其它自定义 FPM 参数</label>
+                            <span class="tip">每行一个配置，例如 pm.max_requests = 500</span>
+                        </div>
+                        <textarea id="fpm-custom" class="textarea-small" placeholder="pm.status_path = /status..."></textarea>
+                    </div>
+                </div>
+
+                <div class="action-footer">
+                    <button class="btn btn-primary" onclick="saveFPMVisual()">保存 FPM 配置并重启</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Tab Content: Core Settings -->
+        <main class="tab-content" id="tab-core">
+            <div class="card">
+                <h3>PHP 核心运行参数 (99-fnos-custom.ini)</h3>
+                <p class="desc">调整 PHP 脚本的资源限制、执行效率与错误表现。</p>
+
+                <div class="form-container">
+                    <div class="section-title">资源与限制</div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>内存限制 (memory_limit)</label>
+                            <div class="input-with-unit">
+                                <input type="number" id="core-memory_limit" placeholder="256">
+                                <span>MB</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>最大上传 (upload_max_filesize)</label>
+                            <div class="input-with-unit">
+                                <input type="number" id="core-upload_max_filesize" placeholder="100">
+                                <span>MB</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>POST 限制 (post_max_size)</label>
+                            <div class="input-with-unit">
+                                <input type="number" id="core-post_max_size" placeholder="100">
+                                <span>MB</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>执行超时 (max_execution_time)</label>
+                            <div class="input-with-unit">
+                                <input type="number" id="core-max_execution_time" placeholder="60">
+                                <span>Sec</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-title" style="margin-top: 25px;">报错与性能</div>
+                    <div class="form-group row-align">
+                        <div class="group-label">
+                            <label>显示 PHP 错误 (display_errors)</label>
+                            <span class="tip">开启后将在网页上直接打印 PHP 报错信息</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="core-display_errors">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="group-label" style="margin-bottom: 10px; margin-top: 20px;">
+                            <label>其它核心自定义指令 (Advanced)</label>
+                            <span class="tip">手动输入标准的 PHP.ini 配置项</span>
+                        </div>
+                        <textarea id="core-custom" class="textarea-small" placeholder="date.timezone = Asia/Shanghai..."></textarea>
+                    </div>
+                </div>
+
+                <div class="action-footer">
+                    <button class="btn btn-primary" onclick="saveCoreVisual()">保存核心参数并生效</button>
+                </div>
+            </div>
+        </main>
+
+    </div>
+
+    <!-- 简单的 Toast 通知容器 -->
+    <div id="toast" class="toast">操作成功</div>
+
+    <script src="./js/main.js"></script>
+</body>
+</html>

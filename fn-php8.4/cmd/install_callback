@@ -1,0 +1,68 @@
+#!/bin/bash
+
+# 离线环境挂载与安装
+LOG_FILE="$TRIM_PKGVAR/install_debug.log"
+
+echo "开始执行 PHP 8.4 脱网离线安装..." >> "$LOG_FILE"
+
+# 确保脚本执行权限
+chmod -R +x "$TRIM_APPDEST/cmd" 2>/dev/null
+chmod -R +x "$TRIM_APPDEST/ui" 2>/dev/null
+
+PACKAGES_DIR="$TRIM_APPDEST/target/packages"
+
+export DEBIAN_FRONTEND=noninteractive
+
+if [ -d "$PACKAGES_DIR" ]; then
+    echo "发现离线安装包目录，正在部署环境..." >> "$LOG_FILE"
+    
+    # 获取所有的 .deb 包
+    DEB_FILES=$(ls -1 "$PACKAGES_DIR"/*.deb 2>/dev/null)
+    
+    if [ -n "$DEB_FILES" ]; then
+        # 批量无视底层网络依赖强行安装基础库
+        # 强制 dpkg 忽略一定的顺序因为包基本被我们全面囊括
+        dpkg -i $DEB_FILES >> "$LOG_FILE" 2>&1
+        
+        # 检查是否因为有细微差异遗漏的间接包导致安装挂起，如果是，则尝试一笔带过
+        apt-get install -f -y >> "$LOG_FILE" 2>&1
+        
+        echo "核心库释放部署完毕。" >> "$LOG_FILE"
+    else
+        echo "警告：Packages 目录为空，没有供离线的依赖项。" >> "$LOG_FILE"
+    fi
+else
+    echo "未发现预置 $PACKAGES_DIR 拓展包加载位。" >> "$LOG_FILE"
+fi
+
+# 建立我们应用独占覆盖配置加载目录
+CONF_D_DIR="/etc/php/8.4/fpm/conf.d"
+CUSTOM_CONFIG_FILE="$CONF_D_DIR/99-fnos-custom.ini"
+
+if [ -d "/etc/php/8.4/fpm" ]; then
+    mkdir -p "$CONF_D_DIR"
+    
+    # 放置一份初始占位文件
+    if [ ! -f "$CUSTOM_CONFIG_FILE" ]; then
+        cat <<EOF > "$CUSTOM_CONFIG_FILE"
+; fnOS PHP 专用高参合并配置文件
+; 所有的面板图形化修改均将落位于此文件，防止对默认 php.ini 架构发生非预期破坏。
+
+[PHP]
+upload_max_filesize = 100M
+post_max_size = 100M
+memory_limit = 256M
+display_errors = Off
+display_startup_errors = Off
+max_execution_time = 60
+EOF
+        echo "初始高优配置文件 $CUSTOM_CONFIG_FILE 已设立。" >> "$LOG_FILE"
+    fi
+
+    # 重启使生效
+    systemctl restart php8.4-fpm >/dev/null 2>&1 || true
+else
+    echo "非预期结构：/etc/php/8.4/fpm 不存在，可能是离线包安装受阻。" >> "$LOG_FILE"
+fi
+
+exit 0

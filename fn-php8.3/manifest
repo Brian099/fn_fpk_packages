@@ -1,0 +1,13 @@
+appname               = php8.3
+version               = 1.0.1
+display_name          = PHP 8.3 管理组件
+desc                  = 为飞牛系统环境提供底层 PHP 8.3 与扩展插件的离线部署及一体化参数管理，搭载精美的界面供高级开发调整各项核心参数、上传限制和加速控制。
+arch                  = x86_64
+source                = thirdparty
+maintainer            = PHP.net
+distributor           = giraff.fun
+distributor_url       = https://giraff.fun
+maintainer_url        = https://php.ac.cn/
+desktop_uidir         = ui
+desktop_applaunchname = php8.3.Application
+os_min_version        = 0.9.27

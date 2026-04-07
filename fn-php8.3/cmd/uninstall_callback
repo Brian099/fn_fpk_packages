@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# 定义日志文件
+VERSION="8.3"
+LOG_FILE="$TRIM_PKGVAR/uninstall_debug.log"
+echo "开始执行 PHP $VERSION 彻底清理流程..." >> "$LOG_FILE"
+
+# 1. 停止并禁用 php$VERSION-fpm 服务
+SERVICE_NAME="php$VERSION-fpm"
+if systemctl is-active --quiet $SERVICE_NAME; then
+    echo "正在停止 $SERVICE_NAME 服务..." >> "$LOG_FILE"
+    systemctl stop $SERVICE_NAME >/dev/null 2>&1
+    systemctl disable $SERVICE_NAME >/dev/null 2>&1
+else
+    echo "$SERVICE_NAME 服务当前未激活，跳过关闭。 " >> "$LOG_FILE"
+fi
+
+# 2. 识别并彻底卸载 (Purge) 所有 PHP $VERSION 包
+# 查找所有已安装且包含 "php$VERSION" 的包
+PACKAGES=$(dpkg -l | grep "^ii" | awk '{print $2}' | grep "php$VERSION")
+
+if [ -n "$PACKAGES" ]; then
+    echo "正在彻底清除 (Purge) 以下包: $PACKAGES" >> "$LOG_FILE"
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get purge -y $PACKAGES >> "$LOG_FILE" 2>&1
+    
+    # 清理多余的、不再需要的相关依赖
+    apt-get autoremove -y >> "$LOG_FILE" 2>&1
+    echo "底库系统包清除完毕。" >> "$LOG_FILE"
+else
+    echo "未发现 PHP $VERSION 系统包，清理跳过。 " >> "$LOG_FILE"
+fi
+
+# 3. 补齐卸载：强制删除配置路径（确保 99-fnos-custom.ini 等手动文件也被删除）
+CONF_DIR="/etc/php/$VERSION"
+if [ -d "$CONF_DIR" ]; then
+    echo "正在强制移除残留配置目录 $CONF_DIR..." >> "$LOG_FILE"
+    rm -rf "$CONF_DIR" >> "$LOG_FILE" 2>&1
+fi
+
+echo "PHP $VERSION 彻底卸载与清理任务已成功。 " >> "$LOG_FILE"
+
+exit 0

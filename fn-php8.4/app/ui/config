@@ -1,0 +1,12 @@
+{  
+    ".url": {  
+        "php8.4.Application": {  
+            "title": "PHP8.4",
+            "icon": "images/icon-{0}.png",
+            "type": "iframe",
+            "protocol": "http",
+            "url": "/cgi/ThirdParty/php8.4/index.cgi/",  
+            "allUsers": false
+        }  
+    }  
+}

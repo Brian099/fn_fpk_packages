@@ -1,0 +1,35 @@
+#!/bin/bash  
+
+# 生命周期主钩子
+# 这里判断 PHP fpm 服务的核心状态
+
+status() {
+    if systemctl is-active --quiet php8.2-fpm || systemctl is-active --quiet php-fpm; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+case $1 in  
+start)  
+    # 纯依赖型组件，不直接绑定独立的进程启动
+    systemctl start php8.2-fpm >/dev/null 2>&1
+    exit 0  
+    ;;  
+stop)  
+    # 停止 PHP 8.2 FPM 服务
+    systemctl stop php8.2-fpm >/dev/null 2>&1
+    exit 0  
+    ;;  
+status)  
+    if status; then
+        exit 0
+    else
+        exit 3
+    fi
+    ;;  
+*)  
+    exit 1  
+    ;;  
+esac
