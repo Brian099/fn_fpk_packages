@@ -1,0 +1,4 @@
+#!/bin/bash
+# cmd/upgrade_init
+# Before upgrade checks
+exit 0

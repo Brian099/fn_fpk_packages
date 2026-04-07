@@ -40,7 +40,7 @@ if [ -z "$REL_PATH" ] || [ "$REL_PATH" = "/" ]; then
   REL_PATH="/index.html"
 fi
 
-if [ "$REL_PATH" = "/api/nginx/status" ] || [ "$REL_PATH" = "/api/sites" ] || [ "$REL_PATH" = "/api/php/status" ] || [ "$REL_PATH" = "/api/nginx/install" ] || [ "$REL_PATH" = "/api/fs/list" ] || [ "$REL_PATH" = "/api/sites/create" ] || [ "$REL_PATH" = "/api/settings/get-upload-limit" ] || [ "$REL_PATH" = "/api/settings/set-upload-limit" ] || [ "$REL_PATH" = "/api/sites/update-port" ] || [ "$REL_PATH" = "/api/sites/delete" ] || [ "$REL_PATH" = "/api/sites/enable" ] || [ "$REL_PATH" = "/api/sites/disable" ] || [ "$REL_PATH" = "/api/sites/fix-permissions" ] || [ "$REL_PATH" = "/api/nginx/restart" ] || [ "$REL_PATH" = "/api/db/status" ] || [ "$REL_PATH" = "/api/db/install" ] || [ "$REL_PATH" = "/api/install/log" ]; then
+if [ "$REL_PATH" = "/api/nginx/status" ] || [ "$REL_PATH" = "/api/sites" ] || [ "$REL_PATH" = "/api/php/status" ] || [ "$REL_PATH" = "/api/fs/list" ] || [ "$REL_PATH" = "/api/sites/create" ] || [ "$REL_PATH" = "/api/settings/get-upload-limit" ] || [ "$REL_PATH" = "/api/settings/set-upload-limit" ] || [ "$REL_PATH" = "/api/sites/update-port" ] || [ "$REL_PATH" = "/api/sites/delete" ] || [ "$REL_PATH" = "/api/sites/enable" ] || [ "$REL_PATH" = "/api/sites/disable" ] || [ "$REL_PATH" = "/api/sites/fix-permissions" ] || [ "$REL_PATH" = "/api/nginx/restart" ] || [ "$REL_PATH" = "/api/db/status" ] || [ "$REL_PATH" = "/api/db/install" ] || [ "$REL_PATH" = "/api/install/log" ]; then
   BACKEND_SCRIPT="$APP_ROOT/server/sites_backend.sh"
   if [ ! -f "$BACKEND_SCRIPT" ]; then
     echo "Status: 500 Internal Server Error"
@@ -57,8 +57,6 @@ if [ "$REL_PATH" = "/api/nginx/status" ] || [ "$REL_PATH" = "/api/sites" ] || [ 
     ACTION="nginx-status"
   elif [ "$REL_PATH" = "/api/php/status" ]; then
     ACTION="php-status"
-  elif [ "$REL_PATH" = "/api/nginx/install" ]; then
-    ACTION="nginx-install"
   elif [ "$REL_PATH" = "/api/fs/list" ]; then
     ACTION="list-dirs"
   elif [ "$REL_PATH" = "/api/sites/create" ]; then
@@ -101,7 +99,9 @@ if [ "$REL_PATH" = "/api/nginx/status" ] || [ "$REL_PATH" = "/api/sites" ] || [ 
   exit 0
 fi
 
-if [[ $REL_PATH == /api* ]]; then
+if [[ $REL_PATH == /api/proxies* ]]; then
+  BACKEND_UNIX_SOCKET="${TRIM_PKGVAR:-/var/apps/WebServer/var}/reverseproxy.sock"
+elif [[ $REL_PATH == /api* ]]; then
   BACKEND_UNIX_SOCKET="${BACKEND_UNIX_SOCKET:-${SCHEDULER_UNIX_SOCKET:-/usr/local/apps/@appdata/WebServer/scheduler.sock}}"
   BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
   BACKEND_PORT="${BACKEND_PORT:-28256}"

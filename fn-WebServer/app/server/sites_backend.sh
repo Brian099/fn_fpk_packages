@@ -171,7 +171,10 @@ create_site_json() {
   # Fallback to the first available version if not specified
   if [ -z "$php_version" ]; then
       php_version=$(ls /etc/php/ 2>/dev/null | head -1)
-      if [ -z "$php_version" ]; then php_version="8.2"; fi
+      if [ -z "$php_version" ]; then
+          echo '{"ok":false,"error":"未在系统中检测到已安装的 PHP 版本，请先通过 apt 安装 PHP-FPM"}'
+          return 0
+      fi
   fi
   php_socket="/run/php/php${php_version}-fpm.sock"
 
@@ -453,7 +456,7 @@ list_sites_json() {
 }
 
 nginx_status_json() {
-  # Strict check: Must have binary at /usr/sbin/nginx AND config at /etc/nginx/nginx.conf
+  # Simplified check: Only report presence and active status
   local installed=false
   local version_raw=""
   local running=false
@@ -462,24 +465,9 @@ nginx_status_json() {
     installed=true
     version_raw=$(/usr/sbin/nginx -v 2>&1 | sed 's/^[^:]*: //')
     
-    # Precise check for the instance using /etc/nginx
-    local pids=$(pgrep -x nginx 2>/dev/null)
-    for pid in $pids; do
-        # Check if this process has the main /etc/nginx config file open
-        if ls -l "/proc/$pid/fd" 2>/dev/null | grep -q "/etc/nginx/nginx.conf"; then
-            running=true
-            break
-        fi
-        # Fallback: if it's the system binary and no explicit config path in cmdline, 
-        # it defaults to /etc/nginx
-        local exe_path=$(readlink -f /proc/$pid/exe 2>/dev/null)
-        if [ "$exe_path" = "/usr/sbin/nginx" ]; then
-            if ! grep -q -E "\-c|\-p" "/proc/$pid/cmdline" 2>/dev/null; then
-                running=true
-                break
-            fi
-        fi
-    done
+    if systemctl is-active --quiet nginx 2>/dev/null; then
+        running=true
+    fi
   fi
   
   local config_exists=false
@@ -526,42 +514,6 @@ php_status_json() {
     fi
   done
   echo "]}"
-}
-
-nginx_install_json() {
-  if [ -x "/usr/sbin/nginx" ] && [ -f "/etc/nginx/nginx.conf" ]; then
-    printf '{"ok":true,"message":"nginx already installed (checked /etc/nginx/nginx.conf)"}'
-    return 0
-  fi
-  export DEBIAN_FRONTEND=noninteractive
-  if ! apt-get update -y >/tmp/webserver_nginx_install.log 2>&1; then
-    printf '{"ok":false,"step":"apt-update"}'
-    return 1
-  fi
-  # Attempt install, allow failure (e.g. port 80 conflict)
-  install_status=0
-  apt-get install -y nginx >>/tmp/webserver_nginx_install.log 2>&1 || install_status=$?
-
-  # Modify default port to 2829 to avoid conflict with system nginx
-  if [ -f /etc/nginx/sites-available/default ]; then
-      sed -i 's/listen 80 default_server;/listen 2829 default_server;/g' /etc/nginx/sites-available/default
-      sed -i 's/listen \[::\]:80 default_server;/listen [::]:2829 default_server;/g' /etc/nginx/sites-available/default
-      # Also replace 443 with 2931 for HTTPS
-      sed -i 's/listen 443/listen 2931/g' /etc/nginx/sites-available/default
-      sed -i 's/listen \[::\]:443/listen [::]:2931/g' /etc/nginx/sites-available/default
-  fi
-
-  # If install failed, try to fix (finish configuration) now that port is changed
-  if [ $install_status -ne 0 ]; then
-      if ! apt-get install -y -f >>/tmp/webserver_nginx_install.log 2>&1; then
-          printf '{"ok":false,"step":"apt-install-fix"}'
-          return 1
-      fi
-  fi
-
-  systemctl enable --now nginx >/dev/null 2>&1 || true
-  systemctl restart nginx >/dev/null 2>&1 || true
-  printf '{"ok":true,"message":"nginx installed"}'
 }
 
 # PHP installation and management functions removed as per user request
@@ -1209,23 +1161,11 @@ case "$1" in
   php-status)
     php_status_json
     ;;
-  php-extensions-status)
-    php_extensions_status_json
-    ;;
-  nginx-install)
-    nginx_install_json
-    ;;
   check-db-status)
     check_db_status_json
     ;;
   install-db)
     install_db_json
-    ;;
-  php-install)
-    php_install_json
-    ;;
-  php-remove)
-    php_remove_json
     ;;
   get-install-log)
     get_install_log_json

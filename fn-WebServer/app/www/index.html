@@ -20,6 +20,7 @@
       <ul class="layui-nav layui-nav-tree" lay-filter="nav-menu">
         <li class="layui-nav-item layui-this"><a href="javascript:;" data-id="system"><i class="layui-icon layui-icon-home" style="margin-right: 10px;"></i> 概览</a></li>
         <li class="layui-nav-item"><a href="javascript:;" data-id="sites"><i class="layui-icon layui-icon-website" style="margin-right: 10px;"></i> 网站管理</a></li>
+        <li class="layui-nav-item"><a href="javascript:;" data-id="proxies"><i class="layui-icon layui-icon-transfer" style="margin-right: 10px;"></i> 反向代理</a></li>
         <li class="layui-nav-item"><a href="javascript:;" data-id="settings"><i class="layui-icon layui-icon-set" style="margin-right: 10px;"></i> 系统设置</a></li>
       </ul>
 
@@ -108,6 +109,29 @@
         </div>
       </div>
 
+      <!-- View: Proxy List -->
+      <div id="view-proxies" class="layui-anim layui-anim-fadein" style="display:none; flex: 1;">
+        <div class="layui-card" style="flex: 1; display: flex; flex-direction: column; margin-bottom: 0;">
+          <div class="layui-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <span>反向代理规则</span>
+              <span class="layui-badge layui-bg-gray" style="margin-left: 8px; font-weight: normal;" id="proxy-count">0</span>
+            </div>
+            <div style="width: 220px;">
+              <input type="text" id="search-proxies" placeholder="搜索规则名称或域名..." class="layui-input" style="height: 32px !important; line-height: 32px !important;">
+            </div>
+          </div>
+          <div class="layui-card-body" style="flex: 1; display: flex; flex-direction: column; padding-top: 15px !important;">
+            <div class="layui-btn-container" style="margin-bottom: 15px;">
+              <button class="layui-btn layui-btn-normal" id="btn-create-proxy"><i class="layui-icon layui-icon-add-1"></i> 添加代理规则</button>
+              <button class="layui-btn layui-btn-primary" id="btn-refresh-proxies"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+            </div>
+            <div style="flex: 1; min-height: 200px;">
+                <table id="proxy-table" lay-filter="proxy-table"></table>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- View: General Settings -->
       <div id="view-settings" class="layui-anim layui-anim-fadein" style="display:none; flex: 1;">
@@ -160,6 +184,91 @@
     <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="del">移除</a>
   </div>
 </script>
+
+<!-- Template: Proxy Operation Bar -->
+<script type="text/html" id="proxy-bar">
+  <div class="layui-btn-group">
+    <a class="layui-btn layui-btn-xs layui-btn-primary" lay-event="edit">编辑</a>
+    {{# if(d.enable){ }}
+    <a class="layui-btn layui-btn-xs layui-btn-warm" lay-event="disable">停用</a>
+    {{# } else { }}
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="enable">启用</a>
+    {{# } }}
+    <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="del">删除</a>
+  </div>
+</script>
+
+<!-- Template: Create/Edit Proxy Modal -->
+<div id="tpl-proxy-modal" style="display:none; padding:25px;">
+  <form class="layui-form" lay-filter="form-proxy">
+    <input type="hidden" name="id">
+    <div class="layui-form-item">
+      <label class="layui-form-label">规则名称</label>
+      <div class="layui-input-block">
+        <input type="text" name="name" required lay-verify="required" placeholder="例如: 我的反代规则" class="layui-input">
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">来源协议</label>
+      <div class="layui-input-block">
+        <select name="sourceProtocol">
+          <option value="http">HTTP</option>
+          <option value="https">HTTPS</option>
+        </select>
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">来源端口</label>
+      <div class="layui-input-block">
+        <input type="number" name="sourcePort" required lay-verify="required" placeholder="例如: 80" class="layui-input">
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">来源域名</label>
+      <div class="layui-input-block">
+        <input type="text" name="domains" required lay-verify="required" placeholder="多个域名请用逗号(,)分隔，如 example.com" class="layui-input">
+        <div class="layui-word-aux" style="font-size: 11px; margin-top: 5px;">支持通配符 (*.domain.com)。HTTPS 模式下需确保系统已导入相应证书。</div>
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">目标主机</label>
+      <div class="layui-input-block">
+        <input type="text" name="targetHost" required lay-verify="required" placeholder="例如: 127.0.0.1" class="layui-input">
+      </div>
+    </div>
+    <div class="layui-row layui-col-space10">
+      <div class="layui-col-md6">
+        <div class="layui-form-item">
+          <label class="layui-form-label">目标协议</label>
+          <div class="layui-input-block">
+            <select name="targetProtocol">
+              <option value="http">HTTP</option>
+              <option value="https">HTTPS</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="layui-col-md6">
+        <div class="layui-form-item">
+          <label class="layui-form-label" style="width: 60px;">端口</label>
+          <div class="layui-input-block" style="margin-left: 90px;">
+            <input type="number" name="targetPort" required lay-verify="required" placeholder="8080" class="layui-input">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">高级选项</label>
+      <div class="layui-input-block">
+        <input type="checkbox" name="preserveHost" title="保留原始 Host 头" lay-skin="primary" checked>
+        <input type="checkbox" name="hsts" title="启用 HSTS" lay-skin="primary">
+      </div>
+    </div>
+    <div class="layui-form-item" style="margin-top:25px; text-align:right;">
+      <button class="layui-btn layui-btn-normal" lay-submit lay-filter="submit-proxy">确认保存</button>
+    </div>
+  </form>
+</div>
 
 <!-- Modals and scripts follow same functional pattern -->
 <div id="tpl-create-site" style="display:none; padding:25px;">

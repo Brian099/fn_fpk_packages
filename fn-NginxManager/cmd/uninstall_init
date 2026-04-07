@@ -1,0 +1,4 @@
+#!/bin/bash
+# cmd/uninstall_init
+# Before uninstallation logic (checks)
+exit 0

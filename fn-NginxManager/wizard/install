@@ -1,0 +1,37 @@
+[
+    {
+        "stepTitle": "欢迎使用 Nginx 管理器",
+        "items": [
+            {
+                "type": "tips",
+                "helpText": "欢迎使用 Nginx 管理器！该应用将为您部署 Nginx 1.22 核心环境。"
+            },
+            {
+                "type": "text",
+                "field": "wizard_nginx_port",
+                "label": "Nginx 服务端口",
+                "initValue": "2829",
+                "rules": [
+                    {
+                        "required": true,
+                        "message": "端口号不能为空"
+                    },
+                    {
+                        "pattern": "^[0-9]+$",
+                        "message": "端口号必须是数字"
+                    }
+                ]
+            },
+            {
+                "type": "tips",
+                "helpText": "默认为 2829。如果该端口已被占用，请点击上方输入框进行修改。"
+            },
+            {
+                "type": "switch",
+                "field": "wizard_agree_install",
+                "label": "确认并开始离线安装",
+                "initValue": "true"
+            }
+        ]
+    }
+]

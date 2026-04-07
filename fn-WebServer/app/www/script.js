@@ -22,11 +22,36 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
             .then(res => res.json())
             .then(data => {
                 layer.close(loading);
-                if (data.ok) {
+                if (data.ok || data.message) {
                     if (successMsg) layer.msg(successMsg, { icon: 1 });
                     if (callback) callback(data);
                 } else {
                     layer.alert("操作失败: " + (data.error || "未知错误"), { icon: 2 });
+                }
+            })
+            .catch(err => {
+                layer.close(loading);
+                layer.alert("请求失败: " + err.message, { icon: 2 });
+            });
+    }
+
+    function apiJSON(url, method, data, successMsg, callback) {
+        var loading = layer.load(2);
+        var options = {
+            method: method,
+            headers: { "Content-Type": "application/json" }
+        };
+        if (data) options.body = JSON.stringify(data);
+
+        fetch(apiBase + url, options)
+            .then(res => res.json())
+            .then(resData => {
+                layer.close(loading);
+                if (!resData.error) {
+                    if (successMsg) layer.msg(successMsg, { icon: 1 });
+                    if (callback) callback(resData);
+                } else {
+                    layer.alert("操作失败: " + (resData.error || "未知错误"), { icon: 2 });
                 }
             })
             .catch(err => {
@@ -104,7 +129,7 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
 
     function switchTab(id) {
         // Hide all views
-        $('#view-system, #view-sites, #view-settings').hide();
+        $('#view-system, #view-sites, #view-proxies, #view-settings').hide();
         // Show target with vertical flex layout to prevent elements from sitting side-by-side
         $('#view-' + id).css('display', 'flex').css('flex-direction', 'column').show();
 
@@ -116,6 +141,9 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
         } else if (id === 'sites') {
             // Table auto-renders, but maybe resize?
             table.resize('site-table');
+        } else if (id === 'proxies') {
+            reloadProxies();
+            table.resize('proxy-table');
         } else if (id === 'settings') {
             loadUploadLimit();
         }
@@ -140,21 +168,9 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
                 var statusText = data.running ? '运行中' : '未运行';
                 var html = `<div style="color:${statusColor}"><i class="layui-icon ${data.running ? 'layui-icon-ok-circle' : 'layui-icon-close-fill'}"></i> ${statusText} (${data.version || ''})</div>`;
                 html += data.config_exists ? '<div>配置文件: <span style="color:#5FB878">正常</span></div>' : '<div>配置文件: <span style="color:#FF5722">缺失</span></div>';
-                if (!data.running) {
-                    html += '<button class="layui-btn layui-btn-xs layui-btn-warm" style="margin-top:8px" id="btn-start-nginx-hero">立即启动</button>';
-                }
                 el.html(html);
-                $('#btn-start-nginx-hero').click(function () {
-                    apiPost("/api/nginx/restart", "", "启动尝试中", loadStatus);
-                });
             } else {
-                el.html('<span style="color:#FF5722">未发现适用的nginx</span> <button class="layui-btn layui-btn-xs layui-btn-primary" id="btn-install-nginx">一键安装</button>');
-                $('#btn-install-nginx').click(function () {
-                    layer.confirm('确认安装 Nginx?', function (i) {
-                        layer.close(i);
-                        showInstallLog('nginx', "/api/nginx/install", "", "安装完成", loadStatus);
-                    });
-                });
+                el.html('<span style="color:#FF5722">未检测到系统 Nginx</span><div style="font-size:12px;color:#999;margin-top:5px">请确保环境中已安装并启动 Nginx 服务</div>');
             }
         }).catch(() => $('#nginx-status').text('获取失败'));
 
@@ -337,11 +353,20 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
             var phpData = results[1];
 
             if (!nginxData.installed || !phpData.installed || !phpData.versions || phpData.versions.length === 0) {
-                var msg = "新建网站前必须安装基础环境：<br>";
-                if (!nginxData.installed) msg += "- Nginx <span style='color:#FF5722'>(未安装)</span><br>";
-                if (!phpData.installed || !phpData.versions || phpData.versions.length === 0) msg += "- PHP-FPM <span style='color:#FF5722'>(未检测到已安装的版本)</span><br>";
-                msg += "<br>请确保系统中已安装 Nginx 和 PHP-FPM。";
-                layer.alert(msg, { icon: 0, title: '环境缺失' });
+                var msg = "缺少必要运行环境，无法创建网站：<br><br>";
+                if (!nginxData.installed) msg += "- <b style='color:#FF5722'>Nginx 未安装</b> (请先安装并配置 Nginx)<br>";
+                if (!phpData.installed || !phpData.versions || phpData.versions.length === 0) msg += "- <b style='color:#FF5722'>PHP 未就绪</b> (未检测到可用的 PHP-FPM 版本)<br>";
+                
+                layer.alert(msg, { 
+                    icon: 7, 
+                    title: '环境检测未通过',
+                    btn: ['去安装配置', '取消'],
+                    yes: function(index) {
+                        layer.close(index);
+                        // Optional: redirect to a manager app if path known
+                        layer.msg('请确保系统环境中已正确部署 Nginx 和 PHP');
+                    }
+                });
                 return;
             }
 
@@ -365,7 +390,7 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
             updateCreateSiteVisibility("port", false);
 
             layer.open({
-                type: 1, title: '新建网站', content: $('#tpl-create-site'), area: ['600px', '750px']
+                type: 1, title: '新建网站', content: $('#tpl-create-site'), area: ['600px', '700px']
             });
 
         }).catch(err => {
@@ -493,6 +518,144 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
             });
         }).catch(() => $('#dir-list-container').text("加载失败"));
     }
+
+    // --- Proxy Management ---
+    function reloadProxies() {
+        table.reload('proxy-table');
+    }
+
+    table.render({
+        elem: '#proxy-table',
+        url: apiBase + '/api/proxies',
+        parseData: function (res) {
+            if (res) {
+                $('#proxy-count').text(res.length || 0);
+            }
+            return {
+                "code": 0,
+                "msg": "",
+                "count": res ? res.length : 0,
+                "data": res || []
+            };
+        },
+        cols: [[
+            { field: 'name', title: '规则名称', width: 150 },
+            { 
+                title: '来源 (监听)', width: 180, templet: function (d) {
+                    var proto = (d.sourceProtocol || 'http').toUpperCase();
+                    var color = proto === 'HTTPS' ? 'layui-bg-blue' : 'layui-bg-gray';
+                    return `<span class="layui-badge ${color}">${proto}</span> :${d.sourcePort}`;
+                } 
+            },
+            { 
+                field: 'domains', title: '来源域名', minWidth: 200, templet: function (d) {
+                    if(!d.domains) return '-';
+                    return d.domains.map(dom => `<span class="layui-badge layui-bg-gray" style="margin-right:5px">${dom}</span>`).join('');
+                } 
+            },
+            { 
+                title: '目标 (后端)', minWidth: 200, templet: function (d) {
+                    var proto = (d.targetProtocol || 'http').toUpperCase();
+                    return `${proto}://${d.targetHost}:${d.targetPort}`;
+                } 
+            },
+            {
+                field: 'enable', title: '状态', width: 90, templet: function (d) {
+                    return d.enable ? '<span class="layui-badge layui-bg-green">已启用</span>' : '<span class="layui-badge layui-bg-orange">已停用</span>';
+                }
+            },
+            { fixed: 'right', title: '操作', toolbar: '#proxy-bar', width: 180 }
+        ]],
+        page: false,
+        height: 'full-150',
+        text: { none: '暂无反向代理规则' }
+    });
+
+    $('#search-proxies').on('input', function () {
+        var val = $(this).val().toLowerCase();
+        $('#proxy-table').next().find('.layui-table-body tbody tr').each(function () {
+            var text = $(this).text().toLowerCase();
+            $(this).toggle(text.indexOf(val) > -1);
+        });
+    });
+
+    table.on('tool(proxy-table)', function (obj) {
+        var data = obj.data;
+        if (obj.event === 'del') {
+            layer.confirm('确定删除规则 ' + data.name + '?', function (index) {
+                layer.close(index);
+                apiJSON("/api/proxies/" + data.id, "DELETE", null, "删除成功", reloadProxies);
+            });
+        } else if (obj.event === 'edit') {
+            openProxyModal(data);
+        } else if (obj.event === 'enable') {
+            var updateData = Object.assign({}, data, { enable: true });
+            apiJSON("/api/proxies/" + data.id, "PUT", updateData, "已启用", reloadProxies);
+        } else if (obj.event === 'disable') {
+            var updateData = Object.assign({}, data, { enable: false });
+            apiJSON("/api/proxies/" + data.id, "PUT", updateData, "已停用", reloadProxies);
+        }
+    });
+
+    $('#btn-refresh-proxies').click(function () { reloadProxies(); });
+
+    $('#btn-create-proxy').click(function () {
+        openProxyModal();
+    });
+
+    function openProxyModal(data) {
+        var isEdit = !!data;
+        form.val('form-proxy', {
+            "id": isEdit ? data.id : "",
+            "name": isEdit ? data.name : "",
+            "sourceProtocol": isEdit ? (data.sourceProtocol || "http") : "http",
+            "sourcePort": isEdit ? data.sourcePort : "",
+            "domains": isEdit ? (data.domains ? data.domains.join(',') : "") : "",
+            "targetProtocol": isEdit ? (data.targetProtocol || "http") : "http",
+            "targetPort": isEdit ? data.targetPort : "",
+            "targetHost": isEdit ? data.targetHost : "127.0.0.1",
+            "preserveHost": isEdit ? data.preserveHost : true,
+            "hsts": isEdit ? data.hsts : false
+        });
+        form.render();
+
+        layer.open({
+            type: 1, 
+            title: isEdit ? '编辑代理规则' : '添加代理规则', 
+            content: $('#tpl-proxy-modal'), 
+            area: ['600px', '700px']
+        });
+    }
+
+    form.on('submit(submit-proxy)', function (data) {
+        var field = data.field;
+        var rule = {
+            name: field.name,
+            enable: true,
+            sourceProtocol: field.sourceProtocol,
+            sourcePort: field.sourcePort,
+            domains: field.domains.split(',').map(s => s.trim()).filter(s => s !== ""),
+            targetProtocol: field.targetProtocol,
+            targetHost: field.targetHost,
+            targetPort: field.targetPort,
+            preserveHost: field.preserveHost === "on" || field.preserveHost === true,
+            hsts: field.hsts === "on" || field.hsts === true
+        };
+
+        if (field.id) {
+            rule.id = field.id;
+            apiJSON("/api/proxies/" + field.id, "PUT", rule, "保存成功", function () {
+                layer.closeAll('page');
+                reloadProxies();
+            });
+        } else {
+            apiJSON("/api/proxies", "POST", rule, "添加成功", function () {
+                layer.closeAll('page');
+                reloadProxies();
+            });
+        }
+        return false;
+    });
 
     // --- Initialize ---
     switchTab('system'); // Clear state and show default tab
