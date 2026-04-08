@@ -1,10 +1,13 @@
 function getCgiUrl() {
     let p = window.location.pathname;
+    // 如果已经包含 index.cgi，则返回去掉路径末尾部分后的基础路径
     if (p.includes('index.cgi')) {
-        if (!p.endsWith('/')) p = p.replace(/[^/]*$/, '');
-        return p.replace(/\/$/, '');
+        return p.substring(0, p.lastIndexOf('index.cgi') + 9);
     }
-    if (!p.endsWith('/')) p = p.replace(/[^/]*$/, '');
+    // 确保以 / 结尾，然后加上 index.cgi
+    if (!p.endsWith('/')) {
+        p += '/';
+    }
     return p + 'index.cgi';
 }
 
@@ -29,21 +32,25 @@ function init() {
 }
 
 function setupEventListeners() {
-    document.getElementById('searchBtn').addEventListener('click', function() {
-        currentKeyword = document.getElementById('searchInput').value;
-        loadApps();
-    });
-
-    document.getElementById('searchInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                currentKeyword = this.value;
+                loadApps();
+            }
+        });
+        
+        // Optional: real-time search for clearing
+        searchInput.addEventListener('input', function() {
             currentKeyword = this.value;
-            loadApps();
-        }
-    });
+            if (this.value === '') loadApps();
+        });
+    }
 
-    document.querySelectorAll('.app-tab').forEach(function(btn) {
+    document.querySelectorAll('.tab-item').forEach(function(btn) {
         btn.addEventListener('click', function() {
-            document.querySelectorAll('.app-tab').forEach(function(b) {
+            document.querySelectorAll('.tab-item').forEach(function(b) {
                 b.classList.remove('active');
             });
             this.classList.add('active');
@@ -52,9 +59,9 @@ function setupEventListeners() {
         });
     });
 
-    document.querySelectorAll('.nav-item[data-category]').forEach(function(btn) {
+    document.querySelectorAll('.base-Tab-root[data-category]').forEach(function(btn) {
         btn.addEventListener('click', function() {
-            document.querySelectorAll('.nav-item').forEach(function(b) {
+            document.querySelectorAll('.base-Tab-root').forEach(function(b) {
                 b.classList.remove('active');
             });
             this.classList.add('active');
@@ -64,11 +71,6 @@ function setupEventListeners() {
     });
 
     document.getElementById('settingsBtn').addEventListener('click', function(e) {
-        e.preventDefault();
-        showSettingsManager();
-    });
-
-    document.getElementById('settingsManager').addEventListener('click', function(e) {
         e.preventDefault();
         showSettingsManager();
     });
@@ -163,35 +165,39 @@ function createAppCard(app) {
     const card = document.createElement('div');
     card.className = 'app-card';
 
-    const iconHtml = app.icon
-        ? `<img src="${app.icon}" alt="${app.name}">`
-        : `<span style="color: white; font-size: 24px;">${app.name.charAt(0).toUpperCase()}</span>`;
-
+    const iconUrl = app.icon || '/static/app/icons/trim.app-center/icon.png';
+    const categories = Array.isArray(app.categories) ? app.categories.slice(0, 2).join(' ') : '应用';
+    
+    // Status-based button text and style
+    let btnText = '安装';
+    let btnClass = 'semi-button-primary';
+    
+    // Check if installed or running (simplified check, real logic might need status data)
+    // For now, default to Install if unknown
+    
     card.innerHTML = `
-        <div class="app-card-header">
-            <div class="app-icon">${iconHtml}</div>
-            <div class="app-info">
-                <div class="app-name">${escapeHtml(app.name)}</div>
-                <div class="app-version">v${escapeHtml(app.version)}</div>
+        <div class="app-card-top">
+            <div class="app-card-icon" style="background-image: url('${iconUrl}')"></div>
+            <div class="app-card-info">
+                <div class="app-card-name">${escapeHtml(app.name)}</div>
+                <div class="app-card-meta">
+                    <div class="app-card-category">${escapeHtml(categories)}</div>
+                    <button class="semi-button ${btnClass}" data-app-id="${escapeHtml(app.id)}">${btnText}</button>
+                </div>
             </div>
-        </div>
-        <p class="app-desc">${escapeHtml(app.description || '')}</p>
-        <div class="app-footer">
-            <span class="app-size">${escapeHtml(app.size || 'N/A')} MB</span>
-            <button class="app-download" data-app-id="${escapeHtml(app.id)}">下载安装</button>
         </div>
     `;
 
     card.addEventListener('click', function(e) {
-        if (!e.target.classList.contains('app-download')) {
+        if (!e.target.closest('.semi-button')) {
             showAppDetail(app.id);
         }
     });
 
-    const downloadBtn = card.querySelector('.app-download');
-    downloadBtn.addEventListener('click', function(e) {
+    const installBtn = card.querySelector('.semi-button');
+    installBtn.addEventListener('click', function(e) {
         e.stopPropagation();
-        downloadApp(app);
+        installApp(app);
     });
 
     return card;
@@ -440,52 +446,76 @@ async function showSettingsManager() {
 
 function renderSettingsManager(settings, sources) {
     const dialog = document.getElementById('settingsDialog');
+    // 默认空对象保护
+    const safeSettings = settings || {};
+    const safeSources = sources || [];
 
     dialog.innerHTML = `
         <div class="dialog-header">
-            <h2>设置</h2>
-            <button class="close-btn" onclick="hideSettingsManager()">&times;</button>
+            <h2>应用设置</h2>
+            <button class="window-btn" onclick="hideSettingsManager()" title="关闭">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
         </div>
         <div class="dialog-tabs">
-            <button class="dialog-tab active" data-tab="basic">基础设置</button>
-            <button class="dialog-tab" data-tab="sources">源管理</button>
+            <button class="dialog-tab active" data-tab="basic">基础配置</button>
+            <button class="dialog-tab" data-tab="sources">应用源管理</button>
         </div>
         <div class="dialog-body">
             <div class="tab-content active" id="basicTab">
                 <div class="form-group">
                     <label>AppStore 存储目录</label>
-                    <input type="text" id="appStoreDirInput" value="${escapeHtml(settings.appStoreDir || '')}" placeholder="例如：/vol1/我的文件/AppStore">
-                    <div class="form-hint">请先在系统设置中为此应用添加可访问权限文件夹，然后将路径填入此处</div>
+                    <input type="text" id="appStoreDirInput" class="semi-input" value="${escapeHtml(safeSettings.appStoreDir || '')}" placeholder="例如：/vol1/我的文件/AppStore">
+                    <div class="form-hint">此目录用于存放已下载的应用安装包。请确保该路径在系统设置中已授权给本应用访问权限。</div>
                 </div>
-                <div class="detail-actions" style="border: none; padding: 0;">
-                    <button class="btn-primary" onclick="saveSettings()">保存设置</button>
+                <div style="margin-top: 32px; display: flex; justify-content: flex-end;">
+                    <button class="semi-button semi-button-primary" style="height: 32px; padding: 0 24px;" onclick="saveSettings()">保存配置</button>
                 </div>
             </div>
             <div class="tab-content" id="sourcesTab">
+                <div class="add-source-form">
+                    <h3>添加新的应用源</h3>
+                    <div class="form-inline">
+                        <div class="form-group">
+                            <input type="text" id="newSourceName" class="semi-input" placeholder="源名称" style="height: 32px;">
+                        </div>
+                        <div class="form-group">
+                            <input type="text" id="newSourceUrl" class="semi-input" placeholder="源 URL (https://...)" style="height: 32px;">
+                        </div>
+                        <button class="semi-button semi-button-primary" style="height: 32px; flex-shrink: 0;" onclick="addSource()">添加源</button>
+                    </div>
+                </div>
                 <div id="sourceListContainer">
-                    ${renderSourceList(sources)}
+                    ${renderSourceList(safeSources)}
                 </div>
             </div>
         </div>
     `;
 
+    // 重新绑定标签页切换
     document.querySelectorAll('.dialog-tab').forEach(function(tab) {
         tab.addEventListener('click', function() {
             document.querySelectorAll('.dialog-tab').forEach(function(t) {
                 t.classList.remove('active');
             });
             this.classList.add('active');
-            document.querySelectorAll('.tab-content').forEach(function(content) {
+            document.querySelectorAll('.dialog-body .tab-content').forEach(function(content) {
                 content.classList.remove('active');
             });
-            document.getElementById(this.dataset.tab + 'Tab').classList.add('active');
+            const targetId = this.dataset.tab + 'Tab';
+            const target = document.getElementById(targetId);
+            if (target) target.classList.add('active');
         });
     });
 }
 
 function renderSourceList(sources) {
     if (!sources || sources.length === 0) {
-        return '<div class="empty-state"><p>暂无数据源</p></div>';
+        return `
+            <div class="empty-state-container">
+                <p>暂无配置的应用源，请在上方添加</p>
+            </div>
+        `;
     }
 
     return `
@@ -499,7 +529,7 @@ function renderSourceList(sources) {
                         </div>
                         <div class="source-item-actions">
                             <button class="action-btn sync-btn" onclick="syncSource('${escapeHtml(source.id)}')">同步</button>
-                            ${source.local ? `<button class="action-btn reset-btn" onclick="resetCache('${escapeHtml(source.id)}')">重置</button>` : ''}
+                            ${source.local ? `<button class="action-btn" style="background: var(--semi-color-fill-1); color: var(--semi-color-text-1);" onclick="resetCache('${escapeHtml(source.id)}')">重置</button>` : ''}
                             ${!source.local ? `<button class="action-btn delete-btn" onclick="deleteSource('${escapeHtml(source.id)}')">删除</button>` : ''}
                         </div>
                     </div>
@@ -602,6 +632,41 @@ async function deleteSource(sourceId) {
         }
     } catch (error) {
         console.error('删除源失败:', error);
+        alert('网络错误，请重试');
+    }
+}
+
+async function addSource() {
+    const name = document.getElementById('newSourceName').value.trim();
+    const url = document.getElementById('newSourceUrl').value.trim();
+
+    if (!name || !url) {
+        alert('请输入源名称和 URL');
+        return;
+    }
+
+    try {
+        const data = await apiRequest('/api/sources', {
+            method: 'POST',
+            body: JSON.stringify({ name: name, url: url })
+        });
+
+        if (data.code === 0) {
+            alert('添加源成功');
+            // 刷新列表并保持在源管理页
+            const [settingsData, sourcesData] = await Promise.all([
+                apiRequest('/api/settings'),
+                apiRequest('/api/sources')
+            ]);
+            renderSettingsManager(settingsData.data, sourcesData.data.sources || []);
+            // 强制切回到源管理标签
+            document.querySelector('.dialog-tab[data-tab="sources"]').click();
+            loadApps();
+        } else {
+            alert('添加源失败: ' + (data.message || '未知错误'));
+        }
+    } catch (error) {
+        console.error('添加源失败:', error);
         alert('网络错误，请重试');
     }
 }
