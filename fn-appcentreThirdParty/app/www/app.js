@@ -11,15 +11,175 @@ function getCgiUrl() {
     return p + 'index.cgi';
 }
 
-function apiRequest(endpoint, options = {}) {
-    const url = getCgiUrl() + endpoint;
-    return fetch(url, {
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
+// 增强的API服务类
+class ApiService {
+    constructor() {
+        this.baseUrl = getCgiUrl();
+        this.timeout = 10000; // 10秒超时
+    }
+
+    async request(endpoint, options = {}) {
+        const url = this.baseUrl + endpoint;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+        
+        try {
+            const response = await fetch(url, {
+                signal: controller.signal,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                },
+                ...options
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            // 检查后端返回的错误码
+            if (data.code !== 0 && data.code !== undefined) {
+                throw new Error(data.message || 'API请求失败');
+            }
+            
+            return data;
+        } catch (error) {
+            clearTimeout(timeoutId);
+            
+            if (error.name === 'AbortError') {
+                throw new Error('请求超时，请检查网络连接');
+            }
+            
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                throw new Error('网络连接失败，请检查网络设置');
+            }
+            
+            throw error;
         }
-    }).then(response => response.json());
+    }
+
+    // 专用GET方法
+    async get(endpoint) {
+        return this.request(endpoint, { method: 'GET' });
+    }
+
+    // 专用POST方法
+    async post(endpoint, data = {}) {
+        return this.request(endpoint, {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    }
+
+    // 专用DELETE方法
+    async delete(endpoint) {
+        return this.request(endpoint, { method: 'DELETE' });
+    }
+
+    // === 新增功能API ===
+
+    // 获取已安装应用列表
+    async getInstalledApps() {
+        return this.get('/api/apps/installed');
+    }
+
+    // 获取默认存储空间
+    async getDefaultVolume() {
+        return this.get('/api/volume/default');
+    }
+
+    // 设置默认存储空间
+    async setDefaultVolume(volumeId) {
+        return this.post(`/api/volume/default/${volumeId}`);
+    }
+
+    // 获取手动安装状态
+    async getManualInstallStatus() {
+        return this.get('/api/manual-install');
+    }
+
+    // 设置手动安装状态
+    async setManualInstall(action) {
+        if (action !== 'enable' && action !== 'disable') {
+            throw new Error('Invalid action. Use "enable" or "disable"');
+        }
+        return this.post(`/api/manual-install/${action}`);
+    }
+
+    // 获取应用源列表
+    async getSources() {
+        return this.get('/api/sources');
+    }
+
+    // 添加应用源
+    async addSource(sourceData) {
+        return this.post('/api/sources', sourceData);
+    }
+
+    // 删除应用源
+    async deleteSource(sourceId) {
+        return this.delete(`/api/sources/${sourceId}`);
+    }
+
+    // 同步应用源
+    async syncSource(sourceId) {
+        return this.post(`/api/sources/${sourceId}/sync`);
+    }
+
+    // 重置应用源缓存
+    async resetSourceCache(sourceId) {
+        return this.post(`/api/sources/${sourceId}/reset-cache`);
+    }
+
+    // 获取应用设置
+    async getSettings() {
+        return this.get('/api/settings');
+    }
+
+    // 保存应用设置
+    async saveSettings(settings) {
+        return this.post('/api/settings', settings);
+    }
+
+    // === 安装相关API ===
+
+    // 安装应用（支持环境变量文件）
+    async installApp(appId, envFilePath = null) {
+        const data = envFilePath ? { env_file_path: envFilePath } : {};
+        return this.post(`/api/apps/${appId}/install`, data);
+    }
+
+    // 启动应用
+    async startApp(appId) {
+        return this.post(`/api/apps/${appId}/start`);
+    }
+
+    // 停止应用
+    async stopApp(appId) {
+        return this.post(`/api/apps/${appId}/stop`);
+    }
+
+    // 卸载应用
+    async uninstallApp(appId) {
+        return this.delete(`/api/apps/${appId}`);
+    }
+
+    // 获取应用状态
+    async getAppStatus(appId) {
+        return this.get(`/api/apps/${appId}/status`);
+    }
+}
+
+// 创建全局API服务实例
+const apiService = new ApiService();
+
+// 保持向后兼容的apiRequest函数
+function apiRequest(endpoint, options = {}) {
+    return apiService.request(endpoint, options);
 }
 
 let currentCategory = '';
@@ -337,32 +497,67 @@ async function downloadApp(app) {
     }
 }
 
-async function installApp(app) {
+async function installApp(app, envFilePath = null) {
     if (!app || !app.id) {
-        alert('应用信息无效');
+        showNotification('应用信息无效', 'error');
         return;
     }
 
-    if (!confirm(`确定要安装 ${app.name} 吗？`)) {
+    // 显示安装确认对话框（支持环境变量文件）
+    const installConfirmed = await showInstallDialog(app, envFilePath);
+    if (!installConfirmed) {
         return;
     }
 
     try {
-        const data = await apiRequest(`/api/apps/${app.id}/install`, {
-            method: 'POST'
-        });
+        showLoading('正在安装应用...');
+        
+        const data = await apiService.installApp(app.id, envFilePath);
 
+        hideLoading();
+        
         if (data.code === 0) {
-            alert('安装成功！');
+            showNotification('安装成功！', 'success');
             hideAppDetail();
             loadApps();
+            
+            // 启动应用状态轮询
+            startAppStatusPolling(app.id);
         } else {
-            alert('安装失败: ' + (data.message || '未知错误'));
+            showNotification('安装失败: ' + (data.message || '未知错误'), 'error');
         }
     } catch (error) {
+        hideLoading();
         console.error('安装失败:', error);
-        alert('网络错误，请重试');
+        showNotification('安装失败: ' + error.message, 'error');
     }
+}
+
+// 显示安装确认对话框
+function showInstallDialog(app, envFilePath) {
+    return new Promise((resolve) => {
+        const dialog = document.createElement('div');
+        dialog.className = 'install-dialog-overlay';
+        dialog.innerHTML = `
+            <div class="install-dialog">
+                <h3>安装应用</h3>
+                <p>确定要安装 <strong>${app.name}</strong> 吗？</p>
+                ${envFilePath ? `<p class="env-file-info">将使用环境变量文件: ${envFilePath}</p>` : ''}
+                
+                <div class="dialog-actions">
+                    <button class="btn-secondary" onclick="closeInstallDialog(false)">取消</button>
+                    <button class="btn-primary" onclick="closeInstallDialog(true)">确认安装</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(dialog);
+        
+        window.closeInstallDialog = (confirmed) => {
+            document.body.removeChild(dialog);
+            resolve(confirmed);
+        };
+    });
 }
 
 async function startApp(appId) {
@@ -677,5 +872,139 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+
+// === 状态管理功能 ===
+
+const appStatusPollers = new Map();
+
+// 启动应用状态轮询
+function startAppStatusPolling(appId) {
+    if (appStatusPollers.has(appId)) {
+        return; // 已经在轮询中
+    }
+    
+    const interval = setInterval(async () => {
+        try {
+            const status = await apiService.getAppStatus(appId);
+            updateAppStatusUI(appId, status.data);
+            
+            // 如果应用已停止或未安装，停止轮询
+            if (status.data.status === 'stopped' || status.data.status === 'not_installed') {
+                stopAppStatusPolling(appId);
+            }
+        } catch (error) {
+            console.error('状态轮询失败:', error);
+            stopAppStatusPolling(appId);
+        }
+    }, 3000); // 每3秒轮询一次
+    
+    appStatusPollers.set(appId, interval);
+}
+
+// 停止应用状态轮询
+function stopAppStatusPolling(appId) {
+    if (appStatusPollers.has(appId)) {
+        clearInterval(appStatusPollers.get(appId));
+        appStatusPollers.delete(appId);
+    }
+}
+
+// 更新应用状态UI
+function updateAppStatusUI(appId, statusData) {
+    const appCard = document.querySelector(`[data-app-id="${appId}"]`);
+    if (!appCard) return;
+    
+    const statusElement = appCard.querySelector('.app-status');
+    const actionButtons = appCard.querySelector('.app-actions');
+    
+    if (statusElement && actionButtons) {
+        // 更新状态显示
+        statusElement.textContent = getStatusText(statusData.status);
+        statusElement.className = `app-status status-${statusData.status}`;
+        
+        // 更新操作按钮
+        actionButtons.innerHTML = generateActionButtons(appId, statusData);
+    }
+}
+
+// 获取状态文本
+function getStatusText(status) {
+    const statusMap = {
+        'running': '运行中',
+        'stopped': '已停止',
+        'not_installed': '未安装',
+        'installing': '安装中',
+        'starting': '启动中',
+        'stopping': '停止中'
+    };
+    return statusMap[status] || status;
+}
+
+// 生成操作按钮
+function generateActionButtons(appId, statusData) {
+    const app = window.appsCache?.[appId];
+    if (!app) return '';
+    
+    switch (statusData.status) {
+        case 'running':
+            return `<button class="btn-secondary" onclick="stopApp('${appId}')">停止</button>
+                    <button class="btn-secondary" onclick="uninstallApp('${appId}', '${app.name}')" style="background: #f44336; color: white; border-color: #f44336;">卸载</button>`;
+        case 'stopped':
+            return `<button class="btn-primary" onclick="startApp('${appId}')">启动</button>
+                    <button class="btn-secondary" onclick="uninstallApp('${appId}', '${app.name}')" style="background: #f44336; color: white; border-color: #f44336;">卸载</button>`;
+        case 'not_installed':
+            return `<button class="btn-primary" onclick="installApp(${JSON.stringify(app).replace(/"/g, '&quot;')})">安装</button>`;
+        default:
+            return `<button class="btn-secondary" disabled>${getStatusText(statusData.status)}</button>`;
+    }
+}
+
+// 显示通知
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+        <div class="notification-content">
+            <span class="notification-message">${message}</span>
+            <button class="notification-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // 自动移除通知
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// 显示加载指示器
+function showLoading(message = '加载中...') {
+    let loading = document.getElementById('global-loading');
+    if (!loading) {
+        loading = document.createElement('div');
+        loading.id = 'global-loading';
+        loading.className = 'loading-overlay';
+        loading.innerHTML = `
+            <div class="loading-spinner"></div>
+            <div class="loading-message">${message}</div>
+        `;
+        document.body.appendChild(loading);
+    }
+    loading.style.display = 'flex';
+}
+
+// 隐藏加载指示器
+function hideLoading() {
+    const loading = document.getElementById('global-loading');
+    if (loading) {
+        loading.style.display = 'none';
+    }
+}
+
+// 全局应用缓存
+window.appsCache = {};
 
 window.onload = init;

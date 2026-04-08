@@ -829,3 +829,330 @@ button, input, select, textarea {
     border-radius: var(--semi-border-radius-s);
     color: var(--semi-color-text-2);
 }
+
+/* === 应用详细信息模态页面样式 === */
+
+.detail-header {
+    display: flex;
+    align-items: center;
+    padding: 24px;
+    border-bottom: 1px solid var(--semi-color-border);
+    background-color: var(--semi-color-bg-0);
+    gap: 16px;
+}
+
+.detail-header img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 12px;
+    flex-shrink: 0;
+}
+
+.detail-header div:first-child {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.detail-header div:first-child span {
+    color: white;
+    font-size: 32px;
+    font-weight: 600;
+}
+
+.detail-title {
+    flex: 1;
+    min-width: 0;
+}
+
+.detail-title h2 {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--semi-color-text-0);
+    margin: 0 0 4px 0;
+    line-height: 1.2;
+}
+
+.detail-meta {
+    font-size: 14px;
+    color: var(--semi-color-text-2);
+    margin: 0;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--semi-color-text-2);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.close-btn:hover {
+    background-color: var(--semi-color-fill-0);
+    color: var(--semi-color-text-0);
+}
+
+.detail-body {
+    padding: 24px;
+    height: calc(100% - 128px);
+    overflow-y: auto;
+}
+
+.detail-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.info-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--semi-color-text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-value {
+    font-size: 14px;
+    color: var(--semi-color-text-0);
+    font-weight: 500;
+}
+
+.detail-section {
+    margin-bottom: 24px;
+}
+
+.detail-section h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--semi-color-text-0);
+    margin: 0 0 12px 0;
+}
+
+.detail-section p {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--semi-color-text-1);
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+.detail-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--semi-color-border);
+}
+
+.detail-actions .btn-primary,
+.detail-actions .btn-secondary {
+    min-width: 80px;
+}
+
+/* === 状态管理样式 === */
+
+.app-status {
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.status-running {
+    background-color: #e8f5e8;
+    color: #2e7d32;
+}
+
+.status-stopped {
+    background-color: #fff3e0;
+    color: #f57c00;
+}
+
+.status-not_installed {
+    background-color: #f5f5f5;
+    color: #757575;
+}
+
+.status-installing, .status-starting, .status-stopping {
+    background-color: #e3f2fd;
+    color: #1976d2;
+}
+
+/* 通知系统样式 */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    min-width: 300px;
+    max-width: 500px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideIn 0.3s ease-out;
+}
+
+.notification-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+}
+
+.notification-message {
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.notification-close {
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 12px;
+    color: inherit;
+    opacity: 0.7;
+}
+
+.notification-close:hover {
+    opacity: 1;
+}
+
+.notification-success {
+    background-color: #e8f5e8;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+}
+
+.notification-error {
+    background-color: #ffebee;
+    color: #c62828;
+    border: 1px solid #ffcdd2;
+}
+
+.notification-info {
+    background-color: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #bbdefb;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* 加载指示器样式 */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.8);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    flex-direction: column;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.loading-message {
+    margin-top: 16px;
+    font-size: 14px;
+    color: #666;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 安装对话框样式 */
+.install-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.install-dialog {
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    min-width: 400px;
+    max-width: 500px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.install-dialog h3 {
+    margin: 0 0 12px 0;
+    font-size: 18px;
+    color: #333;
+}
+
+.install-dialog p {
+    margin: 0 0 16px 0;
+    color: #666;
+    line-height: 1.5;
+}
+
+.env-file-info {
+    background-color: #f0f8ff;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border-left: 3px solid #3498db;
+    font-size: 14px;
+}
+
+.dialog-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+.dialog-actions .btn-primary,
+.dialog-actions .btn-secondary {
+    min-width: 80px;
+}
