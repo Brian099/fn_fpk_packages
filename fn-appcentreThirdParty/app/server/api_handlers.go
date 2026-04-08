@@ -968,64 +968,81 @@ func parseAndCacheSource(sourceID string) []App {
 }
 
 func parseLocalFPKSource() []App {
-	userAppStoreDir := getUsersAppStoreDir()
-	if userAppStoreDir == "" {
-		return []App{}
-	}
-
-	entries, err := os.ReadDir(userAppStoreDir)
-	if err != nil {
-		log.Printf("Failed to read user AppStore directory: %v", err)
-		return []App{}
-	}
-
-	var fpkFiles []string
-	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".fpk") {
-			fpkFiles = append(fpkFiles, entry.Name())
-		}
-	}
-
-	if len(fpkFiles) == 0 {
-		return []App{}
-	}
-
 	cachedData := loadFPKCache()
 	cachedFingerprints := cachedData.Fingerprints
-	currentFingerprints := scanFPKDirectory(userAppStoreDir, fpkFiles)
 
-	var apps []App
+	dirs := []struct {
+		name string
+		dir  string
+	}{
+		{"builtin", appStoreDir},
+		{"user", getUsersAppStoreDir()},
+	}
 
-	for _, fpkFile := range fpkFiles {
-		fpkPath := filepath.Join(userAppStoreDir, fpkFile)
-		appID := strings.TrimSuffix(fpkFile, ".fpk")
+	allApps := make([]App, 0)
+	allFingerprints := make(map[string]FPKFingerprint)
 
-		cachedApp := findCachedApp(cachedData.Apps, appID)
-		currentFp := currentFingerprints[appID]
-		cachedFp := cachedFingerprints[appID]
+	for _, d := range dirs {
+		if d.dir == "" {
+			continue
+		}
+		if _, err := os.Stat(d.dir); os.IsNotExist(err) {
+			continue
+		}
 
-		if cachedApp != nil && currentFp == cachedFp {
-			apps = append(apps, *cachedApp)
-			log.Printf("FPK cache hit: %s (unchanged)", appID)
-		} else {
-			app, err := parseFPKFile(fpkPath)
-			if err != nil {
-				log.Printf("Failed to parse FPK file %s: %v", fpkFile, err)
-				if cachedApp != nil {
-					apps = append(apps, *cachedApp)
-					log.Printf("FPK parse failed, using stale cache: %s", appID)
-				}
-				continue
+		entries, err := os.ReadDir(d.dir)
+		if err != nil {
+			log.Printf("Failed to read %s AppStore directory %s: %v", d.name, d.dir, err)
+			continue
+		}
+
+		var fpkFiles []string
+		for _, entry := range entries {
+			if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".fpk") {
+				fpkFiles = append(fpkFiles, entry.Name())
 			}
-			apps = append(apps, app)
-			log.Printf("FPK cache miss: %s (changed or new)", appID)
+		}
+
+		if len(fpkFiles) == 0 {
+			continue
+		}
+
+		currentFingerprints := scanFPKDirectory(d.dir, fpkFiles)
+
+		for _, fpkFile := range fpkFiles {
+			fpkPath := filepath.Join(d.dir, fpkFile)
+			appID := strings.TrimSuffix(fpkFile, ".fpk")
+
+			cachedApp := findCachedApp(cachedData.Apps, appID)
+			currentFp := currentFingerprints[appID]
+			cachedFp := cachedFingerprints[appID]
+
+			if cachedApp != nil && currentFp == cachedFp {
+				allApps = append(allApps, *cachedApp)
+				allFingerprints[appID] = currentFp
+				log.Printf("FPK cache hit: %s (%s, unchanged)", appID, d.name)
+			} else {
+				app, err := parseFPKFile(fpkPath)
+				if err != nil {
+					log.Printf("Failed to parse FPK file %s: %v", fpkFile, err)
+					if cachedApp != nil {
+						allApps = append(allApps, *cachedApp)
+						allFingerprints[appID] = currentFp
+						log.Printf("FPK parse failed, using stale cache: %s", appID)
+					}
+					continue
+				}
+				allApps = append(allApps, app)
+				allFingerprints[appID] = currentFp
+				log.Printf("FPK cache miss: %s (%s, changed or new)", appID, d.name)
+			}
 		}
 	}
 
-	saveFPKCache(apps, currentFingerprints)
-	log.Printf("Cached %d apps from local FPK files", len(apps))
+	saveFPKCache(allApps, allFingerprints)
+	log.Printf("Cached %d apps from local FPK files (user + builtin)", len(allApps))
 
-	return apps
+	return allApps
 }
 
 func scanFPKDirectory(baseDir string, fpkFiles []string) map[string]FPKFingerprint {
