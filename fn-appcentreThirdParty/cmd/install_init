@@ -1,0 +1,15 @@
+#!/bin/bash
+
+echo "第三方应用中心安装初始化..."
+
+mkdir -p "$TRIM_PKGVAR"
+mkdir -p "$TRIM_PKGETC"
+mkdir -p "$TRIM_APPDEST/AppStore"
+mkdir -p "$TRIM_APPDEST/download"
+mkdir -p "$TRIM_APPDEST/var/cache"
+
+chmod 755 "$TRIM_APPDEST/appcentre"
+chmod 755 "$TRIM_APPDEST/app/ui/index.cgi"
+
+echo "安装初始化完成！"
+exit 0

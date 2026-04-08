@@ -1,0 +1,19 @@
+#!/bin/bash
+
+echo "第三方应用中心更新回调..."
+
+# Start the service after upgrade
+if [ -x "${TRIM_APPDEST:-/var/apps/fn-appcentreThirdParty/target}/main" ]; then
+    echo "Starting service after upgrade..."
+    "${TRIM_APPDEST:-/var/apps/fn-appcentreThirdParty/target}/main" start
+else
+    # Try alternative path
+    if [ -x "${TRIM_APPDEST:-/var/apps/fn-appcentreThirdParty/target}/cmd/main" ]; then
+        echo "Starting service after upgrade..."
+        "${TRIM_APPDEST:-/var/apps/fn-appcentreThirdParty/target}/cmd/main" start
+    else
+        echo "Service control script not found, skipping start"
+    fi
+fi
+
+exit 0

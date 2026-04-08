@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>应用中心【第三方】</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>应用中心【第三方】</h1>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="搜索应用...">
+                <button id="searchBtn">搜索</button>
+            </div>
+        </header>
+
+        <nav class="app-nav">
+            <ul>
+                <li class="active"><a href="#" data-category="">全部应用</a></li>
+                <li><a href="#" data-category="工具">工具</a></li>
+                <li><a href="#" data-category="媒体">媒体</a></li>
+                <li><a href="#" data-category="网络">网络</a></li>
+                <li><a href="#" data-category="数据库">数据库</a></li>
+                <li><a href="#" id="sourceManager">源管理</a></li>
+                <li><a href="#" id="settingsManager">设置</a></li>
+            </ul>
+        </nav>
+
+        <main class="app-content">
+            <div class="app-grid" id="appGrid">
+                <!-- 应用卡片将通过 JavaScript 动态生成 -->
+            </div>
+        </main>
+
+        <div class="app-detail-overlay" id="appDetailOverlay"></div>
+        <div class="app-detail" id="appDetail">
+            <!-- 应用详情将通过 JavaScript 动态生成 -->
+        </div>
+
+        <div class="source-manager-overlay" id="sourceManagerOverlay"></div>
+        <div class="source-manager" id="sourceManagerDialog">
+            <!-- 源管理对话框将通过 JavaScript 动态生成 -->
+        </div>
+
+        <div class="source-manager-overlay" id="settingsManagerOverlay"></div>
+        <div class="source-manager" id="settingsManagerDialog">
+            <!-- 设置对话框将通过 JavaScript 动态生成 -->
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

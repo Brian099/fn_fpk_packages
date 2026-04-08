@@ -1,0 +1,1 @@
+[{"stepTitle": "卸载向导", "items": [{"type": "tips", "helpText": "<strong>卸载应用中心【第三方】</strong><br><br>您正在卸载第三方应用中心，此操作将：<br>1. 停止应用中心服务<br>2. 移除应用中心文件<br>3. 保留 AppStore 中的应用安装包<br><br><strong>提示：</strong>卸载后，您添加的应用源配置将会丢失。"}]}]

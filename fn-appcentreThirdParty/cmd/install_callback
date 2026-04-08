@@ -1,0 +1,56 @@
+#!/bin/bash
+
+echo "第三方应用中心安装回调..."
+
+chmod +x ${TRIM_APPDEST}/app/ui/*.cgi 2>/dev/null || true
+chmod +x ${TRIM_APPDEST}/app/www/*.cgi 2>/dev/null || true
+
+mkdir -p "${TRIM_PKGVAR}"
+mkdir -p "${TRIM_PKGVAR}/cache"
+
+# Create AppStore directory in user's file space for easy access
+# Try to find the user's file space directory (typically under /vol1 or similar)
+USER_FILES_DIR="/vol1/我的文件"
+if [ -d "$USER_FILES_DIR" ]; then
+    APPSTORE_DIR="$USER_FILES_DIR/AppStore"
+    mkdir -p "$APPSTORE_DIR"
+    chmod 755 "$APPSTORE_DIR"
+    echo "Created AppStore directory for user uploads: $APPSTORE_DIR"
+else
+    # Try alternative locations
+    for vol in /vol*; do
+        if [ -d "$vol" ]; then
+            USER_FILES_DIR="$vol/我的文件"
+            if [ -d "$USER_FILES_DIR" ]; then
+                APPSTORE_DIR="$USER_FILES_DIR/AppStore"
+                mkdir -p "$APPSTORE_DIR"
+                chmod 755 "$APPSTORE_DIR"
+                echo "Created AppStore directory for user uploads: $APPSTORE_DIR"
+                break
+            fi
+        fi
+    done
+fi
+
+# Initialize sources.json if it doesn't exist
+SOURCES_FILE="${TRIM_PKGVAR}/sources.json"
+if [ ! -f "${SOURCES_FILE}" ]; then
+    cat >"${SOURCES_FILE}" <<'EOF'
+[
+  {
+    "id": "local",
+    "name": "本地源",
+    "url": "local",
+    "enabled": true,
+    "auto_update": true,
+    "last_sync": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+    "app_count": 0,
+    "local": true
+  }
+]
+EOF
+    echo "Default sources config created: ${SOURCES_FILE}"
+fi
+
+echo "安装回调完成！"
+exit 0

@@ -1,0 +1,17 @@
+appname               = fn-appcentreThirdParty
+version               = 1.0.27
+display_name          = 应用中心【第三方】
+desc                  = <p>第三方应用中心，用于管理和安装第三方飞牛应用。</p><p>功能特性：</p><ul><li>浏览和搜索第三方应用</li><li>支持多源管理，类似群晖套件中心</li><li>自动发现本地源目录</li><li>应用下载和安装</li></ul>
+platform              = x86
+source                = thirdparty
+os_min_version        = 0.9.0
+desktop_uidir         = ui
+desktop_applaunchname = fn-appcentreThirdParty.Application
+maintainer            = laok
+maintainer_url        = https://github.com
+distributor           = laok
+distributor_url       = https://github.com
+reloadui              = yes
+ctl_stop              = true
+install_type          = root
+size                  = 5
