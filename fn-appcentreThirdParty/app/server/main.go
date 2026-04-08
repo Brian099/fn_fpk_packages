@@ -13,12 +13,11 @@ import (
 )
 
 var (
-	unixSocket      = flag.String("unix-socket", "/var/apps/fn-appcentreThirdParty/var/appcentre.sock", "Unix socket path")
-	appDest         = os.Getenv("TRIM_APPDEST")
-	pkgVar          = os.Getenv("TRIM_PKGVAR")
-	userAppStoreDir = os.Getenv("APP_APPSTORE_DIR")
-	configPath      string
-	config          Config
+	unixSocket = flag.String("unix-socket", "/var/apps/fn-appcentreThirdParty/var/appcentre.sock", "Unix socket path")
+	appDest    = os.Getenv("TRIM_APPDEST")
+	pkgVar     = os.Getenv("TRIM_PKGVAR")
+	configPath string
+	config     Config
 )
 
 // Config 应用配置结构体
@@ -113,6 +112,8 @@ func setupRouter() *gin.Engine {
 	api := r.Group("/api")
 	{
 		api.GET("/apps", getApps)
+		api.GET("/apps/built-in", getBuiltInApps)
+		api.GET("/apps/user", getUserApps)
 		api.GET("/apps/:id", getAppDetail)
 		api.GET("/apps/:id/icon", getAppIcon)
 		api.POST("/apps/:id/install", installApp)
@@ -124,62 +125,23 @@ func setupRouter() *gin.Engine {
 		api.POST("/sources", addSource)
 		api.DELETE("/sources/:id", deleteSource)
 		api.POST("/sources/:id/sync", syncSource)
+		api.POST("/sources/:id/reset-cache", resetSourceCache)
 		// Settings API
 		api.GET("/settings", getSettings)
 		api.POST("/settings", saveSettings)
 	}
 
-	// 内置 AppStore 目录固定使用 /download 前缀
-	// 用户配置的 AppStore 目录使用 /user-download 前缀（方案A：路由分离）
-	appStoreDir := filepath.Join(appDest, "AppStore")
-	r.Static("/download", appStoreDir)
+	// 内置 AppStore 目录使用 /built-in-download 前缀
+	// 用户配置的 AppStore 目录使用 /user-download 前缀
+	builtInAppStoreDir := filepath.Join(appDest, "AppStore")
+	r.Static("/built-in-download", builtInAppStoreDir)
 
-	userAppStoreDir := findUserAppStoreDir()
-	if userAppStoreDir != "" {
-		log.Printf("Serving user download files from: %s", userAppStoreDir)
-		r.Static("/user-download", userAppStoreDir)
-		r.Static("/AppStore", userAppStoreDir)
-	} else {
-		r.Static("/AppStore", appStoreDir)
+	if config.AppStoreDir != "" {
+		log.Printf("Serving user AppStore files from: %s", config.AppStoreDir)
+		r.Static("/user-download", config.AppStoreDir)
 	}
 
 	return r
-}
-
-func findUserAppStoreDir() string {
-	// First check if user specified directory in config file
-	if config.AppStoreDir != "" {
-		log.Printf("Using config-specified AppStore directory: %s", config.AppStoreDir)
-		return config.AppStoreDir
-	}
-
-	// Then check if user specified directory in environment variable
-	if userAppStoreDir != "" {
-		log.Printf("Using environment-specified AppStore directory: %s", userAppStoreDir)
-		return userAppStoreDir
-	}
-
-	// Try to find user's AppStore directory in file space
-	userFilesDirs := []string{
-		"/vol1/我的文件/AppStore",
-	}
-
-	// Try all volume directories
-	volumes, err := filepath.Glob("/vol*")
-	if err == nil {
-		for _, vol := range volumes {
-			userFilesDirs = append(userFilesDirs, filepath.Join(vol, "我的文件", "AppStore"))
-		}
-	}
-
-	// Return the first existing directory
-	for _, dir := range userFilesDirs {
-		if _, err := os.Stat(dir); err == nil {
-			return dir
-		}
-	}
-
-	return ""
 }
 
 func ensureDirs() {

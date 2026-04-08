@@ -178,6 +178,28 @@ func getApps(c *gin.Context) {
 	})
 }
 
+func getBuiltInApps(c *gin.Context) {
+	builtInApps := loadBuiltInApps()
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"total": len(builtInApps),
+			"apps":  builtInApps,
+		},
+	})
+}
+
+func getUserApps(c *gin.Context) {
+	userApps := loadUserApps()
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"total": len(userApps),
+			"apps":  userApps,
+		},
+	})
+}
+
 func getAppDetail(c *gin.Context) {
 	appID := c.Param("id")
 
@@ -531,6 +553,31 @@ func syncSource(c *gin.Context) {
 	})
 }
 
+func resetSourceCache(c *gin.Context) {
+	sourceID := c.Param("id")
+
+	if sourceID != "local_fpk_files" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "Only local_fpk_files cache can be reset",
+		})
+		return
+	}
+
+	cachePath := filepath.Join(cacheDir, sourceID+".json")
+	os.Remove(cachePath)
+
+	apps := parseLocalFPKSource()
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "Cache reset successfully",
+		"data": gin.H{
+			"total": len(apps),
+		},
+	})
+}
+
 func loadSources() []Source {
 	data, err := ioutil.ReadFile(sourcesConfig)
 	if err != nil {
@@ -567,44 +614,13 @@ func discoverLocalSources(sources *[]Source) {
 }
 
 func getUsersAppStoreDir() string {
-	log.Printf("getUsersAppStoreDir: config.AppStoreDir = '%s'", config.AppStoreDir)
-
-	// 优先使用配置文件中的目录
 	if config.AppStoreDir != "" {
 		if _, err := os.Stat(config.AppStoreDir); err == nil {
 			log.Printf("getUsersAppStoreDir: Using configured directory: %s", config.AppStoreDir)
 			return config.AppStoreDir
-		} else {
-			log.Printf("getUsersAppStoreDir: Configured directory not accessible: %s, error: %v", config.AppStoreDir, err)
 		}
+		log.Printf("getUsersAppStoreDir: Configured directory not accessible: %s", config.AppStoreDir)
 	}
-
-	// 尝试查找用户文件空间中的 AppStore 目录
-	userFilesDirs := []string{
-		"/vol1/我的文件/AppStore",
-	}
-
-	// 尝试所有卷目录
-	volumes, err := filepath.Glob("/vol*")
-	if err == nil {
-		for _, vol := range volumes {
-			userFilesDirs = append(userFilesDirs, filepath.Join(vol, "我的文件", "AppStore"))
-			// Also check /volX/1000/AppStore pattern
-			userFilesDirs = append(userFilesDirs, filepath.Join(vol, "1000", "AppStore"))
-		}
-	}
-
-	log.Printf("getUsersAppStoreDir: Checking directories: %v", userFilesDirs)
-
-	// 返回第一个存在的目录
-	for _, dir := range userFilesDirs {
-		if _, err := os.Stat(dir); err == nil {
-			log.Printf("getUsersAppStoreDir: Found directory: %s", dir)
-			return dir
-		}
-	}
-
-	log.Printf("getUsersAppStoreDir: No AppStore directory found!")
 	return ""
 }
 
@@ -689,7 +705,7 @@ func scanFPKFiles(sources *[]Source, baseDir string) {
 func parseFPKFile(fpkPath string) (App, error) {
 	var app App
 	app.ID = strings.TrimSuffix(filepath.Base(fpkPath), ".fpk")
-	app.DownloadURL = "/user-download/" + filepath.Base(fpkPath)
+	app.DownloadURL = filepath.Base(fpkPath)
 	app.SourceID = "local_fpk_files"
 
 	// Get file info for size
@@ -968,80 +984,142 @@ func parseAndCacheSource(sourceID string) []App {
 }
 
 func parseLocalFPKSource() []App {
-	cachedData := loadFPKCache()
-	cachedFingerprints := cachedData.Fingerprints
+	builtInApps := loadBuiltInApps()
+	userApps := loadUserApps()
+	return append(builtInApps, userApps...)
+}
 
-	dirs := []struct {
-		name string
-		dir  string
-	}{
-		{"builtin", appStoreDir},
-		{"user", getUsersAppStoreDir()},
+func loadBuiltInApps() []App {
+	cachePath := filepath.Join(cacheDir, "builtin_apps.json")
+	cachedData := loadBuiltinCache()
+
+	if _, err := os.Stat(cachePath); os.IsNotExist(err) {
+		return scanBuiltInAppsDir()
 	}
 
+	data, err := ioutil.ReadFile(cachePath)
+	if err != nil {
+		return scanBuiltInAppsDir()
+	}
+
+	var cachedFingerprints map[string]FPKFingerprint
+	if err := json.Unmarshal(data, &cachedFingerprints); err != nil {
+		return scanBuiltInAppsDir()
+	}
+
+	if _, err := os.Stat(appStoreDir); os.IsNotExist(err) {
+		return []App{}
+	}
+
+	entries, err := os.ReadDir(appStoreDir)
+	if err != nil {
+		return []App{}
+	}
+
+	var fpkFiles []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".fpk") {
+			fpkFiles = append(fpkFiles, entry.Name())
+		}
+	}
+
+	if len(fpkFiles) == 0 {
+		return []App{}
+	}
+
+	currentFingerprints := scanFPKDirectory(appStoreDir, fpkFiles)
 	allApps := make([]App, 0)
 	allFingerprints := make(map[string]FPKFingerprint)
 
-	for _, d := range dirs {
-		if d.dir == "" {
-			continue
-		}
-		if _, err := os.Stat(d.dir); os.IsNotExist(err) {
-			continue
-		}
+	for _, fpkFile := range fpkFiles {
+		fpkPath := filepath.Join(appStoreDir, fpkFile)
+		appID := strings.TrimSuffix(fpkFile, ".fpk")
 
-		entries, err := os.ReadDir(d.dir)
-		if err != nil {
-			log.Printf("Failed to read %s AppStore directory %s: %v", d.name, d.dir, err)
-			continue
-		}
+		cachedFp := cachedFingerprints[appID]
+		currentFp := currentFingerprints[appID]
 
-		var fpkFiles []string
-		for _, entry := range entries {
-			if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".fpk") {
-				fpkFiles = append(fpkFiles, entry.Name())
-			}
-		}
-
-		if len(fpkFiles) == 0 {
-			continue
-		}
-
-		currentFingerprints := scanFPKDirectory(d.dir, fpkFiles)
-
-		for _, fpkFile := range fpkFiles {
-			fpkPath := filepath.Join(d.dir, fpkFile)
-			appID := strings.TrimSuffix(fpkFile, ".fpk")
-
+		if cachedFp == currentFp && cachedFp.ModTime != 0 {
 			cachedApp := findCachedApp(cachedData.Apps, appID)
-			currentFp := currentFingerprints[appID]
-			cachedFp := cachedFingerprints[appID]
-
-			if cachedApp != nil && currentFp == cachedFp {
+			if cachedApp != nil {
 				allApps = append(allApps, *cachedApp)
 				allFingerprints[appID] = currentFp
-				log.Printf("FPK cache hit: %s (%s, unchanged)", appID, d.name)
-			} else {
-				app, err := parseFPKFile(fpkPath)
-				if err != nil {
-					log.Printf("Failed to parse FPK file %s: %v", fpkFile, err)
-					if cachedApp != nil {
-						allApps = append(allApps, *cachedApp)
-						allFingerprints[appID] = currentFp
-						log.Printf("FPK parse failed, using stale cache: %s", appID)
-					}
-					continue
-				}
-				allApps = append(allApps, app)
-				allFingerprints[appID] = currentFp
-				log.Printf("FPK cache miss: %s (%s, changed or new)", appID, d.name)
+				continue
 			}
+		}
+
+		app, err := parseFPKFile(fpkPath)
+		if err != nil {
+			log.Printf("Failed to parse FPK file %s: %v", fpkFile, err)
+			continue
+		}
+		app.DownloadURL = "/built-in-download/" + app.ID + ".fpk"
+		allApps = append(allApps, app)
+		allFingerprints[appID] = currentFp
+	}
+
+	saveBuiltinCache(allApps, allFingerprints)
+	return allApps
+}
+
+func loadUserApps() []App {
+	userAppStoreDir := getUsersAppStoreDir()
+	if userAppStoreDir == "" {
+		return []App{}
+	}
+
+	if _, err := os.Stat(userAppStoreDir); os.IsNotExist(err) {
+		return []App{}
+	}
+
+	cachedData := loadUserCache()
+
+	entries, err := os.ReadDir(userAppStoreDir)
+	if err != nil {
+		return []App{}
+	}
+
+	var fpkFiles []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".fpk") {
+			fpkFiles = append(fpkFiles, entry.Name())
 		}
 	}
 
-	saveFPKCache(allApps, allFingerprints)
-	log.Printf("Cached %d apps from local FPK files (user + builtin)", len(allApps))
+	if len(fpkFiles) == 0 {
+		return []App{}
+	}
 
+	currentFingerprints := scanFPKDirectory(userAppStoreDir, fpkFiles)
+	allApps := make([]App, 0)
+	allFingerprints := make(map[string]FPKFingerprint)
+
+	for _, fpkFile := range fpkFiles {
+		fpkPath := filepath.Join(userAppStoreDir, fpkFile)
+		appID := strings.TrimSuffix(fpkFile, ".fpk")
+
+		cachedApp := findCachedApp(cachedData.Apps, appID)
+		currentFp := currentFingerprints[appID]
+
+		if currentFp.ModTime != 0 && cachedApp != nil {
+			cachedFp := currentFingerprints[appID]
+			if cachedFp == currentFp {
+				allApps = append(allApps, *cachedApp)
+				allFingerprints[appID] = currentFp
+				continue
+			}
+		}
+
+		app, err := parseFPKFile(fpkPath)
+		if err != nil {
+			log.Printf("Failed to parse user FPK file %s: %v", fpkFile, err)
+			continue
+		}
+		app.DownloadURL = "/user-download/" + app.ID + ".fpk"
+		allApps = append(allApps, app)
+		allFingerprints[appID] = currentFp
+	}
+
+	saveUserCache(allApps, allFingerprints)
 	return allApps
 }
 
@@ -1060,6 +1138,101 @@ func scanFPKDirectory(baseDir string, fpkFiles []string) map[string]FPKFingerpri
 		}
 	}
 	return fingerprints
+}
+
+func loadBuiltinCache() FPKCacheData {
+	cachePath := filepath.Join(cacheDir, "builtin_apps.json")
+	data, err := ioutil.ReadFile(cachePath)
+	if err != nil {
+		return FPKCacheData{Fingerprints: make(map[string]FPKFingerprint), Apps: []App{}}
+	}
+	var cache FPKCacheData
+	if err := json.Unmarshal(data, &cache); err != nil {
+		return FPKCacheData{Fingerprints: make(map[string]FPKFingerprint), Apps: []App{}}
+	}
+	if cache.Fingerprints == nil {
+		cache.Fingerprints = make(map[string]FPKFingerprint)
+	}
+	return cache
+}
+
+func saveBuiltinCache(apps []App, fingerprints map[string]FPKFingerprint) {
+	os.MkdirAll(cacheDir, 0755)
+	cacheData := FPKCacheData{
+		Fingerprints: fingerprints,
+		Apps:         apps,
+	}
+	data, _ := json.MarshalIndent(cacheData, "", "  ")
+	ioutil.WriteFile(filepath.Join(cacheDir, "builtin_apps.json"), data, 0644)
+}
+
+func loadUserCache() FPKCacheData {
+	cachePath := filepath.Join(cacheDir, "user_apps.json")
+	data, err := ioutil.ReadFile(cachePath)
+	if err != nil {
+		return FPKCacheData{Fingerprints: make(map[string]FPKFingerprint), Apps: []App{}}
+	}
+	var cache FPKCacheData
+	if err := json.Unmarshal(data, &cache); err != nil {
+		return FPKCacheData{Fingerprints: make(map[string]FPKFingerprint), Apps: []App{}}
+	}
+	if cache.Fingerprints == nil {
+		cache.Fingerprints = make(map[string]FPKFingerprint)
+	}
+	return cache
+}
+
+func saveUserCache(apps []App, fingerprints map[string]FPKFingerprint) {
+	os.MkdirAll(cacheDir, 0755)
+	cacheData := FPKCacheData{
+		Fingerprints: fingerprints,
+		Apps:         apps,
+	}
+	data, _ := json.MarshalIndent(cacheData, "", "  ")
+	ioutil.WriteFile(filepath.Join(cacheDir, "user_apps.json"), data, 0644)
+}
+
+func scanBuiltInAppsDir() []App {
+	if _, err := os.Stat(appStoreDir); os.IsNotExist(err) {
+		return []App{}
+	}
+
+	entries, err := os.ReadDir(appStoreDir)
+	if err != nil {
+		return []App{}
+	}
+
+	var fpkFiles []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".fpk") {
+			fpkFiles = append(fpkFiles, entry.Name())
+		}
+	}
+
+	if len(fpkFiles) == 0 {
+		return []App{}
+	}
+
+	allApps := make([]App, 0)
+	allFingerprints := make(map[string]FPKFingerprint)
+	currentFingerprints := scanFPKDirectory(appStoreDir, fpkFiles)
+
+	for _, fpkFile := range fpkFiles {
+		fpkPath := filepath.Join(appStoreDir, fpkFile)
+		appID := strings.TrimSuffix(fpkFile, ".fpk")
+
+		app, err := parseFPKFile(fpkPath)
+		if err != nil {
+			log.Printf("Failed to parse builtin FPK file %s: %v", fpkFile, err)
+			continue
+		}
+		app.DownloadURL = "/built-in-download/" + app.ID + ".fpk"
+		allApps = append(allApps, app)
+		allFingerprints[appID] = currentFingerprints[appID]
+	}
+
+	saveBuiltinCache(allApps, allFingerprints)
+	return allApps
 }
 
 func loadFPKCache() FPKCacheData {
