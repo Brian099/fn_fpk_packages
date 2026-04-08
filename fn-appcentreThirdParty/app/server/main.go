@@ -129,16 +129,17 @@ func setupRouter() *gin.Engine {
 		api.POST("/settings", saveSettings)
 	}
 
-	// Serve download files from user's AppStore directory if configured
+	// 内置 AppStore 目录固定使用 /download 前缀
+	// 用户配置的 AppStore 目录使用 /user-download 前缀（方案A：路由分离）
+	appStoreDir := filepath.Join(appDest, "AppStore")
+	r.Static("/download", appStoreDir)
+
 	userAppStoreDir := findUserAppStoreDir()
 	if userAppStoreDir != "" {
-		log.Printf("Serving download files from: %s", userAppStoreDir)
-		r.Static("/download", userAppStoreDir)
+		log.Printf("Serving user download files from: %s", userAppStoreDir)
+		r.Static("/user-download", userAppStoreDir)
 		r.Static("/AppStore", userAppStoreDir)
 	} else {
-		// Fallback to application's AppStore directory
-		appStoreDir := filepath.Join(appDest, "AppStore")
-		r.Static("/download", appStoreDir)
 		r.Static("/AppStore", appStoreDir)
 	}
 
