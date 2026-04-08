@@ -139,7 +139,7 @@ create_site_json() {
   
   # Check if user provided a root location block to avoid duplicate location /
   root_location_block="    location / {
-        try_files \$uri \$uri/ =404;
+        try_files \$uri \$uri/ /index.php\$is_args\$args;
     }"
     
   if [ -n "$rewrite_block" ]; then
