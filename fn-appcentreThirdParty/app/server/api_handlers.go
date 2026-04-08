@@ -76,6 +76,16 @@ type ArchDiff struct {
 	Changelog   string `json:"changelog,omitempty"`
 }
 
+type FPKFingerprint struct {
+	ModTime int64 `json:"mod_time"`
+	Size    int64 `json:"size"`
+}
+
+type FPKCacheData struct {
+	Fingerprints map[string]FPKFingerprint `json:"fingerprints"`
+	Apps         []App                     `json:"apps"`
+}
+
 var (
 	sourcesConfig string
 	cacheDir      string
@@ -474,7 +484,7 @@ func syncSource(c *gin.Context) {
 		}
 
 		// Parse FPK files and cache them
-		parseFPKFilesToCache(userAppStoreDir, fpkFiles)
+		parseLocalFPKSource()
 
 		c.JSON(http.StatusOK, gin.H{
 			"code":    0,
@@ -609,12 +619,6 @@ func scanDirectoryForSources(sources *[]Source, baseDir string) {
 			continue
 		}
 
-		sourceDir := filepath.Join(baseDir, entry.Name())
-		fnpackPath := filepath.Join(sourceDir, "fnpack.json")
-		if _, err := os.Stat(fnpackPath); os.IsNotExist(err) {
-			continue
-		}
-
 		exists := false
 		for _, source := range *sources {
 			if source.ID == entry.Name() && source.Local {
@@ -680,38 +684,12 @@ func scanFPKFiles(sources *[]Source, baseDir string) {
 		*sources = append(*sources, localSource)
 		log.Printf("Added local FPK source with %d files", len(fpkFiles))
 	}
-
-	// Parse FPK files and cache them
-	parseFPKFilesToCache(baseDir, fpkFiles)
-}
-
-func parseFPKFilesToCache(baseDir string, fpkFiles []string) {
-	var apps []App
-
-	for _, fpkFile := range fpkFiles {
-		fpkPath := filepath.Join(baseDir, fpkFile)
-		app, err := parseFPKFile(fpkPath)
-		if err != nil {
-			log.Printf("Failed to parse FPK file %s: %v", fpkFile, err)
-			continue
-		}
-		apps = append(apps, app)
-	}
-
-	// Cache the apps
-	if len(apps) > 0 {
-		os.MkdirAll(cacheDir, 0755)
-		cacheData, _ := json.MarshalIndent(apps, "", "  ")
-		cachePath := filepath.Join(cacheDir, "local_fpk_files.json")
-		ioutil.WriteFile(cachePath, cacheData, 0644)
-		log.Printf("Cached %d apps from local FPK files", len(apps))
-	}
 }
 
 func parseFPKFile(fpkPath string) (App, error) {
 	var app App
 	app.ID = strings.TrimSuffix(filepath.Base(fpkPath), ".fpk")
-	app.DownloadURL = "/download/" + filepath.Base(fpkPath)
+	app.DownloadURL = "/user-download/" + filepath.Base(fpkPath)
 	app.SourceID = "local_fpk_files"
 
 	// Get file info for size
@@ -898,56 +876,6 @@ func loadAppsFromSource(sourceID string) []App {
 	log.Printf("loadAppsFromSource: sourceID = %s", sourceID)
 	cachePath := filepath.Join(cacheDir, sourceID+".json")
 
-	// Special handling for local_fpk_files source - always re-parse to get fresh data
-	if sourceID == "local_fpk_files" {
-		userAppStoreDir := getUsersAppStoreDir()
-		log.Printf("loadAppsFromSource: userAppStoreDir = '%s'", userAppStoreDir)
-		if userAppStoreDir == "" {
-			// Try to load from cache if directory not configured
-			if data, err := ioutil.ReadFile(cachePath); err == nil {
-				var apps []App
-				if json.Unmarshal(data, &apps) == nil {
-					return apps
-				}
-			}
-			return []App{}
-		}
-
-		// Scan and parse FPK files (always re-parse for fresh metadata)
-		entries, err := os.ReadDir(userAppStoreDir)
-		if err != nil {
-			// Fallback to cache on error
-			if data, err := ioutil.ReadFile(cachePath); err == nil {
-				var apps []App
-				if json.Unmarshal(data, &apps) == nil {
-					return apps
-				}
-			}
-			return []App{}
-		}
-
-		var fpkFiles []string
-		for _, entry := range entries {
-			if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".fpk") {
-				fpkFiles = append(fpkFiles, entry.Name())
-			}
-		}
-
-		parseFPKFilesToCache(userAppStoreDir, fpkFiles)
-
-		// Load freshly cached data
-		data, err := ioutil.ReadFile(cachePath)
-		if err != nil {
-			return []App{}
-		}
-		var apps []App
-		if err := json.Unmarshal(data, &apps); err != nil {
-			return []App{}
-		}
-		return apps
-	}
-
-	// For other sources, use cache
 	if _, err := os.Stat(cachePath); os.IsNotExist(err) {
 		return parseAndCacheSource(sourceID)
 	}
@@ -957,11 +885,22 @@ func loadAppsFromSource(sourceID string) []App {
 		return []App{}
 	}
 
+	if sourceID == "local_fpk_files" {
+		var cache FPKCacheData
+		if err := json.Unmarshal(data, &cache); err != nil {
+			log.Printf("Failed to unmarshal FPKCacheData, falling back to fresh parse: %v", err)
+			return parseAndCacheSource(sourceID)
+		}
+		if len(cache.Apps) > 0 {
+			log.Printf("loadAppsFromSource: returning %d apps from FPKCacheData cache", len(cache.Apps))
+		}
+		return cache.Apps
+	}
+
 	var apps []App
 	if err := json.Unmarshal(data, &apps); err != nil {
 		return []App{}
 	}
-
 	return apps
 }
 
@@ -977,6 +916,11 @@ func parseAndCacheSource(sourceID string) []App {
 
 	if targetSource == nil {
 		return []App{}
+	}
+
+	// local_fpk_files 源：扫描用户目录中的 FPK 文件
+	if sourceID == "local_fpk_files" {
+		return parseLocalFPKSource()
 	}
 
 	var fnpackPath string
@@ -1021,6 +965,119 @@ func parseAndCacheSource(sourceID string) []App {
 	ioutil.WriteFile(filepath.Join(cacheDir, sourceID+".json"), cacheData, 0644)
 
 	return apps
+}
+
+func parseLocalFPKSource() []App {
+	userAppStoreDir := getUsersAppStoreDir()
+	if userAppStoreDir == "" {
+		return []App{}
+	}
+
+	entries, err := os.ReadDir(userAppStoreDir)
+	if err != nil {
+		log.Printf("Failed to read user AppStore directory: %v", err)
+		return []App{}
+	}
+
+	var fpkFiles []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".fpk") {
+			fpkFiles = append(fpkFiles, entry.Name())
+		}
+	}
+
+	if len(fpkFiles) == 0 {
+		return []App{}
+	}
+
+	cachedData := loadFPKCache()
+	cachedFingerprints := cachedData.Fingerprints
+	currentFingerprints := scanFPKDirectory(userAppStoreDir, fpkFiles)
+
+	var apps []App
+
+	for _, fpkFile := range fpkFiles {
+		fpkPath := filepath.Join(userAppStoreDir, fpkFile)
+		appID := strings.TrimSuffix(fpkFile, ".fpk")
+
+		cachedApp := findCachedApp(cachedData.Apps, appID)
+		currentFp := currentFingerprints[appID]
+		cachedFp := cachedFingerprints[appID]
+
+		if cachedApp != nil && currentFp == cachedFp {
+			apps = append(apps, *cachedApp)
+			log.Printf("FPK cache hit: %s (unchanged)", appID)
+		} else {
+			app, err := parseFPKFile(fpkPath)
+			if err != nil {
+				log.Printf("Failed to parse FPK file %s: %v", fpkFile, err)
+				if cachedApp != nil {
+					apps = append(apps, *cachedApp)
+					log.Printf("FPK parse failed, using stale cache: %s", appID)
+				}
+				continue
+			}
+			apps = append(apps, app)
+			log.Printf("FPK cache miss: %s (changed or new)", appID)
+		}
+	}
+
+	saveFPKCache(apps, currentFingerprints)
+	log.Printf("Cached %d apps from local FPK files", len(apps))
+
+	return apps
+}
+
+func scanFPKDirectory(baseDir string, fpkFiles []string) map[string]FPKFingerprint {
+	fingerprints := make(map[string]FPKFingerprint)
+	for _, fpkFile := range fpkFiles {
+		fpkPath := filepath.Join(baseDir, fpkFile)
+		info, err := os.Stat(fpkPath)
+		if err != nil {
+			continue
+		}
+		appID := strings.TrimSuffix(fpkFile, ".fpk")
+		fingerprints[appID] = FPKFingerprint{
+			ModTime: info.ModTime().Unix(),
+			Size:    info.Size(),
+		}
+	}
+	return fingerprints
+}
+
+func loadFPKCache() FPKCacheData {
+	cachePath := filepath.Join(cacheDir, "local_fpk_files.json")
+	data, err := ioutil.ReadFile(cachePath)
+	if err != nil {
+		return FPKCacheData{Fingerprints: make(map[string]FPKFingerprint), Apps: []App{}}
+	}
+	var cache FPKCacheData
+	if err := json.Unmarshal(data, &cache); err != nil {
+		return FPKCacheData{Fingerprints: make(map[string]FPKFingerprint), Apps: []App{}}
+	}
+	if cache.Fingerprints == nil {
+		cache.Fingerprints = make(map[string]FPKFingerprint)
+	}
+	return cache
+}
+
+func saveFPKCache(apps []App, fingerprints map[string]FPKFingerprint) {
+	os.MkdirAll(cacheDir, 0755)
+	cacheData := FPKCacheData{
+		Fingerprints: fingerprints,
+		Apps:         apps,
+	}
+	data, _ := json.MarshalIndent(cacheData, "", "  ")
+	ioutil.WriteFile(filepath.Join(cacheDir, "local_fpk_files.json"), data, 0644)
+}
+
+func findCachedApp(apps []App, appID string) *App {
+	for _, app := range apps {
+		if app.ID == appID {
+			return &app
+		}
+	}
+	return nil
 }
 
 func convertToApp(appName string, fnpackApp FnpackApp, sourceID string) App {
@@ -1115,7 +1172,7 @@ func syncSourceData(source *Source) (int, int, int) {
 						fpkFiles = append(fpkFiles, entry.Name())
 					}
 				}
-				parseFPKFilesToCache(userAppStoreDir, fpkFiles)
+				parseLocalFPKSource()
 				newApps = loadAppsFromSource(source.ID)
 			}
 		}
