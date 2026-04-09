@@ -319,15 +319,15 @@ function renderAppGrid(apps) {
     // 根据分类进行分组
     const groups = {};
     apps.forEach(app => {
-        const cat = (Array.isArray(app.categories) && app.categories.length > 0) ? app.categories[0] : (app.category || '其他');
+        const cat = (Array.isArray(app.categories) && app.categories.length > 0) ? app.categories[0] : (app.category || 'other');
         if (!groups[cat]) groups[cat] = [];
         groups[cat].push(app);
     });
 
     // 默认排序：其他类别排在最后
     const sortedCategories = Object.keys(groups).sort((a, b) => {
-        if (a === '其他') return 1;
-        if (b === '其他') return -1;
+        if (a === 'other') return 1;
+        if (b === 'other') return -1;
         return a.localeCompare(b);
     });
     
