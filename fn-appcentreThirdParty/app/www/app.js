@@ -653,14 +653,14 @@ async function uninstallApp(appId, appName) {
     }
 }
 
-async function showSettingsManager(integrated = true) {
+async function showSettingsManager(integrated = true, activeTab = 'basic') {
     try {
         const [settingsData, sourcesData] = await Promise.all([
             apiRequest('/api/settings'),
             apiRequest('/api/sources')
         ]);
 
-        renderSettingsManager(settingsData.data, sourcesData.data.sources || [], 'settingsView');
+        renderSettingsManager(settingsData.data, sourcesData.data.sources || [], 'settingsView', activeTab);
         switchView('settingsView');
     } catch (error) {
         console.error('加载设置失败:', error);
@@ -668,7 +668,7 @@ async function showSettingsManager(integrated = true) {
     }
 }
 
-function renderSettingsManager(settings, sources, containerId = 'settingsView') {
+function renderSettingsManager(settings, sources, containerId = 'settingsView', activeTab = 'basic') {
     const container = document.getElementById(containerId);
     if (!container) return;
     
@@ -678,11 +678,11 @@ function renderSettingsManager(settings, sources, containerId = 'settingsView') 
 
     container.innerHTML = `
         <div class="dialog-tabs">
-            <button class="dialog-tab active" data-tab="basic">基础配置</button>
-            <button class="dialog-tab" data-tab="sources">应用源管理</button>
+            <button class="dialog-tab ${activeTab === 'basic' ? 'active' : ''}" data-tab="basic">基础配置</button>
+            <button class="dialog-tab ${activeTab === 'sources' ? 'active' : ''}" data-tab="sources">应用源管理</button>
         </div>
         <div class="dialog-body">
-            <div class="tab-content active" id="basicTab">
+            <div class="tab-content ${activeTab === 'basic' ? 'active' : ''}" id="basicTab">
                 <div class="settings-card">
                     <div class="settings-card-icon">
                         <svg t="1775702187924" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="19267" width="24" height="24"><path d="M512 512v85.3504c47.104 0 85.3504-38.2464 85.3504-85.3504H512z m0 0H426.6496c0 47.104 38.2464 85.3504 85.3504 85.3504V512z m0 0V426.6496c-47.104 0-85.3504 38.2464-85.3504 85.3504H512z m0 0h85.3504c0-47.104-38.2464-85.3504-85.3504-85.3504V512zM680.0896 482.3552a42.6496 42.6496 0 0 0 84.0192-14.7968l-84.0192 14.848z m-123.648 281.7536a42.6496 42.6496 0 0 0-14.848-84.0192l14.848 84.0192z m207.6672-296.5504a256 256 0 0 0-67.1744-132.608l-61.6448 59.0336c23.3472 24.3712 38.912 55.1424 44.8 88.3712l84.0192-14.7968z m-67.1744-132.608a256 256 0 0 0-129.536-72.8576l-18.432 83.3024c32.9216 7.2704 62.976 24.2176 86.3232 48.64l61.6448-59.0336z m-129.536-72.8576a256 256 0 0 0-148.1728 11.264l30.9248 79.5648a170.6496 170.6496 0 0 1 98.816-7.5264l18.432-83.3024z m-148.1728 11.264a256 256 0 0 0-116.9408 91.8016l69.9392 48.9472c19.3536-27.648 46.4384-48.9472 77.9264-61.184L419.2256 273.408zM302.2848 365.2096a256 256 0 0 0-46.2336 141.2608l85.2992 1.8432c0.768-33.7408 11.4688-66.56 30.8736-94.208l-69.9392-48.896zM256.0512 506.368a256 256 0 0 0 40.0384 143.104l71.9872-45.824a170.6496 170.6496 0 0 1-26.7264-95.4368l-85.2992-1.8432z m40.0384 143.104a256 256 0 0 0 112.7936 96.768l34.3552-78.08a170.6496 170.6496 0 0 1-75.1616-64.512l-71.9872 45.824z m112.7936 96.768a256 256 0 0 0 147.5584 17.8176l-14.848-84.0192a170.6496 170.6496 0 0 1-98.304-11.8784l-34.4064 78.08zM170.6496 512a42.6496 42.6496 0 1 0-85.2992 0h85.2992zM512 85.3504a42.6496 42.6496 0 1 0 0 85.2992V85.3504zM85.3504 512c0 84.3776 24.9856 166.912 71.8848 237.056l70.9632-47.4112A341.3504 341.3504 0 0 1 170.6496 512H85.3504z m71.8848 237.056a426.6496 426.6496 0 0 0 191.488 157.1328l32.6656-78.848a341.2992 341.2992 0 0 1-153.1904-125.696l-70.9632 47.4112z m191.488 157.1328a426.7008 426.7008 0 0 0 246.528 24.2688L578.56 846.848a341.3504 341.3504 0 0 1-197.2224-19.456L348.672 906.24z m246.528 24.2688a426.7008 426.7008 0 0 0 218.4704-116.736l-60.3648-60.3648a341.3504 341.3504 0 0 1-174.7456 93.44l16.64 83.6608z m218.4704-116.736a426.7008 426.7008 0 0 0 116.736-218.4704L846.848 578.56a341.3504 341.3504 0 0 1-93.44 174.7456l60.3648 60.3648z m116.736-218.4704A426.7008 426.7008 0 0 0 906.24 348.672l-78.848 32.6656a341.3504 341.3504 0 0 1 19.456 197.2224l83.6608 16.64zM906.24 348.672a426.6496 426.6496 0 0 0-157.184-191.488l-47.36 70.9632a341.2992 341.2992 0 0 1 125.696 153.1904l78.848-32.6656z m-157.184-191.488A426.6496 426.6496 0 0 0 512 85.3504v85.2992c67.5328 0 133.5296 20.0192 189.6448 57.5488l47.4112-70.9632z" fill="#2B3038" p-id="19268"></path></svg>
@@ -699,7 +699,7 @@ function renderSettingsManager(settings, sources, containerId = 'settingsView') 
                     </div>
                 </div>
             </div>
-            <div class="tab-content" id="sourcesTab">
+            <div class="tab-content ${activeTab === 'sources' ? 'active' : ''}" id="sourcesTab">
                 <div class="settings-card" style="background-color: var(--semi-color-fill-0); border-style: dashed;">
                     <div class="settings-card-icon" style="background-color: var(--semi-color-primary); color: white;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -756,10 +756,21 @@ function renderSourceList(sources) {
                             <svg t="1775702187924" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="19267" width="24" height="24"><path d="M512 512v85.3504c47.104 0 85.3504-38.2464 85.3504-85.3504H512z m0 0H426.6496c0 47.104 38.2464 85.3504 85.3504 85.3504V512z m0 0V426.6496c-47.104 0-85.3504 38.2464-85.3504 85.3504H512z m0 0h85.3504c0-47.104-38.2464-85.3504-85.3504-85.3504V512zM680.0896 482.3552a42.6496 42.6496 0 0 0 84.0192-14.7968l-84.0192 14.848z m-123.648 281.7536a42.6496 42.6496 0 0 0-14.848-84.0192l14.848 84.0192z m207.6672-296.5504a256 256 0 0 0-67.1744-132.608l-61.6448 59.0336c23.3472 24.3712 38.912 55.1424 44.8 88.3712l84.0192-14.7968z m-67.1744-132.608a256 256 0 0 0-129.536-72.8576l-18.432 83.3024c32.9216 7.2704 62.976 24.2176 86.3232 48.64l61.6448-59.0336z m-129.536-72.8576a256 256 0 0 0-148.1728 11.264l30.9248 79.5648a170.6496 170.6496 0 0 1 98.816-7.5264l18.432-83.3024z m-148.1728 11.264a256 256 0 0 0-116.9408 91.8016l69.9392 48.9472c19.3536-27.648 46.4384-48.9472 77.9264-61.184L419.2256 273.408zM302.2848 365.2096a256 256 0 0 0-46.2336 141.2608l85.2992 1.8432c0.768-33.7408 11.4688-66.56 30.8736-94.208l-69.9392-48.896zM256.0512 506.368a256 256 0 0 0 40.0384 143.104l71.9872-45.824a170.6496 170.6496 0 0 1-26.7264-95.4368l-85.2992-1.8432z m40.0384 143.104a256 256 0 0 0 112.7936 96.768l34.3552-78.08a170.6496 170.6496 0 0 1-75.1616-64.512l-71.9872 45.824z m112.7936 96.768a256 256 0 0 0 147.5584 17.8176l-14.848-84.0192a170.6496 170.6496 0 0 1-98.304-11.8784l-34.4064 78.08zM170.6496 512a42.6496 42.6496 0 1 0-85.2992 0h85.2992zM512 85.3504a42.6496 42.6496 0 1 0 0 85.2992V85.3504zM85.3504 512c0 84.3776 24.9856 166.912 71.8848 237.056l70.9632-47.4112A341.3504 341.3504 0 0 1 170.6496 512H85.3504z m71.8848 237.056a426.6496 426.6496 0 0 0 191.488 157.1328l32.6656-78.848a341.2992 341.2992 0 0 1-153.1904-125.696l-70.9632 47.4112z m191.488 157.1328a426.7008 426.7008 0 0 0 246.528 24.2688L578.56 846.848a341.3504 341.3504 0 0 1-197.2224-19.456L348.672 906.24z m246.528 24.2688a426.7008 426.7008 0 0 0 218.4704-116.736l-60.3648-60.3648a341.3504 341.3504 0 0 1-174.7456 93.44l16.64 83.6608z m218.4704-116.736a426.7008 426.7008 0 0 0 116.736-218.4704L846.848 578.56a341.3504 341.3504 0 0 1-93.44 174.7456l60.3648 60.3648z m116.736-218.4704A426.7008 426.7008 0 0 0 906.24 348.672l-78.848 32.6656a341.3504 341.3504 0 0 1 19.456 197.2224l83.6608 16.64zM906.24 348.672a426.6496 426.6496 0 0 0-157.184-191.488l-47.36 70.9632a341.2992 341.2992 0 0 1 125.696 153.1904l78.848-32.6656z m-157.184-191.488A426.6496 426.6496 0 0 0 512 85.3504v85.2992c67.5328 0 133.5296 20.0192 189.6448 57.5488l47.4112-70.9632z" fill="#2B3038" p-id="19268"></path></svg>
                         </div>
                         <div class="settings-card-content">
-                            <div class="settings-card-title">${escapeHtml(source.name)}</div>
+                            <div class="settings-card-title">
+                                ${escapeHtml(source.name)}
+                                <span class="source-status ${source.enabled ? 'enabled' : 'disabled'}">
+                                    ${source.enabled ? '已启用' : '已禁用'}
+                                </span>
+                            </div>
                             <div class="settings-card-description">${escapeHtml(source.url)}</div>
                         </div>
                         <div class="settings-card-actions">
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="toggle-${escapeHtml(source.id)}" 
+                                       ${source.enabled ? 'checked' : ''} 
+                                       onchange="toggleSource('${escapeHtml(source.id)}', this.checked)">
+                                <label for="toggle-${escapeHtml(source.id)}" class="toggle-label"></label>
+                            </div>
                             <button class="action-btn sync-btn" onclick="syncSource('${escapeHtml(source.id)}')">同步</button>
                             ${source.local ? `<button class="action-btn" style="background: var(--semi-color-fill-1); color: var(--semi-color-text-1);" onclick="resetCache('${escapeHtml(source.id)}')">重置</button>` : ''}
                             ${!source.local ? `<button class="action-btn delete-btn" onclick="deleteSource('${escapeHtml(source.id)}')">删除</button>` : ''}
@@ -802,7 +813,7 @@ async function syncSource(sourceId) {
 
         if (data.code === 0) {
             showNotification(`同步成功！新增: ${data.data.added}, 更新: ${data.data.updated}, 移除: ${data.data.removed}`, 'success');
-            showSettingsManager();
+            showSettingsManager(true, 'sources');
             loadApps();
         } else {
             showNotification(data.message || '同步失败', 'error');
@@ -825,7 +836,7 @@ async function resetCache(sourceId) {
 
         if (data.code === 0) {
             showNotification(`缓存已重置，当前共 ${data.data.total} 个应用`, 'success');
-            showSettingsManager();
+            showSettingsManager(true, 'sources');
             loadApps();
         } else {
             showNotification(data.message || '重置缓存失败', 'error');
@@ -833,6 +844,36 @@ async function resetCache(sourceId) {
     } catch (error) {
         console.error('重置缓存失败:', error);
         showNotification(error.message || '网络错误，请重试', 'error');
+    }
+}
+
+async function toggleSource(sourceId, enabled) {
+    try {
+        const data = await apiRequest(`/api/sources/${encodeURIComponent(sourceId)}/toggle`, {
+            method: 'POST',
+            body: JSON.stringify({ enabled: enabled })
+        });
+
+        if (data.code === 0) {
+            showNotification(`${enabled ? '启用' : '禁用'}源成功`, 'success');
+            showSettingsManager(true, 'sources');
+            loadApps();
+        } else {
+            showNotification(data.message || `${enabled ? '启用' : '禁用'}源失败`, 'error');
+            // 恢复开关状态
+            const checkbox = document.getElementById(`toggle-${sourceId}`);
+            if (checkbox) {
+                checkbox.checked = !enabled;
+            }
+        }
+    } catch (error) {
+        console.error('切换源状态失败:', error);
+        showNotification(error.message || '网络错误，请重试', 'error');
+        // 恢复开关状态
+        const checkbox = document.getElementById(`toggle-${sourceId}`);
+        if (checkbox) {
+            checkbox.checked = !enabled;
+        }
     }
 }
 
@@ -848,7 +889,7 @@ async function deleteSource(sourceId) {
 
         if (data.code === 0) {
             alert('删除成功');
-            showSettingsManager();
+            showSettingsManager(true, 'sources');
             loadApps();
         } else {
             showNotification(data.message || '删除失败', 'error');
@@ -876,14 +917,7 @@ async function addSource() {
 
         if (data.code === 0) {
             alert('添加源成功');
-            // 刷新列表并保持在源管理页
-            const [settingsData, sourcesData] = await Promise.all([
-                apiRequest('/api/settings'),
-                apiRequest('/api/sources')
-            ]);
-            renderSettingsManager(settingsData.data, sourcesData.data.sources || []);
-            // 强制切回到源管理标签
-            document.querySelector('.dialog-tab[data-tab="sources"]').click();
+            showSettingsManager(true, 'sources');
             loadApps();
         } else {
             showNotification(data.message || '添加源失败', 'error');

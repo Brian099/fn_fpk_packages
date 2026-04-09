@@ -1318,3 +1318,81 @@ textarea {
 .dialog-actions .btn-secondary {
     min-width: 80px;
 }
+
+/* 应用源启用/禁用开关样式 */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-label {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--semi-color-fill-2);
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.toggle-label:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch input:checked + .toggle-label {
+    background-color: var(--semi-color-primary);
+}
+
+.toggle-switch input:checked + .toggle-label:before {
+    transform: translateX(20px);
+}
+
+.toggle-switch input:focus + .toggle-label {
+    box-shadow: 0 0 1px var(--semi-color-primary);
+}
+
+/* 应用源状态标签 */
+.source-status {
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+    margin-left: 8px;
+}
+
+.source-status.enabled {
+    background-color: #e8f5e8;
+    color: #2e7d32;
+}
+
+.source-status.disabled {
+    background-color: #f5f5f5;
+    color: #757575;
+}
+
+/* 调整设置卡片操作区域布局 */
+.settings-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}

@@ -37,6 +37,7 @@ func SetupRouter(appDest, pkgVar string, appConfig config.Config) *gin.Engine {
 		api.GET("/sources", handlers.GetSources)
 		api.POST("/sources", handlers.AddSource)
 		api.DELETE("/sources/:id", handlers.DeleteSource)
+		api.POST("/sources/:id/toggle", handlers.ToggleSource)
 		api.POST("/sources/:id/sync", handlers.SyncSource)
 		api.POST("/sources/:id/reset-cache", handlers.ResetSourceCache)
 		// Settings API
