@@ -324,9 +324,9 @@ func saveUserCache(apps []models.App, fingerprints map[string]models.FPKFingerpr
 
 // findCachedApp 查找缓存的应用
 func findCachedApp(apps []models.App, appID string) *models.App {
-	for _, app := range apps {
-		if app.ID == appID {
-			return &app
+	for i := range apps {
+		if apps[i].ID == appID {
+			return &apps[i]
 		}
 	}
 	return nil

@@ -125,10 +125,30 @@ func parseAndCacheSource(sourceID string) []models.App {
 		}
 		defer resp.Body.Close()
 
+		if resp.StatusCode != http.StatusOK {
+			log.Printf("Failed to fetch fnpack.json from %s: HTTP %d", url, resp.StatusCode)
+			return []models.App{}
+		}
+
 		os.MkdirAll(cacheDir, 0755)
 		tmpPath := filepath.Join(cacheDir, sourceID+"_fnpack.json.tmp")
-		data, _ := ioutil.ReadAll(resp.Body)
-		ioutil.WriteFile(tmpPath, data, 0644)
+		data, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Printf("Failed to read response body from %s: %v", url, err)
+			return []models.App{}
+		}
+		
+		// 检查数据是否以 '<' 开头（通常是 HTML）
+		trimmedData := strings.TrimSpace(string(data))
+		if strings.HasPrefix(trimmedData, "<") {
+			log.Printf("Received HTML instead of JSON from %s", url)
+			return []models.App{}
+		}
+
+		if err := ioutil.WriteFile(tmpPath, data, 0644); err != nil {
+			log.Printf("Failed to write temporary fnpack.json: %v", err)
+			return []models.App{}
+		}
 		fnpackPath = tmpPath
 	}
 

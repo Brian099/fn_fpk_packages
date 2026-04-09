@@ -32,10 +32,31 @@ func getAppCenterCliPath() string {
 
 // GetApps 获取所有应用
 func GetApps(c *gin.Context) {
+	category := c.Query("category")
+	keyword := strings.ToLower(c.Query("keyword"))
+
 	allApps := make([]models.App, 0)
 
 	sources := services.LoadSources()
 	services.DiscoverLocalSources(&sources)
+
+	// 确保本地 FPK 源总是被检查，即使目录中没有新文件
+	hasLocalFPKSource := false
+	for _, s := range sources {
+		if s.ID == "local_fpk_files" {
+			hasLocalFPKSource = true
+			break
+		}
+	}
+	if !hasLocalFPKSource {
+		// 如果扫描没发现物理文件，但我们还是要显示已缓存的本地应用
+		sources = append(sources, models.Source{
+			ID:      "local_fpk_files",
+			Name:    "本地 FPK 文件",
+			Enabled: true,
+			Local:   true,
+		})
+	}
 
 	for _, source := range sources {
 		if !source.Enabled {
@@ -43,6 +64,48 @@ func GetApps(c *gin.Context) {
 		}
 		apps := services.LoadAppsFromSource(source.ID)
 		allApps = append(allApps, apps...)
+	}
+
+	// 按分类过滤
+	if category != "" {
+		filtered := make([]models.App, 0)
+		for _, app := range allApps {
+			match := false
+			if category == "installed" {
+				// 检查版本号是否被标记为 installed
+				if app.Version == "installed" {
+					match = true
+				}
+			} else if category == "latest" {
+				// 暂时返回所有作为最新发布
+				match = true
+			} else {
+				for _, cat := range app.Categories {
+					if strings.EqualFold(cat, category) {
+						match = true
+						break
+					}
+				}
+			}
+
+			if match {
+				filtered = append(filtered, app)
+			}
+		}
+		allApps = filtered
+	}
+
+	// 按关键字搜索
+	if keyword != "" {
+		filtered := make([]models.App, 0)
+		for _, app := range allApps {
+			if strings.Contains(strings.ToLower(app.Name), keyword) ||
+				strings.Contains(strings.ToLower(app.Description), keyword) ||
+				strings.Contains(strings.ToLower(app.ID), keyword) {
+				filtered = append(filtered, app)
+			}
+		}
+		allApps = filtered
 	}
 
 	c.JSON(http.StatusOK, gin.H{

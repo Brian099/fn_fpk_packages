@@ -45,24 +45,40 @@ func main() {
 
 	utils.EnsureDirs(appDest, pkgVar)
 
-	// Use Unix socket for communication (following fn-reverseproxy architecture)
-	if err := os.RemoveAll(*unixSocket); err != nil {
-		log.Fatalf("Failed to remove old socket: %v", err)
-	}
-
-	listener, err := net.Listen("unix", *unixSocket)
-	if err != nil {
-		log.Fatalf("Failed to create Unix socket: %v", err)
-	}
-	defer listener.Close()
-
-	if err := os.Chmod(*unixSocket, 0666); err != nil {
-		log.Fatalf("Failed to set socket permissions: %v", err)
-	}
-
-	log.Printf("Starting server on Unix socket: %s", *unixSocket)
 	log.Printf("AppDest: %s", appDest)
 	log.Printf("PkgVar: %s", pkgVar)
 
-	http.Serve(listener, r)
+	if *unixSocket != "" {
+		// 清理旧的 Socket 文件
+		if _, err := os.Stat(*unixSocket); err == nil {
+			if err := os.Remove(*unixSocket); err != nil {
+				log.Fatalf("Failed to remove existing unix socket: %v", err)
+			}
+		}
+
+		// 监听 Unix Socket
+		listener, err := net.Listen("unix", *unixSocket)
+		if err != nil {
+			log.Fatalf("Failed to listen on unix socket: %v", err)
+		}
+
+		// 设置 Socket 文件权限，确保 CGI 进程可以访问
+		if err := os.Chmod(*unixSocket, 0666); err != nil {
+			log.Printf("Warning: Failed to set socket permissions: %v", err)
+		}
+
+		log.Printf("Starting server on Unix socket: %s", *unixSocket)
+		server := &http.Server{
+			Handler: r,
+		}
+		if err := server.Serve(listener); err != nil {
+			log.Fatalf("Failed to start server on unix socket: %v", err)
+		}
+	} else {
+		// 回退到 TCP 监听
+		log.Printf("Starting server on TCP port: :18088")
+		if err := r.Run(":18088"); err != nil {
+			log.Fatalf("Failed to start server on TCP: %v", err)
+		}
+	}
 }

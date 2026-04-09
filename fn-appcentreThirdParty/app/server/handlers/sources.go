@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"appcentre/config"
@@ -92,50 +91,8 @@ func DeleteSource(c *gin.Context) {
 func SyncSource(c *gin.Context) {
 	sourceID := c.Param("id")
 
-	// Special handling for local_fpk_files source
-	if sourceID == "local_fpk_files" {
-		userAppStoreDir := services.GetUsersAppStoreDir()
-		if userAppStoreDir == "" {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code":    500,
-				"message": "AppStore directory not configured",
-			})
-			return
-		}
-
-		// Re-scan FPK files
-		entries, err := os.ReadDir(userAppStoreDir)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code":    500,
-				"message": "Failed to read AppStore directory",
-			})
-			return
-		}
-
-		var fpkFiles []string
-		for _, entry := range entries {
-			if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".fpk") {
-				fpkFiles = append(fpkFiles, entry.Name())
-			}
-		}
-
-		// Parse FPK files and cache them
-		services.ParseLocalFPKSource()
-
-		c.JSON(http.StatusOK, gin.H{
-			"code":    0,
-			"message": "Local FPK files synced successfully",
-			"data": gin.H{
-				"added":   len(fpkFiles),
-				"updated": 0,
-				"removed": 0,
-			},
-		})
-		return
-	}
-
 	sources := services.LoadSources()
+	services.DiscoverLocalSources(&sources)
 	var targetSource *models.Source
 	for i := range sources {
 		if sources[i].ID == sourceID {

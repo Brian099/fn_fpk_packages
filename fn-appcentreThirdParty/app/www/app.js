@@ -35,11 +35,19 @@ class ApiService {
             
             clearTimeout(timeoutId);
             
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            let data;
+            try {
+                data = await response.json();
+            } catch (e) {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                throw new Error('解析响应失败');
             }
             
-            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
+            }
             
             // 检查后端返回的错误码
             if (data.code !== 0 && data.code !== undefined) {
@@ -182,11 +190,22 @@ function apiRequest(endpoint, options = {}) {
     return apiService.request(endpoint, options);
 }
 
+function switchView(viewId) {
+    const views = document.querySelectorAll('.app-main-view');
+    views.forEach(v => v.classList.remove('active'));
+    
+    const target = document.getElementById(viewId);
+    if (target) {
+        target.classList.add('active');
+    }
+}
+
 let currentCategory = '';
 let currentKeyword = '';
 let currentTab = 'all';
 
 function init() {
+    switchView('appGrid');
     loadApps();
     setupEventListeners();
 }
@@ -224,48 +243,27 @@ function setupEventListeners() {
             document.querySelectorAll('.base-Tab-root').forEach(function(b) {
                 b.classList.remove('active');
             });
+            document.getElementById('settingsBtn').classList.remove('active');
             this.classList.add('active');
             currentCategory = this.dataset.category;
+            switchView('appGrid');
             loadApps();
         });
     });
 
     document.getElementById('settingsBtn').addEventListener('click', function(e) {
         e.preventDefault();
-        showSettingsManager();
+        document.querySelectorAll('.base-Tab-root').forEach(function(b) {
+            b.classList.remove('active');
+        });
+        this.classList.add('active');
+        showSettingsManager(true); // 使用集成模式
     });
 
     document.getElementById('appDetailOverlay').addEventListener('click', function() {
         hideAppDetail();
     });
 
-    document.getElementById('settingsOverlay').addEventListener('click', function() {
-        hideSettingsManager();
-    });
-
-    document.getElementById('minimizeBtn').addEventListener('click', function() {
-        if (window.android && window.android.minimize) {
-            window.android.minimize();
-        } else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.minimize) {
-            window.webkit.messageHandlers.minimize.postMessage({});
-        }
-    });
-
-    document.getElementById('maximizeBtn').addEventListener('click', function() {
-        if (window.android && window.android.maximize) {
-            window.android.maximize();
-        } else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.maximize) {
-            window.webkit.messageHandlers.maximize.postMessage({});
-        }
-    });
-
-    document.getElementById('closeBtn').addEventListener('click', function() {
-        if (window.android && window.android.close) {
-            window.android.close();
-        } else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.close) {
-            window.webkit.messageHandlers.close.postMessage({});
-        }
-    });
 }
 
 async function loadApps() {
@@ -297,17 +295,20 @@ async function loadApps() {
         if (data.code === 0) {
             renderAppGrid(data.data.apps);
         } else {
-            appGrid.innerHTML = '<div class="empty-state"><p>加载应用失败</p></div>';
+            appGrid.innerHTML = `<div class="empty-state"><p>加载应用失败: ${data.message || '未知错误'}</p></div>`;
         }
     } catch (error) {
         console.error('加载应用失败:', error);
-        appGrid.innerHTML = '<div class="empty-state"><p>网络错误，请重试</p></div>';
+        appGrid.innerHTML = `<div class="empty-state">
+            <p>网络错误，请重试</p>
+            <div style="font-size: 12px; color: var(--semi-color-text-3); margin-top: 8px;">错误原因: ${error.message}</div>
+        </div>`;
     }
 }
 
 function renderAppGrid(apps) {
     const appGrid = document.getElementById('appGrid');
-
+    
     if (!apps || apps.length === 0) {
         appGrid.innerHTML = '<div class="empty-state"><p>暂无应用</p></div>';
         return;
@@ -315,35 +316,75 @@ function renderAppGrid(apps) {
 
     appGrid.innerHTML = '';
 
-    apps.forEach(function(app) {
-        const card = createAppCard(app);
-        appGrid.appendChild(card);
+    // 根据分类进行分组
+    const groups = {};
+    apps.forEach(app => {
+        const cat = (Array.isArray(app.categories) && app.categories.length > 0) ? app.categories[0] : (app.category || '其他');
+        if (!groups[cat]) groups[cat] = [];
+        groups[cat].push(app);
+    });
+
+    // 默认排序：其他类别排在最后
+    const sortedCategories = Object.keys(groups).sort((a, b) => {
+        if (a === '其他') return 1;
+        if (b === '其他') return -1;
+        return a.localeCompare(b);
+    });
+    
+    sortedCategories.forEach(cat => {
+        const groupApps = groups[cat];
+        
+        // 分类容器
+        const section = document.createElement('div');
+        section.className = 'category-section';
+        
+        // 分类头部
+        const header = document.createElement('div');
+        header.className = 'grid-category-header';
+        header.innerHTML = `
+            <span class="grid-category-title">${escapeHtml(cat)}</span>
+            <span class="grid-category-count">${groupApps.length}</span>
+        `;
+        
+        // 分类网格
+        const grid = document.createElement('div');
+        grid.className = 'app-grid';
+        
+        groupApps.forEach(app => {
+            grid.appendChild(createAppCard(app));
+        });
+        
+        section.appendChild(header);
+        section.appendChild(grid);
+        appGrid.appendChild(section);
     });
 }
 
 function createAppCard(app) {
     const card = document.createElement('div');
     card.className = 'app-card';
+    card.dataset.appId = app.id;
 
     const iconUrl = app.icon || '/static/app/icons/trim.app-center/icon.png';
-    const categories = Array.isArray(app.categories) ? app.categories.slice(0, 2).join(' ') : '应用';
+    const categories = Array.isArray(app.categories) ? app.categories.slice(0, 1).join('') : (app.category || '应用');
     
-    // Status-based button text and style
+    // 状态检测逻辑 (基础版)
     let btnText = '安装';
     let btnClass = 'semi-button-primary';
     
-    // Check if installed or running (simplified check, real logic might need status data)
-    // For now, default to Install if unknown
-    
+    // 如果版本被标记为 installed，显示“打开”
+    if (app.Version === 'installed' || app.status === 'installed' || app.is_installed) {
+        btnText = '打开';
+        btnClass = 'semi-button-secondary';
+    }
+
     card.innerHTML = `
-        <div class="app-card-top">
-            <div class="app-card-icon" style="background-image: url('${iconUrl}')"></div>
-            <div class="app-card-info">
-                <div class="app-card-name">${escapeHtml(app.name)}</div>
-                <div class="app-card-meta">
-                    <div class="app-card-category">${escapeHtml(categories)}</div>
-                    <button class="semi-button ${btnClass}" data-app-id="${escapeHtml(app.id)}">${btnText}</button>
-                </div>
+        <div class="app-card-icon" style="background-image: url('${iconUrl}')"></div>
+        <div class="app-card-info">
+            <div class="app-card-name">${escapeHtml(app.name)}</div>
+            <div class="app-card-meta">
+                <div class="app-card-category">${escapeHtml(categories)}</div>
+                <button class="semi-button ${btnClass}">${btnText}</button>
             </div>
         </div>
     `;
@@ -374,7 +415,7 @@ async function showAppDetail(appId) {
             const app = appData.data;
             app.status = statusData.code === 0 ? statusData.data : { status: 'unknown', running: false };
             renderAppDetail(app);
-            showDetailDialog();
+            switchView('appDetailView');
         }
     } catch (error) {
         console.error('获取应用详情失败:', error);
@@ -382,7 +423,7 @@ async function showAppDetail(appId) {
 }
 
 function renderAppDetail(app) {
-    const detailEl = document.getElementById('appDetail');
+    const detailEl = document.getElementById('appDetailView');
 
     const categories = Array.isArray(app.categories) ? app.categories.join(', ') : '';
     const iconHtml = app.icon
@@ -396,8 +437,8 @@ function renderAppDetail(app) {
         actionButtons = `<button class="btn-primary" onclick="installApp(${JSON.stringify(app).replace(/"/g, '&quot;')})">安装</button>`;
     } else if (status.status === 'running') {
         actionButtons = `
-            <button class="btn-secondary" onclick="stopApp('${app.id}')">停止</button>
-            <button class="btn-secondary" onclick="uninstallApp('${app.id}', '${app.name}')" style="background: #f44336; color: white; border-color: #f44336;">卸载</button>
+            <button class="btn-primary" style="background-color: var(--semi-color-fill-0); color: var(--semi-color-text-0);">打开 <span style="margin-left: 4px; font-size: 10px; opacity: 0.6;">▼</span></button>
+            <button class="btn-secondary" style="background-color: var(--semi-color-fill-0); color: var(--semi-color-text-0); border: 1px solid var(--semi-color-border);">应用设置</button>
         `;
     } else if (status.status === 'stopped') {
         actionButtons = `
@@ -409,64 +450,51 @@ function renderAppDetail(app) {
     }
 
     detailEl.innerHTML = `
+        <div class="back-button" onclick="switchView('appGrid')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;">
+                <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+        </div>
         <div class="detail-header">
             ${iconHtml}
             <div class="detail-title">
                 <h2>${escapeHtml(app.name)}</h2>
-                <div class="detail-meta">v${escapeHtml(app.version)} ${categories ? '· ' + categories : ''}</div>
+                <div class="detail-actions" style="border: none; margin: 12px 0 0 0; padding: 0; justify-content: flex-start;">
+                    ${actionButtons}
+                </div>
             </div>
-            <button class="close-btn" onclick="hideAppDetail()">&times;</button>
         </div>
         <div class="detail-body">
             <div class="detail-info-grid">
                 <div class="info-item">
-                    <div class="info-label">平台</div>
-                    <div class="info-value">${escapeHtml(app.platform)}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">大小</div>
-                    <div class="info-value">${escapeHtml(app.size || 'N/A')} MB</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">状态</div>
-                    <div class="info-value">${status.status === 'running' ? '运行中' : status.status === 'stopped' ? '已停止' : status.status === 'not_installed' ? '未安装' : '未知'}</div>
-                </div>
-                ${app.author ? `<div class="info-item">
                     <div class="info-label">开发者</div>
-                    <div class="info-value">${escapeHtml(app.author)}</div>
-                </div>` : ''}
-                ${app.publisher ? `<div class="info-item">
+                    <div class="info-value">${escapeHtml(app.author || '未知')}</div>
+                </div>
+                <div class="info-item">
                     <div class="info-label">发布者</div>
-                    <div class="info-value">${escapeHtml(app.publisher)}</div>
-                </div>` : ''}
+                    <div class="info-value">${escapeHtml(app.publisher || '第三方')}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">安装位置</div>
+                    <div class="info-value">系统分区</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">当前版本</div>
+                    <div class="info-value">${escapeHtml(app.version)}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">来源</div>
+                    <div class="info-value">手动安装</div>
+                </div>
             </div>
 
-            ${app.description ? `<div class="detail-section">
-                <h3>应用描述</h3>
-                <p>${escapeHtml(app.description)}</p>
-            </div>` : ''}
-
-            ${app.changelog ? `<div class="detail-section">
-                <h3>更新日志</h3>
-                <p>${escapeHtml(app.changelog)}</p>
-            </div>` : ''}
-
-            <div class="detail-actions">
-                ${actionButtons}
-                <button class="btn-secondary" onclick="hideAppDetail()">关闭</button>
+            <div class="detail-section">
+                <h3>应用介绍</h3>
+                <p>${escapeHtml(app.description || '暂无应用介绍')}</p>
             </div>
         </div>
+
     `;
-}
-
-function showDetailDialog() {
-    document.getElementById('appDetailOverlay').classList.add('active');
-    document.getElementById('appDetail').classList.add('active');
-}
-
-function hideAppDetail() {
-    document.getElementById('appDetailOverlay').classList.remove('active');
-    document.getElementById('appDetail').classList.remove('active');
 }
 
 async function downloadApp(app) {
@@ -625,59 +653,65 @@ async function uninstallApp(appId, appName) {
     }
 }
 
-async function showSettingsManager() {
+async function showSettingsManager(integrated = true) {
     try {
         const [settingsData, sourcesData] = await Promise.all([
             apiRequest('/api/settings'),
             apiRequest('/api/sources')
         ]);
 
-        renderSettingsManager(settingsData.data, sourcesData.data.sources || []);
-        showSettingsDialog();
+        renderSettingsManager(settingsData.data, sourcesData.data.sources || [], 'settingsView');
+        switchView('settingsView');
     } catch (error) {
         console.error('加载设置失败:', error);
+        showNotification('加载设置失败', 'error');
     }
 }
 
-function renderSettingsManager(settings, sources) {
-    const dialog = document.getElementById('settingsDialog');
+function renderSettingsManager(settings, sources, containerId = 'settingsView') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
     // 默认空对象保护
     const safeSettings = settings || {};
     const safeSources = sources || [];
 
-    dialog.innerHTML = `
-        <div class="dialog-header">
-            <h2>应用设置</h2>
-            <button class="window-btn" onclick="hideSettingsManager()" title="关闭">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-            </button>
-        </div>
+    container.innerHTML = `
         <div class="dialog-tabs">
             <button class="dialog-tab active" data-tab="basic">基础配置</button>
             <button class="dialog-tab" data-tab="sources">应用源管理</button>
         </div>
         <div class="dialog-body">
             <div class="tab-content active" id="basicTab">
-                <div class="form-group">
-                    <label>AppStore 存储目录</label>
-                    <input type="text" id="appStoreDirInput" class="semi-input" value="${escapeHtml(safeSettings.appStoreDir || '')}" placeholder="例如：/vol1/我的文件/AppStore">
-                    <div class="form-hint">此目录用于存放已下载的应用安装包。请确保该路径在系统设置中已授权给本应用访问权限。</div>
-                </div>
-                <div style="margin-top: 32px; display: flex; justify-content: flex-end;">
-                    <button class="semi-button semi-button-primary" style="height: 32px; padding: 0 24px;" onclick="saveSettings()">保存配置</button>
+                <div class="settings-card">
+                    <div class="settings-card-icon">
+                        <svg t="1775702187924" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="19267" width="24" height="24"><path d="M512 512v85.3504c47.104 0 85.3504-38.2464 85.3504-85.3504H512z m0 0H426.6496c0 47.104 38.2464 85.3504 85.3504 85.3504V512z m0 0V426.6496c-47.104 0-85.3504 38.2464-85.3504 85.3504H512z m0 0h85.3504c0-47.104-38.2464-85.3504-85.3504-85.3504V512zM680.0896 482.3552a42.6496 42.6496 0 0 0 84.0192-14.7968l-84.0192 14.848z m-123.648 281.7536a42.6496 42.6496 0 0 0-14.848-84.0192l14.848 84.0192z m207.6672-296.5504a256 256 0 0 0-67.1744-132.608l-61.6448 59.0336c23.3472 24.3712 38.912 55.1424 44.8 88.3712l84.0192-14.7968z m-67.1744-132.608a256 256 0 0 0-129.536-72.8576l-18.432 83.3024c32.9216 7.2704 62.976 24.2176 86.3232 48.64l61.6448-59.0336z m-129.536-72.8576a256 256 0 0 0-148.1728 11.264l30.9248 79.5648a170.6496 170.6496 0 0 1 98.816-7.5264l18.432-83.3024z m-148.1728 11.264a256 256 0 0 0-116.9408 91.8016l69.9392 48.9472c19.3536-27.648 46.4384-48.9472 77.9264-61.184L419.2256 273.408zM302.2848 365.2096a256 256 0 0 0-46.2336 141.2608l85.2992 1.8432c0.768-33.7408 11.4688-66.56 30.8736-94.208l-69.9392-48.896zM256.0512 506.368a256 256 0 0 0 40.0384 143.104l71.9872-45.824a170.6496 170.6496 0 0 1-26.7264-95.4368l-85.2992-1.8432z m40.0384 143.104a256 256 0 0 0 112.7936 96.768l34.3552-78.08a170.6496 170.6496 0 0 1-75.1616-64.512l-71.9872 45.824z m112.7936 96.768a256 256 0 0 0 147.5584 17.8176l-14.848-84.0192a170.6496 170.6496 0 0 1-98.304-11.8784l-34.4064 78.08zM170.6496 512a42.6496 42.6496 0 1 0-85.2992 0h85.2992zM512 85.3504a42.6496 42.6496 0 1 0 0 85.2992V85.3504zM85.3504 512c0 84.3776 24.9856 166.912 71.8848 237.056l70.9632-47.4112A341.3504 341.3504 0 0 1 170.6496 512H85.3504z m71.8848 237.056a426.6496 426.6496 0 0 0 191.488 157.1328l32.6656-78.848a341.2992 341.2992 0 0 1-153.1904-125.696l-70.9632 47.4112z m191.488 157.1328a426.7008 426.7008 0 0 0 246.528 24.2688L578.56 846.848a341.3504 341.3504 0 0 1-197.2224-19.456L348.672 906.24z m246.528 24.2688a426.7008 426.7008 0 0 0 218.4704-116.736l-60.3648-60.3648a341.3504 341.3504 0 0 1-174.7456 93.44l16.64 83.6608z m218.4704-116.736a426.7008 426.7008 0 0 0 116.736-218.4704L846.848 578.56a341.3504 341.3504 0 0 1-93.44 174.7456l60.3648 60.3648z m116.736-218.4704A426.7008 426.7008 0 0 0 906.24 348.672l-78.848 32.6656a341.3504 341.3504 0 0 1 19.456 197.2224l83.6608 16.64zM906.24 348.672a426.6496 426.6496 0 0 0-157.184-191.488l-47.36 70.9632a341.2992 341.2992 0 0 1 125.696 153.1904l78.848-32.6656z m-157.184-191.488A426.6496 426.6496 0 0 0 512 85.3504v85.2992c67.5328 0 133.5296 20.0192 189.6448 57.5488l47.4112-70.9632z" fill="#2B3038" p-id="19268"></path></svg>
+                    </div>
+                    <div class="settings-card-content">
+                        <div class="settings-card-title">AppStore 存储目录</div>
+                        <div class="settings-card-description">此目录用于存放已下载的应用安装包。请确保该路径在系统设置中已授权给本应用访问权限。</div>
+                    </div>
+                    <div class="settings-card-actions">
+                        <div class="settings-card-input-wrapper">
+                            <input type="text" id="appStoreDirInput" class="semi-input" value="${escapeHtml(safeSettings.appStoreDir || '')}" placeholder="例如：/vol1/我的文件/AppStore">
+                        </div>
+                        <button class="semi-button semi-button-primary" style="height: 36px; padding: 0 20px;" onclick="saveSettings()">保存配置</button>
+                    </div>
                 </div>
             </div>
             <div class="tab-content" id="sourcesTab">
-                <div class="add-source-form">
-                    <h3>添加新的应用源</h3>
-                    <div class="form-inline">
-                        <div class="form-group">
-                            <input type="text" id="newSourceName" class="semi-input" placeholder="源名称" style="height: 32px;">
-                        </div>
-                        <div class="form-group">
-                            <input type="text" id="newSourceUrl" class="semi-input" placeholder="源 URL (https://...)" style="height: 32px;">
-                        </div>
-                        <button class="semi-button semi-button-primary" style="height: 32px; flex-shrink: 0;" onclick="addSource()">添加源</button>
+                <div class="settings-card" style="background-color: var(--semi-color-fill-0); border-style: dashed;">
+                    <div class="settings-card-icon" style="background-color: var(--semi-color-primary); color: white;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </div>
+                    <div class="settings-card-content">
+                        <div class="settings-card-title">添加新的应用源</div>
+                        <div class="settings-card-description">请输入应用源名称和 URL 地址（支持远程仓库或本地路径）。</div>
+                    </div>
+                    <div class="settings-card-actions">
+                        <input type="text" id="newSourceName" class="semi-input" placeholder="源名称" style="width: 120px;">
+                        <input type="text" id="newSourceUrl" class="semi-input" placeholder="URL (https://...)" style="width: 240px;">
+                        <button class="semi-button semi-button-primary" style="height: 36px; padding: 0 20px;" onclick="addSource()">添加源</button>
                     </div>
                 </div>
                 <div id="sourceListContainer">
@@ -717,12 +751,15 @@ function renderSourceList(sources) {
         <div class="source-list">
             ${sources.map(function(source) {
                 return `
-                    <div class="source-item">
-                        <div class="source-item-info">
-                            <div class="source-item-name">${escapeHtml(source.name)}</div>
-                            <div class="source-item-path">${escapeHtml(source.url)}</div>
+                    <div class="settings-card">
+                        <div class="settings-card-icon">
+                            <svg t="1775702187924" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="19267" width="24" height="24"><path d="M512 512v85.3504c47.104 0 85.3504-38.2464 85.3504-85.3504H512z m0 0H426.6496c0 47.104 38.2464 85.3504 85.3504 85.3504V512z m0 0V426.6496c-47.104 0-85.3504 38.2464-85.3504 85.3504H512z m0 0h85.3504c0-47.104-38.2464-85.3504-85.3504-85.3504V512zM680.0896 482.3552a42.6496 42.6496 0 0 0 84.0192-14.7968l-84.0192 14.848z m-123.648 281.7536a42.6496 42.6496 0 0 0-14.848-84.0192l14.848 84.0192z m207.6672-296.5504a256 256 0 0 0-67.1744-132.608l-61.6448 59.0336c23.3472 24.3712 38.912 55.1424 44.8 88.3712l84.0192-14.7968z m-67.1744-132.608a256 256 0 0 0-129.536-72.8576l-18.432 83.3024c32.9216 7.2704 62.976 24.2176 86.3232 48.64l61.6448-59.0336z m-129.536-72.8576a256 256 0 0 0-148.1728 11.264l30.9248 79.5648a170.6496 170.6496 0 0 1 98.816-7.5264l18.432-83.3024z m-148.1728 11.264a256 256 0 0 0-116.9408 91.8016l69.9392 48.9472c19.3536-27.648 46.4384-48.9472 77.9264-61.184L419.2256 273.408zM302.2848 365.2096a256 256 0 0 0-46.2336 141.2608l85.2992 1.8432c0.768-33.7408 11.4688-66.56 30.8736-94.208l-69.9392-48.896zM256.0512 506.368a256 256 0 0 0 40.0384 143.104l71.9872-45.824a170.6496 170.6496 0 0 1-26.7264-95.4368l-85.2992-1.8432z m40.0384 143.104a256 256 0 0 0 112.7936 96.768l34.3552-78.08a170.6496 170.6496 0 0 1-75.1616-64.512l-71.9872 45.824z m112.7936 96.768a256 256 0 0 0 147.5584 17.8176l-14.848-84.0192a170.6496 170.6496 0 0 1-98.304-11.8784l-34.4064 78.08zM170.6496 512a42.6496 42.6496 0 1 0-85.2992 0h85.2992zM512 85.3504a42.6496 42.6496 0 1 0 0 85.2992V85.3504zM85.3504 512c0 84.3776 24.9856 166.912 71.8848 237.056l70.9632-47.4112A341.3504 341.3504 0 0 1 170.6496 512H85.3504z m71.8848 237.056a426.6496 426.6496 0 0 0 191.488 157.1328l32.6656-78.848a341.2992 341.2992 0 0 1-153.1904-125.696l-70.9632 47.4112z m191.488 157.1328a426.7008 426.7008 0 0 0 246.528 24.2688L578.56 846.848a341.3504 341.3504 0 0 1-197.2224-19.456L348.672 906.24z m246.528 24.2688a426.7008 426.7008 0 0 0 218.4704-116.736l-60.3648-60.3648a341.3504 341.3504 0 0 1-174.7456 93.44l16.64 83.6608z m218.4704-116.736a426.7008 426.7008 0 0 0 116.736-218.4704L846.848 578.56a341.3504 341.3504 0 0 1-93.44 174.7456l60.3648 60.3648z m116.736-218.4704A426.7008 426.7008 0 0 0 906.24 348.672l-78.848 32.6656a341.3504 341.3504 0 0 1 19.456 197.2224l83.6608 16.64zM906.24 348.672a426.6496 426.6496 0 0 0-157.184-191.488l-47.36 70.9632a341.2992 341.2992 0 0 1 125.696 153.1904l78.848-32.6656z m-157.184-191.488A426.6496 426.6496 0 0 0 512 85.3504v85.2992c67.5328 0 133.5296 20.0192 189.6448 57.5488l47.4112-70.9632z" fill="#2B3038" p-id="19268"></path></svg>
                         </div>
-                        <div class="source-item-actions">
+                        <div class="settings-card-content">
+                            <div class="settings-card-title">${escapeHtml(source.name)}</div>
+                            <div class="settings-card-description">${escapeHtml(source.url)}</div>
+                        </div>
+                        <div class="settings-card-actions">
                             <button class="action-btn sync-btn" onclick="syncSource('${escapeHtml(source.id)}')">同步</button>
                             ${source.local ? `<button class="action-btn" style="background: var(--semi-color-fill-1); color: var(--semi-color-text-1);" onclick="resetCache('${escapeHtml(source.id)}')">重置</button>` : ''}
                             ${!source.local ? `<button class="action-btn delete-btn" onclick="deleteSource('${escapeHtml(source.id)}')">删除</button>` : ''}
@@ -734,15 +771,7 @@ function renderSourceList(sources) {
     `;
 }
 
-function showSettingsDialog() {
-    document.getElementById('settingsOverlay').classList.add('active');
-    document.getElementById('settingsDialog').classList.add('active');
-}
-
-function hideSettingsManager() {
-    document.getElementById('settingsOverlay').classList.remove('active');
-    document.getElementById('settingsDialog').classList.remove('active');
-}
+// Legacy modal functions removed
 
 async function saveSettings() {
     const appStoreDir = document.getElementById('appStoreDirInput').value.trim();
@@ -754,15 +783,14 @@ async function saveSettings() {
         });
 
         if (data.code === 0) {
-            alert('保存设置成功');
-            hideSettingsManager();
+            showNotification('基础配置已保存', 'success');
             loadApps();
         } else {
-            alert('保存设置失败: ' + (data.message || '未知错误'));
+            showNotification(data.message || '保存设置失败', 'error');
         }
     } catch (error) {
         console.error('保存设置失败:', error);
-        alert('网络错误，请重试');
+        showNotification(error.message || '网络错误，请重试', 'error');
     }
 }
 
@@ -773,15 +801,15 @@ async function syncSource(sourceId) {
         });
 
         if (data.code === 0) {
-            alert(`同步成功！新增: ${data.data.added}, 更新: ${data.data.updated}, 移除: ${data.data.removed}`);
+            showNotification(`同步成功！新增: ${data.data.added}, 更新: ${data.data.updated}, 移除: ${data.data.removed}`, 'success');
             showSettingsManager();
             loadApps();
         } else {
-            alert('同步失败: ' + (data.message || '未知错误'));
+            showNotification(data.message || '同步失败', 'error');
         }
     } catch (error) {
         console.error('同步源失败:', error);
-        alert('网络错误，请重试');
+        showNotification(error.message || '网络错误，请重试', 'error');
     }
 }
 
@@ -796,15 +824,15 @@ async function resetCache(sourceId) {
         });
 
         if (data.code === 0) {
-            alert(`缓存已重置，当前共 ${data.data.total} 个应用`);
+            showNotification(`缓存已重置，当前共 ${data.data.total} 个应用`, 'success');
             showSettingsManager();
             loadApps();
         } else {
-            alert('重置缓存失败: ' + (data.message || '未知错误'));
+            showNotification(data.message || '重置缓存失败', 'error');
         }
     } catch (error) {
         console.error('重置缓存失败:', error);
-        alert('网络错误，请重试');
+        showNotification(error.message || '网络错误，请重试', 'error');
     }
 }
 
@@ -823,11 +851,11 @@ async function deleteSource(sourceId) {
             showSettingsManager();
             loadApps();
         } else {
-            alert('删除失败: ' + (data.message || '未知错误'));
+            showNotification(data.message || '删除失败', 'error');
         }
     } catch (error) {
         console.error('删除源失败:', error);
-        alert('网络错误，请重试');
+        showNotification(error.message || '网络错误，请重试', 'error');
     }
 }
 
@@ -858,11 +886,11 @@ async function addSource() {
             document.querySelector('.dialog-tab[data-tab="sources"]').click();
             loadApps();
         } else {
-            alert('添加源失败: ' + (data.message || '未知错误'));
+            showNotification(data.message || '添加源失败', 'error');
         }
     } catch (error) {
         console.error('添加源失败:', error);
-        alert('网络错误，请重试');
+        showNotification(error.message || '网络错误，请重试', 'error');
     }
 }
 

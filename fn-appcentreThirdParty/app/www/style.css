@@ -240,7 +240,10 @@ body {
 }
 
 /* Global Font Reset */
-button, input, select, textarea {
+button,
+input,
+select,
+textarea {
     font-family: inherit;
 }
 
@@ -320,7 +323,7 @@ button, input, select, textarea {
 .base-Tab-root {
     display: flex;
     align-items: center;
-    height: 36px;
+    height: 35px;
     padding: 0 12px;
     border: none;
     background: transparent;
@@ -376,7 +379,7 @@ button, input, select, textarea {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 12px;
+    padding: 4px 12px;
     border: none;
     background: transparent;
     width: 100%;
@@ -399,6 +402,8 @@ button, input, select, textarea {
     background-color: var(--semi-color-nav-bg);
     padding: 8px;
     position: relative;
+    overflow: hidden;
+    /* Prevent body overflow when switching */
 }
 
 .window-controls {
@@ -461,50 +466,79 @@ button, input, select, textarea {
 }
 
 .app-main-view {
+    display: none;
     flex: 1;
     padding: 20px;
     overflow-y: auto;
 }
 
+.app-main-view.active {
+    display: block;
+}
+
 .app-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    padding-bottom: 32px;
+}
+
+.category-section {
+    margin-bottom: 24px;
+}
+
+.grid-category-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 0 4px;
+}
+
+.grid-category-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--semi-color-text-0);
+}
+
+.grid-category-count {
+    font-size: 14px;
+    color: var(--semi-color-text-2);
+    font-family: var(--semi-font-family-mono);
 }
 
 /* App Card styling - EXACT Official Store Style */
 .app-card {
     position: relative;
     display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 12px;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 20px;
     background-color: var(--card-DefaultBg);
     border: 1px solid var(--card-border);
-    border-radius: var(--semi-border-radius-s);
+    border-radius: 12px;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    min-height: 84px;
 }
 
 .app-card:hover {
     background-color: var(--card-HoverBg);
-}
-
-.app-card-top {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 100%;
+    border-color: var(--semi-color-primary-light-default);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .app-card-icon {
     width: 52px;
     height: 52px;
-    border-radius: 10px;
+    border-radius: 12px;
     flex-shrink: 0;
-    background-color: var(--semi-grey-1);
+    background-color: var(--semi-color-fill-1);
     background-size: cover;
     background-position: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .app-card-info {
@@ -512,32 +546,37 @@ button, input, select, textarea {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    min-height: 52px;
 }
 
 .app-card-name {
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 15px;
+    font-weight: 600;
     color: var(--semi-color-text-0);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 1.4;
 }
 
 .app-card-meta {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    margin-top: auto;
+    width: 100%;
 }
 
 .app-card-category {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--semi-color-text-2);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    padding-top: 4px;
 }
+
+/* Redundant actions container removed - button is now in meta */
 
 .app-card-badge {
     position: absolute;
@@ -549,26 +588,36 @@ button, input, select, textarea {
 
 /* Small Buttons in Card */
 .semi-button {
-    height: 24px;
-    padding: 0 12px;
+    height: 28px;
+    padding: 0 16px;
     font-size: 12px;
     font-weight: 500;
-    border-radius: 6px;
+    border-radius: 14px;
     border: none;
     cursor: pointer;
     transition: all 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
+    white-space: nowrap;
 }
 
 .semi-button-primary {
-    background-color: rgba(var(--semi-blue-5), 0.1);
+    background-color: var(--semi-color-primary-light-default);
     color: var(--semi-color-primary);
 }
 
 .semi-button-primary:hover {
-    background-color: rgba(var(--semi-blue-5), 0.2);
+    background-color: var(--semi-color-primary-light-hover);
+}
+
+.semi-button-secondary {
+    background-color: var(--semi-color-fill-0);
+    color: var(--semi-color-text-1);
+}
+
+.semi-button-secondary:hover {
+    background-color: var(--semi-color-fill-1);
 }
 
 .semi-button-tertiary {
@@ -648,12 +697,13 @@ button, input, select, textarea {
     display: flex;
     padding: 0 24px;
     border-bottom: 1px solid var(--semi-color-border);
-    background-color: var(--semi-color-bg-0);
+    background-color: var(--semi-color-bg-1);
+    gap: 32px;
 }
 
 .dialog-tab {
-    padding: 12px 16px;
-    font-size: 14px;
+    padding: 16px 4px;
+    font-size: 15px;
     font-weight: 500;
     color: var(--semi-color-text-2);
     background: transparent;
@@ -661,16 +711,17 @@ button, input, select, textarea {
     border-bottom: 2px solid transparent;
     cursor: pointer;
     transition: all 0.2s;
+    margin-bottom: -1px;
 }
 
 .dialog-tab:hover {
     color: var(--semi-color-text-0);
-    background-color: var(--semi-color-fill-0);
 }
 
 .dialog-tab.active {
     color: var(--semi-color-primary);
-    border-bottom-color: var(--semi-color-primary);
+    border-bottom: 3px solid var(--semi-color-primary);
+    font-weight: 600;
 }
 
 .dialog-body {
@@ -685,6 +736,91 @@ button, input, select, textarea {
 
 .dialog-body .tab-content.active {
     display: block;
+}
+
+#settingsView .dialog-tabs {
+    margin-bottom: 24px;
+    background: transparent;
+}
+
+#settingsView .dialog-body {
+    padding: 0;
+    min-height: auto;
+    height: auto;
+}
+
+/* Settings Row Card Interface */
+.settings-card {
+    background-color: #ffffff;
+    border: 1px solid var(--semi-color-border);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 16px;
+    transition: box-shadow 0.2s;
+}
+
+.settings-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.settings-card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    background-color: var(--semi-color-fill-0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--semi-color-text-1);
+    flex-shrink: 0;
+}
+
+.settings-card-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.settings-card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--semi-color-text-0);
+    margin-bottom: 4px;
+}
+
+.settings-card-description {
+    font-size: 13px;
+    color: var(--semi-color-text-2);
+    line-height: 1.5;
+}
+
+.settings-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.settings-card-input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 320px;
+}
+
+.settings-card .semi-input {
+    border: 1px solid var(--semi-color-border);
+    border-radius: var(--semi-border-radius-s);
+    padding: 0 12px;
+    height: 36px;
+    background-color: #ffffff;
+    transition: all 0.2s;
+}
+
+.settings-card .semi-input:focus {
+    border-color: var(--semi-color-primary);
+    box-shadow: 0 0 0 2px rgba(var(--semi-brand-5), 0.1);
 }
 
 .form-group {
@@ -832,13 +968,32 @@ button, input, select, textarea {
 
 /* === 应用详细信息模态页面样式 === */
 
-.detail-header {
+.back-button {
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
-    padding: 24px;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 8px;
+    margin-bottom: 24px;
+    transition: all 0.2s;
+    color: var(--semi-color-text-0);
+    background-color: transparent;
+}
+
+.back-button:hover {
+    background-color: var(--semi-color-fill-0);
+    transform: translateX(-2px);
+}
+
+.detail-header {
+    display: flex;
+    align-items: flex-start;
+    padding: 0 0 32px 0;
+    margin-bottom: 24px;
     border-bottom: 1px solid var(--semi-color-border);
-    background-color: var(--semi-color-bg-0);
-    gap: 16px;
+    gap: 24px;
 }
 
 .detail-header img {
@@ -903,9 +1058,8 @@ button, input, select, textarea {
 }
 
 .detail-body {
-    padding: 24px;
-    height: calc(100% - 128px);
-    overflow-y: auto;
+    padding: 0;
+    overflow: visible;
 }
 
 .detail-info-grid {
@@ -992,7 +1146,9 @@ button, input, select, textarea {
     color: #757575;
 }
 
-.status-installing, .status-starting, .status-stopping {
+.status-installing,
+.status-starting,
+.status-stopping {
     background-color: #e3f2fd;
     color: #1976d2;
 }
@@ -1061,6 +1217,7 @@ button, input, select, textarea {
         transform: translateX(100%);
         opacity: 0;
     }
+
     to {
         transform: translateX(0);
         opacity: 1;
@@ -1098,8 +1255,13 @@ button, input, select, textarea {
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 /* 安装对话框样式 */
