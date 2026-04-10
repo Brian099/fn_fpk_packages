@@ -5,14 +5,16 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gin-gonic/gin"
 	"appcentre/config"
+	"appcentre/services"
+
+	"github.com/gin-gonic/gin"
 )
 
 // GetSettings 获取应用设置
 func GetSettings(c *gin.Context) {
 	appConfig := config.LoadConfig()
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"data":    appConfig,
@@ -62,6 +64,11 @@ func SaveSettings(c *gin.Context) {
 		})
 		return
 	}
+
+	// 保存配置后，自动发现并更新本地源
+	sources := services.LoadSources()
+	services.DiscoverLocalSources(&sources)
+	services.SaveSources(sources)
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,

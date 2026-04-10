@@ -1,22 +1,12 @@
 [
   {
-    "id": "source_1",
-    "name": "???",
-    "url": "http://fpk.example.com:18088",
+    "id": "local_AppStore",
+    "name": "本地 FPK 文件",
+    "url": "/vol1/1000/AppStore",
     "enabled": true,
-    "auto_update": true,
-    "last_sync": "2026-04-07T20:25:24+08:00",
-    "app_count": 0,
-    "local": false
-  },
-  {
-    "id": "source_2",
-    "name": "aaa",
-    "url": "ssss",
-    "enabled": true,
-    "auto_update": true,
+    "auto_update": false,
     "last_sync": "",
     "app_count": 0,
-    "local": false
+    "local": true
   }
 ]
