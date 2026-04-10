@@ -81,6 +81,9 @@ func DeleteSource(c *gin.Context) {
 
 	services.SaveSources(newSources)
 
+	cachePath := filepath.Join(config.PkgVar, "cache", sourceID+".json")
+	os.Remove(cachePath)
+
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "Source deleted successfully",
