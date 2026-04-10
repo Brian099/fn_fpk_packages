@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -146,15 +147,13 @@ func GetApps(c *gin.Context) {
 		for _, app := range allApps {
 			match := false
 			if category == "installed" {
-				// 检查版本号是否被标记为 installed
-				if app.Version == "installed" {
+				if app.IsInstalled {
 					match = true
 				}
 			} else if category == "latest" {
-				// 暂时返回所有作为最新发布
 				match = true
 			} else {
-				for _, cat := range app.Categories {
+				for _, cat := range app.Labels {
 					if strings.EqualFold(cat, category) {
 						match = true
 						break
@@ -247,20 +246,19 @@ func GetAppIcon(c *gin.Context) {
 // InstallAppRequest 安装应用请求结构体
 type InstallAppRequest struct {
 	EnvFilePath string `json:"env_file_path"` // 环境变量文件路径
+	DownloadURL string `json:"download_url"`  // 下载地址（远程应用）
+	SourceID    string `json:"source_id"`     // 来源ID
 }
 
 // InstallApp 安装应用
 func InstallApp(c *gin.Context) {
 	appID := c.Param("id")
 
-	// 解析请求参数
 	var req InstallAppRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		// 如果没有提供JSON参数，使用默认安装方式
 		req = InstallAppRequest{}
 	}
 
-	// Find the FPK file
 	userAppStoreDir := services.GetUsersAppStoreDir()
 	if userAppStoreDir == "" {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -271,19 +269,34 @@ func InstallApp(c *gin.Context) {
 	}
 
 	fpkPath := filepath.Join(userAppStoreDir, appID+".fpk")
+
 	if _, err := os.Stat(fpkPath); os.IsNotExist(err) {
-		c.JSON(http.StatusNotFound, gin.H{
-			"code":    404,
-			"message": "FPK file not found",
-		})
-		return
+		downloadURL := req.DownloadURL
+		if downloadURL == "" {
+			downloadURL = findAppDownloadURL(appID, req.SourceID)
+		}
+
+		if downloadURL == "" {
+			c.JSON(http.StatusNotFound, gin.H{
+				"code":    404,
+				"message": "FPK file not found locally and no download URL available",
+			})
+			return
+		}
+
+		if err := downloadFPKFile(downloadURL, fpkPath); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code":    500,
+				"message": fmt.Sprintf("Failed to download FPK: %v", err),
+			})
+			return
+		}
+		defer os.Remove(fpkPath)
 	}
 
-	// Use appcenter-cli to install the app
 	cliPath := getAppCenterCliPath()
 	args := []string{"install-fpk", fpkPath}
 
-	// 如果提供了环境变量文件，添加--env参数
 	if req.EnvFilePath != "" {
 		if _, err := os.Stat(req.EnvFilePath); err == nil {
 			args = append(args, "--env", req.EnvFilePath)
@@ -313,6 +326,81 @@ func InstallApp(c *gin.Context) {
 		"message": "Application installed successfully",
 		"output":  string(output),
 	})
+}
+
+func findAppDownloadURL(appID string, sourceID string) string {
+	sources := services.LoadSources()
+	services.DiscoverLocalSources(&sources)
+
+	for _, source := range sources {
+		if sourceID != "" && source.ID != sourceID {
+			continue
+		}
+		if !source.Enabled {
+			continue
+		}
+
+		var apps []models.App
+		if source.Local {
+			apps = services.ScanFPKDir(source.URL, source.ID, false)
+		} else {
+			apps = services.LoadAppsFromSource(&source)
+		}
+
+		for _, app := range apps {
+			if app.ID == appID && app.DownloadURL != "" {
+				return app.DownloadURL
+			}
+		}
+	}
+	return ""
+}
+
+func downloadFPKFile(url string, destPath string) error {
+	if strings.HasPrefix(url, "http") {
+		resp, err := http.Get(url)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("HTTP %d", resp.StatusCode)
+		}
+
+		out, err := os.Create(destPath)
+		if err != nil {
+			return err
+		}
+		defer out.Close()
+
+		_, err = io.Copy(out, resp.Body)
+		return err
+	}
+
+	srcPath := url
+	if !filepath.IsAbs(srcPath) {
+		srcPath = filepath.Join(services.GetUsersAppStoreDir(), url)
+	}
+
+	return copyFile(srcPath, destPath)
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	return err
 }
 
 // StartApp 启动应用

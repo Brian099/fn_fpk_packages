@@ -6,7 +6,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"appcentre/models"
@@ -26,26 +28,36 @@ func InitAppShareService(pv string) {
 }
 
 func initMuxHandlers() {
-	cacheDir := filepath.Join(pkgVar, "cache")
+	localCacheDir := filepath.Join(pkgVar, "cache")
 
 	appShareMux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+		path := req.URL.Path
+
+		if strings.HasPrefix(path, "/download/") {
+			handleDownload(w, req, localCacheDir)
+			return
+		}
+
+		host := req.Host
+		baseURL := "http://" + host
+
 		sources := LoadSources()
 
-		var localSourceID string
+		var localSource *models.Source
 		for _, source := range sources {
 			if source.Local {
-				localSourceID = source.ID
+				localSource = &source
 				break
 			}
 		}
 
-		if localSourceID == "" {
+		if localSource == nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.Write([]byte(`{"code":0,"data":{"apps":[],"total":0,"sources":0}}`))
 			return
 		}
 
-		cachePath := filepath.Join(cacheDir, localSourceID+".json")
+		cachePath := filepath.Join(localCacheDir, localSource.ID+".json")
 		data, err := ioutil.ReadFile(cachePath)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
@@ -62,17 +74,56 @@ func initMuxHandlers() {
 			return
 		}
 
+		for i := range cacheData.Apps {
+			app := &cacheData.Apps[i]
+			if app.DownloadURL != "" && !strings.HasPrefix(app.DownloadURL, "http") {
+				app.DownloadURL = baseURL + "/download/" + app.DownloadURL
+			}
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		resp := map[string]interface{}{
 			"code": 0,
 			"data": map[string]interface{}{
-				"apps":    cacheData.Apps,
-				"total":   len(cacheData.Apps),
-				"sources": 1,
+				"apps":      cacheData.Apps,
+				"total":     len(cacheData.Apps),
+				"sources":   1,
+				"base_url":  baseURL,
+				"app_store": localSource.URL,
 			},
 		}
 		json.NewEncoder(w).Encode(resp)
 	})
+}
+
+func handleDownload(w http.ResponseWriter, req *http.Request, cacheDir string) {
+	sources := LoadSources()
+
+	var localSource *models.Source
+	for _, source := range sources {
+		if source.Local {
+			localSource = &source
+			break
+		}
+	}
+
+	if localSource == nil {
+		http.NotFound(w, req)
+		return
+	}
+
+	relPath := strings.TrimPrefix(req.URL.Path, "/download/")
+	actualFilename := filepath.Base(relPath)
+
+	fpkPath := filepath.Join(localSource.URL, relPath)
+	if _, err := os.Stat(fpkPath); os.IsNotExist(err) {
+		http.NotFound(w, req)
+		return
+	}
+
+	log.Printf("Serving download: %s", fpkPath)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", actualFilename))
+	http.ServeFile(w, req, fpkPath)
 }
 
 func StartAppShareServer(port int) error {

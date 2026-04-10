@@ -12,6 +12,7 @@ type App struct {
 	Version     string   `json:"version"`
 	Platform    string   `json:"platform"`
 	Categories  []string `json:"categories"`
+	Labels      []string `json:"labels"`
 	Author      string   `json:"author"`
 	Publisher   string   `json:"publisher"`
 	Size        string   `json:"size"`
@@ -20,6 +21,7 @@ type App struct {
 	DownloadURL string   `json:"download_url"`
 	Changelog   string   `json:"changelog"`
 	SourceID    string   `json:"source_id"`
+	IsInstalled bool     `json:"is_installed"`
 }
 
 // FnpackData 应用数据映射

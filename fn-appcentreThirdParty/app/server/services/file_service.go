@@ -16,68 +16,52 @@ import (
 	"appcentre/models"
 )
 
-// parseFPKFile 解析FPK文件
-func parseFPKFile(fpkPath string) (models.App, error) {
+func parseFPKFile(fpkPath string, baseDir string) (models.App, error) {
 	var app models.App
 	app.ID = strings.TrimSuffix(filepath.Base(fpkPath), ".fpk")
-	app.DownloadURL = filepath.Base(fpkPath)
 
-	// Get file info for size
+	relPath, err := filepath.Rel(baseDir, fpkPath)
+	if err != nil || strings.HasPrefix(relPath, "..") {
+		app.DownloadURL = filepath.Base(fpkPath)
+	} else {
+		app.DownloadURL = relPath
+	}
+
 	if info, err := os.Stat(fpkPath); err == nil {
 		sizeMB := float64(info.Size()) / 1024 / 1024
 		app.Size = fmt.Sprintf("%.2f", sizeMB)
 	}
 
-	// Try to get app info from appcenter-cli first
+	isInstalled := false
 	cmd := exec.Command("appcenter-cli", "list")
 	output, err := cmd.Output()
 	if err == nil {
-		// Parse appcenter-cli list output
 		lines := strings.Split(string(output), "\n")
 		for _, line := range lines {
 			if strings.Contains(line, app.ID) {
-				// Found installed app, get info from system
-				app.Name = app.ID
-				app.Version = "installed"
-				app.Platform = "x86"
-				app.Description = "已安装的应用"
-				app.Categories = []string{"已安装"}
-				return app, nil
+				isInstalled = true
+				break
 			}
 		}
 	}
 
-	// Fallback: Parse FPK file (tar.gz format)
 	file, err := os.Open(fpkPath)
 	if err != nil {
-		log.Printf("Failed to open FPK file %s: %v", fpkPath, err)
-		app.Name = app.ID
-		app.Version = "unknown"
-		app.Platform = "x86"
-		app.Description = "FPK 应用包"
-		app.Categories = []string{"其他"}
-		return app, nil
+		return app, fmt.Errorf("cannot open FPK file: %v", err)
 	}
 	defer file.Close()
 
-	// Create gzip reader
 	gzipReader, err := gzip.NewReader(file)
 	if err != nil {
-		log.Printf("Failed to create gzip reader for %s: %v", fpkPath, err)
-		app.Name = app.ID
-		app.Version = "unknown"
-		app.Platform = "x86"
-		app.Description = "FPK 应用包"
-		app.Categories = []string{"其他"}
-		return app, nil
+		return app, fmt.Errorf("invalid gzip format: %v", err)
 	}
 	defer gzipReader.Close()
 
-	// Create tar reader - read from OUTER tar (manifest is here, not inside app.tgz!)
 	tarReader := tar.NewReader(gzipReader)
 
-	// Parse manifest file from outer tar
 	manifestData := make(map[string]string)
+	hasManifest := false
+
 	for {
 		header, err := tarReader.Next()
 		if err == io.EOF {
@@ -88,18 +72,14 @@ func parseFPKFile(fpkPath string) (models.App, error) {
 			break
 		}
 
-		log.Printf("Found file in FPK: %s (size: %d)", header.Name, header.Size)
-
 		if header.Name == "manifest" {
+			hasManifest = true
 			data, err := ioutil.ReadAll(tarReader)
 			if err != nil {
 				log.Printf("Failed to read manifest in %s: %v", fpkPath, err)
 				continue
 			}
 
-			log.Printf("Found manifest in %s, size: %d bytes", fpkPath, len(data))
-
-			// Parse manifest file (INI-like format)
 			lines := strings.Split(string(data), "\n")
 			for _, line := range lines {
 				line = strings.TrimSpace(line)
@@ -111,7 +91,6 @@ func parseFPKFile(fpkPath string) (models.App, error) {
 					key := strings.TrimSpace(parts[0])
 					value := strings.TrimSpace(parts[1])
 					manifestData[key] = value
-					log.Printf("Manifest: %s = %s", key, value)
 				}
 			}
 		} else if header.Name == "ui/images/icon-256.png" || header.Name == "ICON_256.PNG" || header.Name == "icon-256.png" {
@@ -119,32 +98,26 @@ func parseFPKFile(fpkPath string) (models.App, error) {
 			if err == nil && len(iconData) > 0 {
 				iconBase64 := base64.StdEncoding.EncodeToString(iconData)
 				app.Icon = "data:image/png;base64," + iconBase64
-				log.Printf("Found icon-256.png in %s, size: %d bytes", fpkPath, len(iconData))
 			}
 		} else if header.Name == "ui/images/icon-64.png" || header.Name == "ICON_64.PNG" || header.Name == "icon-64.png" {
-			// Skip small icon if we already have 256
 			if app.Icon == "" {
 				iconData, err := ioutil.ReadAll(tarReader)
 				if err == nil && len(iconData) > 0 {
 					iconBase64 := base64.StdEncoding.EncodeToString(iconData)
 					app.Icon = "data:image/png;base64," + iconBase64
-					log.Printf("Found icon-64.png in %s, size: %d bytes", fpkPath, len(iconData))
 				}
 			}
-		} else if header.Name == "config/privilege" {
-			privilegeData, err := ioutil.ReadAll(tarReader)
-			if err == nil && len(privilegeData) > 0 {
-				log.Printf("Found privilege config in %s", fpkPath)
-				// Could parse privilege info if needed
-			}
 		}
-		// Skip app.tgz and other large files - we don't need them for metadata
-		if header.Size > 1024*1024*10 { // Skip files larger than 10MB
+
+		if header.Size > 1024*1024*10 {
 			io.CopyN(io.Discard, tarReader, header.Size)
 		}
 	}
 
-	// Extract app info from manifest
+	if !hasManifest {
+		return app, fmt.Errorf("manifest not found in FPK")
+	}
+
 	if displayName, ok := manifestData["display_name"]; ok && displayName != "" {
 		app.Name = displayName
 	} else if appname, ok := manifestData["appname"]; ok && appname != "" {
@@ -186,18 +159,21 @@ func parseFPKFile(fpkPath string) (models.App, error) {
 	}
 
 	if labels, ok := manifestData["labels"]; ok && labels != "" {
-		app.Categories = strings.Split(labels, ",")
-		for i := range app.Categories {
-			app.Categories[i] = strings.TrimSpace(app.Categories[i])
+		app.Labels = strings.Split(labels, ",")
+		for i := range app.Labels {
+			app.Labels[i] = strings.TrimSpace(app.Labels[i])
 		}
 	} else if categories, ok := manifestData["categories"]; ok && categories != "" {
-		app.Categories = strings.Split(categories, ",")
-		for i := range app.Categories {
-			app.Categories[i] = strings.TrimSpace(app.Categories[i])
+		app.Labels = strings.Split(categories, ",")
+		for i := range app.Labels {
+			app.Labels[i] = strings.TrimSpace(app.Labels[i])
 		}
 	} else {
-		app.Categories = []string{"其他"}
+		app.Labels = []string{"其他"}
 	}
+	app.Categories = app.Labels
+
+	app.IsInstalled = isInstalled
 
 	return app, nil
 }

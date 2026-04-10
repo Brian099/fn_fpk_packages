@@ -221,8 +221,10 @@ func convertToApp(appName string, fnpackApp models.FnpackApp, sourceID string) m
 	}
 
 	categories := []string{}
+	labels := []string{}
 	if fnpackApp.Labels != "" {
 		categories = strings.Split(fnpackApp.Labels, ",")
+		labels = categories
 	}
 
 	publisher := fnpackApp.Distributor
@@ -243,6 +245,7 @@ func convertToApp(appName string, fnpackApp models.FnpackApp, sourceID string) m
 		Version:     version,
 		Platform:    platform,
 		Categories:  categories,
+		Labels:      labels,
 		Author:      fnpackApp.Author,
 		Publisher:   publisher,
 		Size:        size,

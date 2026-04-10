@@ -309,7 +309,8 @@ function renderAppGrid(apps) {
     // 根据分类进行分组
     const groups = {};
     apps.forEach(app => {
-        const cat = (Array.isArray(app.categories) && app.categories.length > 0) ? app.categories[0] : (app.category || 'other');
+        const labels = app.labels?.length > 0 ? app.labels : (app.categories || []);
+        const cat = (Array.isArray(labels) && labels.length > 0) ? labels[0] : 'other';
         if (!groups[cat]) groups[cat] = [];
         groups[cat].push(app);
     });
@@ -356,14 +357,14 @@ function createAppCard(app) {
     card.dataset.appId = app.id;
 
     const iconUrl = app.icon || '/static/app/icons/trim.app-center/icon.png';
-    const categories = Array.isArray(app.categories) ? app.categories.slice(0, 1).join('') : (app.category || '应用');
-    
-    // 状态检测逻辑 (基础版)
+    const labels = app.labels?.length > 0 ? app.labels : (app.categories || []);
+    const displayCategory = Array.isArray(labels) ? labels[0] : '应用';
+
+    // 状态检测逻辑
     let btnText = '安装';
     let btnClass = 'semi-button-primary';
-    
-    // 如果版本被标记为 installed，显示“打开”
-    if (app.Version === 'installed' || app.status === 'installed' || app.is_installed) {
+
+    if (app.is_installed) {
         btnText = '打开';
         btnClass = 'semi-button-secondary';
     }
@@ -373,7 +374,7 @@ function createAppCard(app) {
         <div class="app-card-info">
             <div class="app-card-name">${escapeHtml(app.name)}</div>
             <div class="app-card-meta">
-                <div class="app-card-category">${escapeHtml(categories)}</div>
+                <div class="app-card-category">${escapeHtml(displayCategory)}</div>
                 <button class="semi-button ${btnClass}">${btnText}</button>
             </div>
         </div>
@@ -415,7 +416,8 @@ async function showAppDetail(appId) {
 function renderAppDetail(app) {
     const detailEl = document.getElementById('appDetailView');
 
-    const categories = Array.isArray(app.categories) ? app.categories.join(', ') : '';
+    const labels = app.labels?.length > 0 ? app.labels : (app.categories || []);
+    const displayLabels = Array.isArray(labels) ? labels.join(', ') : '';
     const iconHtml = app.icon
         ? `<img src="${app.icon}" alt="${app.name}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 12px;">`
         : `<div style="width: 64px; height: 64px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center;"><span style="color: white; font-size: 32px;">${app.name.charAt(0).toUpperCase()}</span></div>`;
@@ -473,8 +475,8 @@ function renderAppDetail(app) {
                     <div class="info-value">${escapeHtml(app.version)}</div>
                 </div>
                 <div class="info-item">
-                    <div class="info-label">来源</div>
-                    <div class="info-value">手动安装</div>
+                    <div class="info-label">分类</div>
+                    <div class="info-value">${escapeHtml(displayLabels)}</div>
                 </div>
             </div>
 
@@ -537,17 +539,20 @@ async function installApp(app, envFilePath = null) {
         if (data.code === 0) {
             showNotification('安装成功！', 'success');
             hideAppDetail();
-            loadApps();
-            
-            // 启动应用状态轮询
-            startAppStatusPolling(app.id);
+            setTimeout(() => loadApps(), 500);
+            setTimeout(() => startAppStatusPolling(app.id), 500);
         } else {
             showNotification('安装失败: ' + (data.message || '未知错误'), 'error');
         }
     } catch (error) {
         hideLoading();
         console.error('安装失败:', error);
-        showNotification('安装失败: ' + error.message, 'error');
+        if (error.message.includes('超时')) {
+            showNotification('安装可能成功，请手动刷新查看', 'warning');
+            setTimeout(() => loadApps(), 1000);
+        } else {
+            showNotification('安装失败: ' + error.message, 'error');
+        }
     }
 }
 

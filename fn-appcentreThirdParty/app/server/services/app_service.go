@@ -76,6 +76,17 @@ func GetUsersAppStoreDir() string {
 		}
 		log.Printf("getUsersAppStoreDir: Configured directory not accessible: %s", appConfig.AppStoreDir)
 	}
+
+	sources := LoadSources()
+	for _, source := range sources {
+		if source.Local && source.Enabled {
+			if _, err := os.Stat(source.URL); err == nil {
+				log.Printf("getUsersAppStoreDir: Using local source directory: %s", source.URL)
+				return source.URL
+			}
+		}
+	}
+
 	return ""
 }
 
@@ -179,7 +190,7 @@ func ScanFPKDir(baseDir string, sourceID string, forceRescan bool) []models.App 
 			continue
 		}
 
-		app, err := parseFPKFile(fpkPath)
+		app, err := parseFPKFile(fpkPath, baseDir)
 		if err != nil {
 			log.Printf("Failed to parse FPK file %s: %v", fpkPath, err)
 			// 解析失败时保留旧的
@@ -203,7 +214,7 @@ func ScanFPKDir(baseDir string, sourceID string, forceRescan bool) []models.App 
 		}
 		seenIDs[appID] = true
 
-		app, err := parseFPKFile(fpkPath)
+		app, err := parseFPKFile(fpkPath, baseDir)
 		if err != nil {
 			log.Printf("Failed to parse new FPK file %s: %v", fpkPath, err)
 			continue
