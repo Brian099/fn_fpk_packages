@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -82,6 +84,13 @@ func DeleteSource(c *gin.Context) {
 	services.SaveSources(newSources)
 
 	cachePath := filepath.Join(config.PkgVar, "cache", sourceID+".json")
+
+	if _, err := os.Stat(cachePath); err == nil {
+		backupPath := cachePath + ".bak"
+		data, _ := ioutil.ReadFile(cachePath)
+		ioutil.WriteFile(backupPath, data, 0644)
+	}
+
 	os.Remove(cachePath)
 
 	c.JSON(http.StatusOK, gin.H{
@@ -218,4 +227,80 @@ func ResetSourceCache(c *gin.Context) {
 			"total": total,
 		},
 	})
+}
+
+type UpdateAppLabelsRequest struct {
+	AppID  string   `json:"app_id"`
+	Labels []string `json:"labels"`
+}
+
+func UpdateAppLabels(c *gin.Context) {
+	sourceID := c.Param("id")
+	appID := c.Param("appId")
+
+	var req UpdateAppLabelsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "Invalid request"})
+		return
+	}
+
+	sources := services.LoadSources()
+	var targetSource *models.Source
+	for i := range sources {
+		if sources[i].ID == sourceID {
+			targetSource = &sources[i]
+			break
+		}
+	}
+
+	if targetSource == nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "Source not found"})
+		return
+	}
+
+	if !targetSource.Local {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "Only local source supported"})
+		return
+	}
+
+	cachePath := filepath.Join(config.PkgVar, "cache", sourceID+".json")
+	data, err := ioutil.ReadFile(cachePath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "Cache file not found"})
+		return
+	}
+
+	var cacheData models.FPKCacheData
+	if err := json.Unmarshal(data, &cacheData); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "Invalid cache format"})
+		return
+	}
+
+	found := false
+	for i := range cacheData.Apps {
+		if cacheData.Apps[i].ID == appID {
+			cacheData.Apps[i].Labels = req.Labels
+			cacheData.Apps[i].Categories = req.Labels
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "App not found in cache"})
+		return
+	}
+
+	newData, err := json.MarshalIndent(cacheData, "", "  ")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "Failed to save"})
+		return
+	}
+
+	if err := ioutil.WriteFile(cachePath, newData, 0644); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "Failed to write cache"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "Labels updated successfully"})
 }

@@ -257,7 +257,17 @@ function setupEventListeners() {
             b.classList.remove('active');
         });
         this.classList.add('active');
-        showSettingsManager(true); // 使用集成模式
+        showSettingsManager(true);
+    });
+
+    document.getElementById('myAppsBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        document.querySelectorAll('.base-Tab-root').forEach(function(b) {
+            b.classList.remove('active');
+        });
+        document.getElementById('settingsBtn').classList.remove('active');
+        this.classList.add('active');
+        showMyAppsManager();
     });
 
     document.getElementById('appDetailOverlay').addEventListener('click', function() {
@@ -645,6 +655,88 @@ async function uninstallApp(appId, appName) {
     } catch (error) {
         console.error('卸载失败:', error);
         alert('网络错误，请重试');
+    }
+}
+
+async function showMyAppsManager() {
+    try {
+        const sourcesData = await apiRequest('/api/sources');
+        const sources = sourcesData.data.sources || [];
+        const localSources = sources.filter(s => s.local);
+
+        if (localSources.length === 0) {
+            document.getElementById('settingsView').innerHTML = `
+                <div class="empty-state-container">
+                    <p>暂无本地应用源</p>
+                </div>
+            `;
+            switchView('settingsView');
+            return;
+        }
+
+        const localSource = localSources[0];
+        const appsData = await apiRequest(`/api/apps?source=${encodeURIComponent(localSource.id)}`);
+        const apps = appsData.data.apps || [];
+
+        renderMyAppsManager(apps, localSource, 'settingsView');
+        switchView('settingsView');
+    } catch (error) {
+        console.error('加载我的应用失败:', error);
+        showNotification('加载我的应用失败', 'error');
+    }
+}
+
+function renderMyAppsManager(apps, source, containerId) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = `
+        <div class="settings-header">
+            <h2>我的应用</h2>
+            <p class="settings-description">管理本地应用的分类标签</p>
+        </div>
+        <div class="settings-content">
+            <div class="app-labels-list">
+                ${apps.map(app => `
+                    <div class="app-label-item" data-app-id="${escapeHtml(app.id)}">
+                        <div class="app-label-info">
+                            <div class="app-label-name">${escapeHtml(app.name)}</div>
+                            <div class="app-label-current">
+                                当前标签: ${Array.isArray(app.labels) && app.labels.length > 0
+                                    ? app.labels.map(l => `<span class="tag">${escapeHtml(l)}</span>`).join('')
+                                    : '<span class="tag empty">无</span>'}
+                            </div>
+                        </div>
+                        <div class="app-label-actions">
+                            <input type="text" class="labels-input" value="${Array.isArray(app.labels) ? app.labels.join(', ') : ''}"
+                                   placeholder="输入标签，用逗号分隔" data-app-id="${escapeHtml(app.id)}">
+                            <button class="semi-button-primary save-labels-btn" onclick="saveAppLabels('${escapeHtml(source.id)}', '${escapeHtml(app.id)}')">保存</button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+async function saveAppLabels(sourceId, appId) {
+    const input = document.querySelector(`input[data-app-id="${appId}"]`);
+    const labelsStr = input.value.trim();
+    const labels = labelsStr ? labelsStr.split(',').map(l => l.trim()).filter(l => l) : [];
+
+    try {
+        const data = await apiRequest(`/api/sources/${encodeURIComponent(sourceId)}/apps/${encodeURIComponent(appId)}/labels`, {
+            method: 'PUT',
+            body: JSON.stringify({ labels: labels })
+        });
+
+        if (data.code === 0) {
+            showNotification('标签保存成功', 'success');
+            showMyAppsManager();
+        } else {
+            showNotification(data.message || '保存失败', 'error');
+        }
+    } catch (error) {
+        console.error('保存标签失败:', error);
+        showNotification('保存标签失败', 'error');
     }
 }
 

@@ -1396,3 +1396,74 @@ textarea {
     gap: 12px;
     flex-shrink: 0;
 }
+
+/* 我的应用管理页面样式 */
+.app-labels-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.app-label-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    background: var(--semi-color-bg-1);
+    border: 1px solid var(--semi-color-border);
+    border-radius: 8px;
+}
+
+.app-label-info {
+    flex: 1;
+}
+
+.app-label-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--semi-color-text-0);
+    margin-bottom: 4px;
+}
+
+.app-label-current {
+    font-size: 12px;
+    color: var(--semi-color-text-2);
+}
+
+.app-label-current .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--semi-color-fill-1);
+    border-radius: 4px;
+    margin-right: 4px;
+    font-size: 11px;
+}
+
+.app-label-current .tag.empty {
+    color: var(--semi-color-text-3);
+    font-style: italic;
+}
+
+.app-label-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.labels-input {
+    padding: 6px 12px;
+    border: 1px solid var(--semi-color-border);
+    border-radius: 4px;
+    font-size: 13px;
+    width: 200px;
+}
+
+.labels-input:focus {
+    outline: none;
+    border-color: var(--semi-color-primary);
+}
+
+.save-labels-btn {
+    padding: 6px 16px;
+    font-size: 13px;
+}
