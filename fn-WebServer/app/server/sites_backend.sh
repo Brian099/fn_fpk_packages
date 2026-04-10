@@ -165,7 +165,8 @@ create_site_json() {
   port=$(echo "$input" | grep "^port=" | cut -d= -f2- | tr -d '\r') # Legacy/Port HTTP
   port_https=$(echo "$input" | grep "^port_https=" | cut -d= -f2- | tr -d '\r')
   root_dir=$(echo "$input" | grep "^root=" | cut -d= -f2- | tr -d '\r')
-  https_enabled=$(echo "$input" | grep "^https_enabled=" | cut -d= -f2- | tr -d '\r')
+  use_http=$(echo "$input" | grep "^use_http=" | cut -d= -f2- | tr -d '\r')
+  use_https=$(echo "$input" | grep "^use_https=" | cut -d= -f2- | tr -d '\r')
   php_version=$(echo "$input" | grep "^php_version=" | cut -d= -f2- | tr -d '\r')
 
   # Fallback to the first available version if not specified
@@ -199,7 +200,18 @@ create_site_json() {
 
   site_name=""
   config_file=""
-  
+
+  # Define basic PHP block
+  php_block="location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:$php_socket;
+    }"
+  php_block_ssl="location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:$php_socket;
+        fastcgi_param HTTPS on;
+    }"
+
   if [ "$mode" = "domain" ]; then
       if [ -z "$domain" ]; then
           echo '{"ok":false,"error":"missing domain"}'
@@ -210,35 +222,79 @@ create_site_json() {
           return 0
       fi
       
+      target_port="${port:-80}"
+      target_port_https="${port_https:-443}"
+      
       if [ -n "$custom_name" ]; then
           site_name="$custom_name"
       else
           site_name="$domain"
       fi
       config_file="/etc/nginx/sites-available/$site_name"
-      
       if [ -f "$config_file" ]; then
           echo "{\"ok\":false,\"error\":\"site/config already exists: $site_name\"}"
           return 0
       fi
 
-      if [ "$https_enabled" = "true" ]; then
+      # 1. Port Conflict Checks
+      if [ "$use_http" = "true" ]; then
+          check_port_conflict "$target_port"
+          if [ $? -ne 0 ]; then
+              echo "{\"ok\":false,\"error\":\"Port $target_port is already in use\"}"
+              return 0
+          fi
+      fi
+      if [ "$use_https" = "true" ]; then
+          check_port_conflict "$target_port_https"
+          if [ $? -ne 0 ]; then
+              echo "{\"ok\":false,\"error\":\"HTTPS Port $target_port_https is already in use\"}"
+              return 0
+          fi
+      fi
+
+      # 2. Config Generation
+      > "$config_file"
+      
+      if [ "$use_http" = "true" ] && [ "$use_https" = "true" ]; then
+          # Redirection mode
+          redirect_url="https://\$host"
+          [ "$target_port_https" != "443" ] && redirect_url="https://\$host:$target_port_https"
+          
+          cat >> "$config_file" <<EOF
+server {
+    listen $target_port;
+    listen [::]:$target_port;
+    server_name $domain;
+    return 301 $redirect_url\$request_uri;
+}
+EOF
+      elif [ "$use_http" = "true" ]; then
+          # HTTP Only mode
+          cat >> "$config_file" <<EOF
+server {
+    listen $target_port;
+    listen [::]:$target_port;
+    server_name $domain;
+    root $root_dir;
+    index index.html index.htm index.php;
+    client_max_body_size 8M;
+    $rewrite_block
+    $root_location_block
+    $php_block
+}
+EOF
+      fi
+
+      if [ "$use_https" = "true" ]; then
           ssl_cert="/etc/nginx/certs/${domain}.pem"
           ssl_key="/etc/nginx/certs/${domain}.key"
           create_certificate_placeholder "$ssl_cert" "$ssl_key" "$domain"
           
-          cat > "$config_file" <<EOF
+          cat >> "$config_file" <<EOF
 server {
-    listen 80;
-    listen [::]:80;
+    listen $target_port_https ssl;
+    listen [::]:$target_port_https ssl;
     server_name $domain;
-    return 301 https://\$host\$request_uri;
-}
-server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    server_name $domain;
-
     ssl_certificate $ssl_cert;
     ssl_certificate_key $ssl_key;
     ssl_session_timeout 5m;
@@ -246,141 +302,88 @@ server {
     ssl_ciphers EECDH+CHACHA20:EECDH+AES128:RSA+AES128:EECDH+AES256:RSA+AES256:EECDH+3DES:RSA+3DES:!MD5;
     ssl_prefer_server_ciphers on;
     add_header Strict-Transport-Security "max-age=31536000";
-
     root $root_dir;
     index index.html index.htm index.php;
     client_max_body_size 8M;
-    
     $rewrite_block
-    
     $root_location_block
-    location ~ \.php$ {
-        include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:$php_socket;
-        fastcgi_param HTTPS on;
-    }
-}
-EOF
-      else
-          cat > "$config_file" <<EOF
-server {
-    listen 80;
-    listen [::]:80;
-    server_name $domain;
-    root $root_dir;
-    index index.html index.htm index.php;
-    client_max_body_size 8M;
-    
-    $rewrite_block
-    
-    $root_location_block
-    location ~ \.php$ {
-        include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:$php_socket;
-    }
+    $php_block_ssl
 }
 EOF
       fi
-      
+
   else
       # Port mode
-      if [ -z "$port" ]; then
-          echo '{"ok":false,"error":"missing port"}'
-          return 0
-      fi
-      
-      # Check if port is in use
-      check_port_conflict "$port"
-      conflict_status=$?
-      if [ $conflict_status -eq 1 ]; then
-          echo "{\"ok\":false,\"error\":\"Port $port is already in use (System)\"}"
-          return 0
-      elif [ $conflict_status -eq 2 ]; then
-          echo "{\"ok\":false,\"error\":\"Port $port is already in use (Nginx Config)\"}"
-          return 0
-      fi
+      target_port="${port:-80}"
+      target_port_https="${port_https:-443}"
 
       if [ -n "$custom_name" ]; then
           site_name="$custom_name"
       else
-          site_name="port_${port}"
+          site_name="port_${target_port}"
       fi
       config_file="/etc/nginx/sites-available/$site_name"
-      
       if [ -f "$config_file" ]; then
           echo "{\"ok\":false,\"error\":\"site/config already exists: $site_name\"}"
           return 0
       fi
-      
-      if [ "$https_enabled" = "true" ]; then
-          if [ -z "$port_https" ]; then
-               echo '{"ok":false,"error":"missing https port"}'
-               return 0
-          fi
-          
-          check_port_conflict "$port_https"
-          conflict_status=$?
-          if [ $conflict_status -eq 1 ]; then
-              echo "{\"ok\":false,\"error\":\"HTTPS Port $port_https is already in use (System)\"}"
-              return 0
-          elif [ $conflict_status -eq 2 ]; then
-              echo "{\"ok\":false,\"error\":\"HTTPS Port $port_https is already in use (Nginx Config)\"}"
-              return 0
-          fi
 
-          ssl_cert="/etc/nginx/certs/${site_name}_ssl${port_https}.pem"
-          ssl_key="/etc/nginx/certs/${site_name}_ssl${port_https}.key"
+      # 1. Port Conflict Checks
+      if [ "$use_http" = "true" ]; then
+          check_port_conflict "$target_port"
+          if [ $? -ne 0 ]; then
+              echo "{\"ok\":false,\"error\":\"Port $target_port is already in use\"}"
+              return 0
+          fi
+      fi
+      if [ "$use_https" = "true" ]; then
+          check_port_conflict "$target_port_https"
+          if [ $? -ne 0 ]; then
+              echo "{\"ok\":false,\"error\":\"HTTPS Port $target_port_https is already in use\"}"
+              return 0
+          fi
+      fi
+
+      # 2. Config Generation
+      > "$config_file"
+      cat >> "$config_file" <<EOF
+server {
+    server_name _;
+EOF
+      if [ "$use_http" = "true" ]; then
+          echo "    listen $target_port default_server;" >> "$config_file"
+          echo "    listen [::]:$target_port default_server;" >> "$config_file"
+      fi
+      if [ "$use_https" = "true" ]; then
+          ssl_cert="/etc/nginx/certs/${site_name}_ssl${target_port_https}.pem"
+          ssl_key="/etc/nginx/certs/${site_name}_ssl${target_port_https}.key"
           create_certificate_placeholder "$ssl_cert" "$ssl_key" "localhost"
           
-          cat > "$config_file" <<EOF
-server {
-    listen $port default_server;
-    listen [::]:$port default_server;
-    listen $port_https ssl default_server;
-    listen [::]:$port_https ssl default_server;
-    
-    server_name _;
-    
+          echo "    listen $target_port_https ssl default_server;" >> "$config_file"
+          echo "    listen [::]:$target_port_https ssl default_server;" >> "$config_file"
+          cat >> "$config_file" <<EOF
     ssl_certificate $ssl_cert;
     ssl_certificate_key $ssl_key;
     ssl_session_timeout 5m;
     ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;
     ssl_ciphers EECDH+CHACHA20:EECDH+AES128:RSA+AES128:EECDH+AES256:RSA+AES256:EECDH+3DES:RSA+3DES:!MD5;
     ssl_prefer_server_ciphers on;
-
-    root $root_dir;
-    index index.html index.htm index.php;
-    client_max_body_size 8M;
-    
-    $rewrite_block
-    
-    $root_location_block
-    location ~ \.php$ {
-        include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:$php_socket;
-    }
-}
-EOF
-      else
-          cat > "$config_file" <<EOF
-server {
-    listen $port default_server;
-    listen [::]:$port default_server;
-    server_name _;
-    root $root_dir;
-    index index.html index.htm index.php;
-    client_max_body_size 8M;
-    
-    $rewrite_block
-    
-    $root_location_block
-    location ~ \.php$ {
-        include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:$php_socket;
-    }
-}
 EOF
       fi
+
+      cat >> "$config_file" <<EOF
+    root $root_dir;
+    index index.html index.htm index.php;
+    client_max_body_size 8M;
+    $rewrite_block
+    $root_location_block
+EOF
+      if [ "$use_https" = "true" ]; then
+          echo "    $php_block_ssl" >> "$config_file"
+      else
+          echo "    $php_block" >> "$config_file"
+      fi
+      echo "}" >> "$config_file"
   fi
 
   ln -sf "$config_file" "/etc/nginx/sites-enabled/$site_name"

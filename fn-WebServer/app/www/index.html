@@ -176,6 +176,7 @@
 <script type="text/html" id="site-bar">
   <div class="layui-btn-group">
     <a class="layui-btn layui-btn-xs layui-btn-primary" lay-event="fix-permissions">权限修复</a>
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit-port">修改端口</a>
     {{# if(d.enabled){ }}
     <a class="layui-btn layui-btn-xs layui-btn-warm" lay-event="disable">停用</a>
     {{# } else { }}
@@ -292,22 +293,17 @@
         <input type="text" name="domain" placeholder="example.com" class="layui-input">
       </div>
     </div>
-    <div class="layui-form-item" id="field-port-http">
-      <label class="layui-form-label">HTTP端口</label>
+    <div class="layui-form-item" id="field-port-group">
+      <label class="layui-form-label">端口配置</label>
       <div class="layui-input-block">
-        <input type="number" name="port" placeholder="80" class="layui-input">
-      </div>
-    </div>
-    <div class="layui-form-item">
-      <label class="layui-form-label">启用HTTPS</label>
-      <div class="layui-input-block">
-        <input type="checkbox" name="https_enabled" lay-skin="switch" lay-text="ON|OFF" lay-filter="https-enabled">
-      </div>
-    </div>
-    <div class="layui-form-item" id="field-port-https" style="display:none;">
-      <label class="layui-form-label">HTTPS端口</label>
-      <div class="layui-input-block">
-        <input type="number" name="port_ssl" placeholder="443" class="layui-input">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+          <input type="checkbox" name="use_http" title="HTTP" lay-skin="primary" checked>
+          <input type="number" name="port" placeholder="80" class="layui-input" style="width: 120px;">
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <input type="checkbox" name="use_https" title="HTTPS" lay-skin="primary">
+          <input type="number" name="port_ssl" placeholder="443" class="layui-input" style="width: 120px;">
+        </div>
       </div>
     </div>
     <div class="layui-form-item">
