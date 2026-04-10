@@ -46,7 +46,7 @@ func AddSource(c *gin.Context) {
 	sources := services.LoadSources()
 
 	newSource := models.Source{
-		ID:         fmt.Sprintf("source_%d", len(sources)+1),
+		ID:         fmt.Sprintf("source_%d", time.Now().UnixNano()),
 		Name:       req.Name,
 		URL:        req.URL,
 		Enabled:    true,

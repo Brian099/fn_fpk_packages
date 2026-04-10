@@ -66,7 +66,15 @@ func parseAndCacheSource(sourceID string) []models.App {
 		return apps
 	}
 
-	url := strings.TrimRight(targetSource.URL, "/") + "/fnpack.json"
+	url := strings.TrimSpace(targetSource.URL)
+
+	if strings.Contains(url, "gitee.com") && strings.Contains(url, "/blob/") {
+		url = strings.Replace(url, "/blob/", "/raw/", 1)
+	}
+
+	if !strings.HasSuffix(url, "/fnpack.json") {
+		url = strings.TrimRight(url, "/") + "/fnpack.json"
+	}
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Printf("Failed to fetch fnpack.json from %s: %v", url, err)
@@ -88,6 +96,7 @@ func parseAndCacheSource(sourceID string) []models.App {
 	}
 
 	trimmedData := strings.TrimSpace(string(data))
+
 	if strings.HasPrefix(trimmedData, "<") {
 		log.Printf("Received HTML instead of JSON from %s", url)
 		return []models.App{}
@@ -98,6 +107,53 @@ func parseAndCacheSource(sourceID string) []models.App {
 		return []models.App{}
 	}
 
+	if strings.HasPrefix(trimmedData, "{\"code\":") {
+		apps = parseLocalShareFormat(tmpPath, sourceID)
+	} else {
+		apps = parseFnpackFormat(tmpPath, sourceID)
+	}
+
+	if len(apps) > 0 {
+		os.MkdirAll(cacheDir, 0755)
+		cacheData, _ := json.MarshalIndent(apps, "", "  ")
+		ioutil.WriteFile(filepath.Join(cacheDir, sourceID+".json"), cacheData, 0644)
+	}
+
+	return apps
+}
+
+func parseLocalShareFormat(tmpPath string, sourceID string) []models.App {
+	data, err := ioutil.ReadFile(tmpPath)
+	if err != nil {
+		log.Printf("Failed to read local share file: %v", err)
+		return []models.App{}
+	}
+
+	var response struct {
+		Code int `json:"code"`
+		Data struct {
+			Apps []models.App `json:"apps"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(data, &response); err != nil {
+		log.Printf("Failed to parse local share format: %v", err)
+		return []models.App{}
+	}
+
+	if response.Code != 0 {
+		log.Printf("Local share returned error code: %d", response.Code)
+		return []models.App{}
+	}
+
+	for i := range response.Data.Apps {
+		response.Data.Apps[i].SourceID = sourceID
+	}
+
+	return response.Data.Apps
+}
+
+func parseFnpackFormat(tmpPath string, sourceID string) []models.App {
 	fnpackData := new(models.FnpackData)
 	fnpackFile, err := os.Open(tmpPath)
 	if err != nil {
@@ -111,15 +167,11 @@ func parseAndCacheSource(sourceID string) []models.App {
 		return []models.App{}
 	}
 
-	apps = make([]models.App, 0)
+	apps := make([]models.App, 0)
 	for appName, fnpackApp := range *fnpackData {
 		app := convertToApp(appName, fnpackApp, sourceID)
 		apps = append(apps, app)
 	}
-
-	os.MkdirAll(cacheDir, 0755)
-	cacheData, _ := json.MarshalIndent(apps, "", "  ")
-	ioutil.WriteFile(filepath.Join(cacheDir, sourceID+".json"), cacheData, 0644)
 
 	return apps
 }
