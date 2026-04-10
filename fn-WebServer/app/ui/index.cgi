@@ -99,14 +99,24 @@ if [ "$REL_PATH" = "/api/nginx/status" ] || [ "$REL_PATH" = "/api/sites" ] || [ 
   exit 0
 fi
 
-if [[ $REL_PATH == /api/proxies* ]]; then
-  BACKEND_UNIX_SOCKET="${TRIM_PKGVAR:-/var/apps/WebServer/var}/reverseproxy.sock"
-elif [[ $REL_PATH == /api* ]]; then
-  BACKEND_UNIX_SOCKET="${BACKEND_UNIX_SOCKET:-${SCHEDULER_UNIX_SOCKET:-/usr/local/apps/@appdata/WebServer/scheduler.sock}}"
-  BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
-  BACKEND_PORT="${BACKEND_PORT:-28256}"
+if [[ $REL_PATH == /api* ]]; then
+  # 1. Determine Backend
+  if [[ $REL_PATH == /api/proxies* ]]; then
+    BACKEND_UNIX_SOCKET="${TRIM_PKGVAR:-/var/apps/WebServer/var}/reverseproxy.sock"
+    # Auto-start service if socket missing
+    if [ ! -S "$BACKEND_UNIX_SOCKET" ]; then
+       # Try to start via main script
+       bash "$APP_ROOT/cmd/main" start >/dev/null 2>&1
+       sleep 1
+    fi
+  else
+    # Default scheduler/standard backend
+    BACKEND_UNIX_SOCKET="${BACKEND_UNIX_SOCKET:-${SCHEDULER_UNIX_SOCKET:-/usr/local/apps/@appdata/WebServer/scheduler.sock}}"
+    BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
+    BACKEND_PORT="${BACKEND_PORT:-28256}"
+  fi
 
-  # 收集请求体
+  # 2. Collect Body
   if [ -n "$CONTENT_LENGTH" ] && [ "$CONTENT_LENGTH" -gt 0 ] 2>/dev/null; then
     BODY_TMP=$(mktemp)
     dd bs=1 count="$CONTENT_LENGTH" of="$BODY_TMP" 2>/dev/null || cat >"$BODY_TMP"
@@ -118,7 +128,7 @@ elif [[ $REL_PATH == /api* ]]; then
   HDR_TMP=$(mktemp)
   OUT_BODY=$(mktemp)
 
-  # 收集所有 HTTP 请求头
+  # 3. Prepare Curl Args
   curl_args=(-sS -D "$HDR_TMP" -o "$OUT_BODY" -X "$REQUEST_METHOD")
   for hdr in CONTENT_TYPE HTTP_AUTHORIZATION REDIRECT_HTTP_AUTHORIZATION HTTP_ACCEPT HTTP_COOKIE HTTP_USER_AGENT HTTP_REFERER; do
     val="${!hdr}"
@@ -131,19 +141,12 @@ elif [[ $REL_PATH == /api* ]]; then
       HTTP_REFERER) [ -n "$val" ] && curl_args+=(-H "Referer: $val") ;;
     esac
   done
-
-  # 支持 X-Forwarded-For
-  if [ -n "$REMOTE_ADDR" ]; then
-    curl_args+=(-H "X-Forwarded-For: $REMOTE_ADDR")
-  fi
-
+  [ -n "$REMOTE_ADDR" ] && curl_args+=(-H "X-Forwarded-For: $REMOTE_ADDR")
   case "$REQUEST_METHOD" in
-    POST | PUT | PATCH)
-      curl_args+=(--data-binary "@$BODY_TMP")
-      ;;
+    POST | PUT | PATCH) curl_args+=(--data-binary "@$BODY_TMP") ;;
   esac
 
-  # 代理请求
+  # 4. Proxy Request
   if [ -n "$BACKEND_UNIX_SOCKET" ] && [ -S "$BACKEND_UNIX_SOCKET" ]; then
     BACKEND_URL="http://localhost${REL_PATH}"
     curl --unix-socket "$BACKEND_UNIX_SOCKET" "${curl_args[@]}" "$BACKEND_URL"
@@ -154,20 +157,18 @@ elif [[ $REL_PATH == /api* ]]; then
     CURL_EXIT=$?
   fi
 
-  # 解析响应
+  # 5. Parse Response
   status_line=$(head -n1 "$HDR_TMP" 2>/dev/null || echo "HTTP/1.1 502 Bad Gateway")
   status_code=$(echo "$status_line" | awk '{print $2}' 2>/dev/null || echo "502")
   resp_ct=$(grep -i '^Content-Type:' "$HDR_TMP" | head -n1 | sed -e 's/^[Cc]ontent-[Tt]ype:[[:space:]]*//')
-  if [ -z "$resp_ct" ]; then
-    resp_ct="application/octet-stream"
-  fi
+  [ -z "$resp_ct" ] && resp_ct="application/octet-stream"
 
-  # 透传部分响应头
+  # Forward specific headers
   grep -i -E '^(Set-Cookie:|Cache-Control:|Expires:|Access-Control-Allow-|Content-Disposition:)' "$HDR_TMP" | while read -r h; do
     echo "$h"
   done
 
-  # 错误处理
+  # Handle Errors
   if [ "$CURL_EXIT" -ne 0 ]; then
     echo "Status: 502 Bad Gateway"
     echo "Content-Type: text/plain; charset=utf-8"

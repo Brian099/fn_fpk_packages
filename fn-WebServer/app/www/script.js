@@ -154,7 +154,10 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
         // Update Hero Site Count
         fetch(apiBase + '/api/sites').then(r => r.json()).then(res => {
             if (res) {
-                var count = res.length || 0;
+                var filtered = res.filter(function (item) {
+                    return item.name !== 'default';
+                });
+                var count = filtered.length || 0;
                 $('#site-count-hero').text(count);
                 $('#site-count').text(count);
             }
@@ -196,7 +199,7 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
         // Database
         fetch(apiBase + "/api/db/status").then(r => r.json()).then(data => {
             var el = $('#db-status');
-            var bindDbEvents = function() {
+            var bindDbEvents = function () {
                 $('#btn-install-db').off('click').on('click', function () {
                     layer.prompt({ title: '请设置 MySQL root 密码', formType: 1 }, function (pass, index) {
                         layer.close(index);
@@ -213,17 +216,17 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
                     var icon = db.status === 'running' ? 'layui-icon-ok-circle' : 'layui-icon-about';
                     var typeLabel = db.type === 'system' ? '系统服务' : 'Docker容器';
                     var nameLabel = db.type === 'system' ? db.name.charAt(0).toUpperCase() + db.name.slice(1) : 'MySQL (Docker版)';
-                    
+
                     html += `<div style="margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid #f6f6f6; last-child: border-bottom:0;">
                                 <div style="color:${color}"><i class="layui-icon ${icon}"></i> <b>${nameLabel}</b> - ${db.status === 'running' ? '运行中' : '未运行'}</div>
                                 <div style="margin-top:5px;font-size:12px;color:#666">类型: ${typeLabel}</div>`;
-                    
+
                     if (db.type === 'docker' && db.status === 'running') {
                         html += '<div style="margin-top:5px"><a href="http://' + window.location.hostname + ':8080" target="_blank" class="layui-btn layui-btn-xs layui-btn-normal">打开 phpMyAdmin</a></div>';
                     }
                     html += `</div>`;
                 });
-                
+
                 // If NO docker db is managed, offer to install
                 var hasDocker = data.databases.some(db => db.type === 'docker');
                 if (!hasDocker) {
@@ -244,15 +247,16 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
         elem: '#site-table',
         url: apiBase + '/api/sites',
         parseData: function (res) {
-            if (res) {
-                $('#site-count').text(res.length);
-                $('#site-count-hero').text(res.length);
-            }
+            var filteredData = (res || []).filter(function (item) {
+                return item.name !== 'default';
+            });
+            $('#site-count').text(filteredData.length);
+            $('#site-count-hero').text(filteredData.length);
             return {
                 "code": 0,
                 "msg": "",
-                "count": res ? res.length : 0,
-                "data": res || []
+                "count": filteredData.length,
+                "data": filteredData
             };
         },
         cols: [[
@@ -276,7 +280,7 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
                     return d.enabled ? '<span class="layui-badge layui-bg-green">已启用</span>' : '<span class="layui-badge layui-bg-orange">已停用</span>';
                 }
             },
-            { fixed: 'right', title: '操作', toolbar: '#site-bar', minWidth: 220 }
+            { fixed: 'right', title: '操作', toolbar: '#site-bar', minWidth: 280 }
         ]],
         page: false,
         height: 'full-150', // Optimized offset further after breadcrumb removal
@@ -356,12 +360,12 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
                 var msg = "缺少必要运行环境，无法创建网站：<br><br>";
                 if (!nginxData.installed) msg += "- <b style='color:#FF5722'>Nginx 未安装</b> (请先安装并配置 Nginx)<br>";
                 if (!phpData.installed || !phpData.versions || phpData.versions.length === 0) msg += "- <b style='color:#FF5722'>PHP 未就绪</b> (未检测到可用的 PHP-FPM 版本)<br>";
-                
-                layer.alert(msg, { 
-                    icon: 7, 
+
+                layer.alert(msg, {
+                    icon: 7,
                     title: '环境检测未通过',
                     btn: ['去安装配置', '取消'],
-                    yes: function(index) {
+                    yes: function (index) {
                         layer.close(index);
                         // Optional: redirect to a manager app if path known
                         layer.msg('请确保系统环境中已正确部署 Nginx 和 PHP');
@@ -380,17 +384,20 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
 
             // Environment OK, proceed to open dialog
             form.val('form-create-site', {
-                "name": "", "mode": "port", "domain": "", "port": "",
-                "https_enabled": false, "port_ssl": "", "php_version": phpData.versions[0].version,
+                "name": "", "mode": "port", "domain": "", "port": "80",
+                "use_http": true, "use_https": false, "port_ssl": "443",
+                "php_version": phpData.versions[0].version,
                 "root": "", "rewrite": ""
             });
             $('input[name=mode][value=port]').prop('checked', true);
-            $('input[name=https_enabled]').prop('checked', false);
             form.render();
-            updateCreateSiteVisibility("port", false);
+            updateCreateSiteVisibility("port");
 
             layer.open({
-                type: 1, title: '新建网站', content: $('#tpl-create-site'), area: ['600px', '700px']
+                type: 1, title: '新建网站', content: $('#tpl-create-site'), area: ['600px', '700px'],
+                success: function () {
+                    form.render();
+                }
             });
 
         }).catch(err => {
@@ -399,41 +406,48 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
         });
     });
 
+    // 绑定模式切换
     form.on('radio(site-mode)', function (data) {
-        updateCreateSiteVisibility(data.value, $('input[name=https_enabled]').prop('checked'));
-    });
-    form.on('checkbox(https-enabled)', function (data) {
-        var mode = $('input[name=mode]:checked').val();
-        updateCreateSiteVisibility(mode, data.elem.checked);
+        updateCreateSiteVisibility(data.value);
     });
 
-    function updateCreateSiteVisibility(mode, https) {
+    function updateCreateSiteVisibility(mode) {
+        var $form = $('#tpl-create-site');
         if (mode === 'domain') {
-            $('#field-domain').show(); $('#field-port-http').hide(); $('#field-port-https').hide();
+            $form.find('#field-domain').show();
+            $form.find('#field-port-group').hide();
         } else {
-            $('#field-domain').hide(); $('#field-port-http').show();
-            if (https) $('#field-port-https').show(); else $('#field-port-https').hide();
+            $form.find('#field-domain').hide();
+            $form.find('#field-port-group').show();
         }
     }
 
     form.on('submit(submit-create-site)', function (data) {
         var field = data.field;
-        var body = "mode=" + field.mode + "\nroot=" + field.root;
+        var mode = field.mode;
+        var body = "mode=" + mode + "\nroot=" + field.root;
         if (field.name) body += "\nname=" + encodeURIComponent(field.name);
-        body += "\nhttps_enabled=" + (field.https_enabled ? "true" : "false");
-        body += "\nphp_version=" + field.php_version;
 
-        if (field.mode === 'domain') {
+        var useHttp, useHttps, p, ph;
+        if (mode === 'domain') {
             if (!field.domain) { layer.msg('请输入域名'); return false; }
             body += "\ndomain=" + field.domain;
+            useHttp = true; useHttps = true; p = "80"; ph = "443";
         } else {
-            if (!field.port) { layer.msg('请输入HTTP端口'); return false; }
-            body += "\nport=" + field.port;
-            if (field.https_enabled) {
-                if (!field.port_ssl) { layer.msg('请输入HTTPS端口'); return false; }
-                body += "\nport_https=" + field.port_ssl;
-            }
+            useHttp = field.use_http === "on" || field.use_http === true;
+            useHttps = field.use_https === "on" || field.use_https === true;
+            p = field.port; ph = field.port_ssl;
+            if (!useHttp && !useHttps) { layer.msg('请至少选择一个监听端口 (HTTP 或 HTTPS)'); return false; }
+            if (useHttp && !p) { layer.msg('请输入HTTP端口'); return false; }
+            if (useHttps && !ph) { layer.msg('请输入HTTPS端口'); return false; }
         }
+
+        body += "\nuse_http=" + (useHttp ? "true" : "false");
+        body += "\nuse_https=" + (useHttps ? "true" : "false");
+        if (useHttp) body += "\nport=" + p;
+        if (useHttps) body += "\nport_https=" + ph;
+
+        body += "\nphp_version=" + field.php_version;
         if (field.rewrite) body += "\nrewrite=" + encodeURIComponent(field.rewrite);
 
         apiPost("/api/sites/create", body, "创建成功", function () {
@@ -540,24 +554,24 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
         },
         cols: [[
             { field: 'name', title: '规则名称', width: 150 },
-            { 
+            {
                 title: '来源 (监听)', width: 180, templet: function (d) {
                     var proto = (d.sourceProtocol || 'http').toUpperCase();
                     var color = proto === 'HTTPS' ? 'layui-bg-blue' : 'layui-bg-gray';
                     return `<span class="layui-badge ${color}">${proto}</span> :${d.sourcePort}`;
-                } 
+                }
             },
-            { 
+            {
                 field: 'domains', title: '来源域名', minWidth: 200, templet: function (d) {
-                    if(!d.domains) return '-';
+                    if (!d.domains) return '-';
                     return d.domains.map(dom => `<span class="layui-badge layui-bg-gray" style="margin-right:5px">${dom}</span>`).join('');
-                } 
+                }
             },
-            { 
+            {
                 title: '目标 (后端)', minWidth: 200, templet: function (d) {
                     var proto = (d.targetProtocol || 'http').toUpperCase();
                     return `${proto}://${d.targetHost}:${d.targetPort}`;
-                } 
+                }
             },
             {
                 field: 'enable', title: '状态', width: 90, templet: function (d) {
@@ -620,9 +634,9 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
         form.render();
 
         layer.open({
-            type: 1, 
-            title: isEdit ? '编辑代理规则' : '添加代理规则', 
-            content: $('#tpl-proxy-modal'), 
+            type: 1,
+            title: isEdit ? '编辑代理规则' : '添加代理规则',
+            content: $('#tpl-proxy-modal'),
             area: ['600px', '700px']
         });
     }
