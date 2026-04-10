@@ -180,25 +180,39 @@ func ToggleSource(c *gin.Context) {
 func ResetSourceCache(c *gin.Context) {
 	sourceID := c.Param("id")
 
-	if sourceID != "local_fpk_files" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "Only local_fpk_files cache can be reset",
+	sources := services.LoadSources()
+	var targetSource *models.Source
+	for i := range sources {
+		if sources[i].ID == sourceID {
+			targetSource = &sources[i]
+			break
+		}
+	}
+
+	if targetSource == nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"code":    404,
+			"message": "Source not found",
 		})
 		return
 	}
 
-	cacheDir := filepath.Join(config.PkgVar, "cache")
-	cachePath := filepath.Join(cacheDir, sourceID+".json")
+	cachePath := filepath.Join(config.PkgVar, "cache", sourceID+".json")
 	os.Remove(cachePath)
 
-	apps := services.ParseLocalFPKSource()
+	var total int
+	if targetSource.Local {
+		apps := services.ScanFPKDir(targetSource.URL, sourceID, true)
+		total = len(apps)
+	} else {
+		total = 0
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "Cache reset successfully",
 		"data": gin.H{
-			"total": len(apps),
+			"total": total,
 		},
 	})
 }

@@ -60,16 +60,8 @@ func SaveSources(sources []models.Source) {
 
 // DiscoverLocalSources 发现本地源
 func DiscoverLocalSources(sources *[]models.Source) {
-	// Check application's download directory
-	if _, err := os.Stat(downloadDir); !os.IsNotExist(err) {
-		scanDirectoryForSources(sources, downloadDir)
-	}
-
-	// Check user's AppStore directory in file space
 	userAppStoreDir := GetUsersAppStoreDir()
 	if userAppStoreDir != "" {
-		scanDirectoryForSources(sources, userAppStoreDir)
-		// Also scan for FPK files directly
 		scanFPKFiles(sources, userAppStoreDir)
 	}
 }
@@ -88,16 +80,16 @@ func GetUsersAppStoreDir() string {
 }
 
 // LoadAppsFromSource 从源加载应用
-func LoadAppsFromSource(sourceID string) []models.App {
-	if sourceID == "local_fpk_files" {
-		builtin := loadBuiltinCache()
-		user := loadUserCache()
-		return append(builtin.Apps, user.Apps...)
+func LoadAppsFromSource(source *models.Source) []models.App {
+	cachePath := filepath.Join(cacheDir, source.ID+".json")
+
+	if source.Local {
+		return ScanFPKDir(source.URL, source.ID, false)
 	}
 
-	cachePath := filepath.Join(cacheDir, sourceID+".json")
+	// 远程源：从缓存加载，缓存不存在则请求远程
 	if _, err := os.Stat(cachePath); os.IsNotExist(err) {
-		return parseAndCacheSource(sourceID)
+		return parseAndCacheSource(source.ID)
 	}
 
 	data, err := ioutil.ReadFile(cachePath)
@@ -112,143 +104,155 @@ func LoadAppsFromSource(sourceID string) []models.App {
 	return apps
 }
 
-// ParseLocalFPKSource 执行本地 FPK 扫描并返回结果
-func ParseLocalFPKSource() []models.App {
-	builtInApps := LoadBuiltInApps()
-	userApps := LoadUserApps()
-	return append(builtInApps, userApps...)
-}
-
-// LoadBuiltInApps 加载内置应用
-func LoadBuiltInApps() []models.App {
-	cachedData := loadBuiltinCache()
-
-	if _, err := os.Stat(appStoreDir); os.IsNotExist(err) {
+// ScanFPKDir 扫描指定目录下的 FPK 文件（递归子目录，支持指纹缓存）
+func ScanFPKDir(baseDir string, sourceID string, forceRescan bool) []models.App {
+	if baseDir == "" {
 		return []models.App{}
 	}
 
-	entries, err := os.ReadDir(appStoreDir)
-	if err != nil {
+	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
 		return []models.App{}
 	}
 
-	var fpkFiles []string
-	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".fpk") {
-			fpkFiles = append(fpkFiles, entry.Name())
+	fpkFiles := collectFPKFiles(baseDir)
+
+	// 获取当前指纹
+	currentFingerprints := make(map[string]models.FPKFingerprint)
+	for _, fpkPath := range fpkFiles {
+		info, err := os.Stat(fpkPath)
+		if err != nil {
+			continue
+		}
+		appID := strings.TrimSuffix(filepath.Base(fpkPath), ".fpk")
+		currentFingerprints[appID] = models.FPKFingerprint{
+			ModTime: info.ModTime().Unix(),
+			Size:    info.Size(),
 		}
 	}
 
-	if len(fpkFiles) == 0 {
-		return []models.App{}
+	// 加载缓存
+	cachePath := filepath.Join(cacheDir, sourceID+".json")
+	var cachedData models.FPKCacheData
+	if !forceRescan {
+		if data, err := ioutil.ReadFile(cachePath); err == nil {
+			json.Unmarshal(data, &cachedData)
+		}
+	}
+	if cachedData.Fingerprints == nil {
+		cachedData.Fingerprints = make(map[string]models.FPKFingerprint)
 	}
 
-	currentFingerprints := scanFPKDirectory(appStoreDir, fpkFiles)
 	allApps := make([]models.App, 0)
-	allFingerprints := make(map[string]models.FPKFingerprint)
+	newFingerprints := make(map[string]models.FPKFingerprint)
 
-	for _, fpkFile := range fpkFiles {
-		fpkPath := filepath.Join(appStoreDir, fpkFile)
-		appID := strings.TrimSuffix(fpkFile, ".fpk")
+	// 处理现有缓存中的应用
+	for _, cachedApp := range cachedData.Apps {
+		currentFp, exists := currentFingerprints[cachedApp.ID]
+		cachedFp, hasCachedFp := cachedData.Fingerprints[cachedApp.ID]
 
-		currentFp := currentFingerprints[appID]
-		cachedFp, exists := cachedData.Fingerprints[appID]
+		if !exists {
+			// FPK 已删除，跳过
+			continue
+		}
 
-		if exists && cachedFp == currentFp && currentFp.ModTime != 0 {
-			cachedApp := findCachedApp(cachedData.Apps, appID)
-			if cachedApp != nil {
-				allApps = append(allApps, *cachedApp)
-				allFingerprints[appID] = currentFp
-				continue
+		newFingerprints[cachedApp.ID] = currentFp
+
+		// 指纹未变化，使用缓存
+		if !forceRescan && hasCachedFp && currentFp == cachedFp && currentFp.ModTime != 0 {
+			allApps = append(allApps, cachedApp)
+			continue
+		}
+
+		// 指纹变化或新增，重新解析
+		fpkPath := ""
+		for _, fp := range fpkFiles {
+			if strings.HasPrefix(fp, baseDir) {
+				appID := strings.TrimSuffix(filepath.Base(fp), ".fpk")
+				if appID == cachedApp.ID {
+					fpkPath = fp
+					break
+				}
 			}
+		}
+
+		if fpkPath == "" {
+			continue
 		}
 
 		app, err := parseFPKFile(fpkPath)
 		if err != nil {
-			log.Printf("Failed to parse FPK file %s: %v", fpkFile, err)
+			log.Printf("Failed to parse FPK file %s: %v", fpkPath, err)
+			// 解析失败时保留旧的
+			allApps = append(allApps, cachedApp)
 			continue
 		}
-		app.DownloadURL = "/built-in-download/" + app.ID + ".fpk"
+		app.SourceID = sourceID
 		allApps = append(allApps, app)
-		allFingerprints[appID] = currentFp
 	}
 
-	saveBuiltinCache(allApps, allFingerprints)
-	return allApps
-}
-
-// LoadUserApps 加载用户应用
-func LoadUserApps() []models.App {
-	userAppStoreDir := GetUsersAppStoreDir()
-	if userAppStoreDir == "" {
-		return []models.App{}
+	// 处理新增的 FPK（不在缓存中）
+	seenIDs := make(map[string]bool)
+	for _, app := range allApps {
+		seenIDs[app.ID] = true
 	}
 
-	if _, err := os.Stat(userAppStoreDir); os.IsNotExist(err) {
-		return []models.App{}
-	}
-
-	cachedData := loadUserCache()
-
-	entries, err := os.ReadDir(userAppStoreDir)
-	if err != nil {
-		return []models.App{}
-	}
-
-	var fpkFiles []string
-	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".fpk") {
-			fpkFiles = append(fpkFiles, entry.Name())
+	for _, fpkPath := range fpkFiles {
+		appID := strings.TrimSuffix(filepath.Base(fpkPath), ".fpk")
+		if seenIDs[appID] {
+			continue
 		}
-	}
-
-	if len(fpkFiles) == 0 {
-		return []models.App{}
-	}
-
-	currentFingerprints := scanFPKDirectory(userAppStoreDir, fpkFiles)
-	allApps := make([]models.App, 0)
-	allFingerprints := make(map[string]models.FPKFingerprint)
-
-	for _, fpkFile := range fpkFiles {
-		fpkPath := filepath.Join(userAppStoreDir, fpkFile)
-		appID := strings.TrimSuffix(fpkFile, ".fpk")
-
-		currentFp := currentFingerprints[appID]
-		cachedFp, exists := cachedData.Fingerprints[appID]
-
-		if exists && currentFp.ModTime != 0 && cachedFp == currentFp {
-			cachedApp := findCachedApp(cachedData.Apps, appID)
-			if cachedApp != nil {
-				allApps = append(allApps, *cachedApp)
-				allFingerprints[appID] = currentFp
-				continue
-			}
-		}
+		seenIDs[appID] = true
 
 		app, err := parseFPKFile(fpkPath)
 		if err != nil {
-			log.Printf("Failed to parse user FPK file %s: %v", fpkFile, err)
+			log.Printf("Failed to parse new FPK file %s: %v", fpkPath, err)
 			continue
 		}
-		app.DownloadURL = "/user-download/" + app.ID + ".fpk"
+		app.SourceID = sourceID
 		allApps = append(allApps, app)
-		allFingerprints[appID] = currentFp
+		newFingerprints[appID] = currentFingerprints[appID]
 	}
 
-	saveUserCache(allApps, allFingerprints)
+	// 保存新缓存
+	cachedData.Apps = allApps
+	cachedData.Fingerprints = newFingerprints
+	os.MkdirAll(cacheDir, 0755)
+	if data, err := json.MarshalIndent(cachedData, "", "  "); err == nil {
+		ioutil.WriteFile(cachePath, data, 0644)
+	}
+
 	return allApps
 }
 
-// SyncSourceData 同步源数据
+// collectFPKFiles 递归收集目录下所有 FPK 文件
+func collectFPKFiles(dir string) []string {
+	var fpkFiles []string
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return fpkFiles
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			subDir := filepath.Join(dir, entry.Name())
+			subFiles := collectFPKFiles(subDir)
+			fpkFiles = append(fpkFiles, subFiles...)
+		} else if strings.HasSuffix(strings.ToLower(entry.Name()), ".fpk") {
+			fpkFiles = append(fpkFiles, filepath.Join(dir, entry.Name()))
+		}
+	}
+
+	return fpkFiles
+}
+
+// SyncSourceData 同步源数据（增量更新，指纹机制）
 func SyncSourceData(source *models.Source) (int, int, int) {
-	// 首先加载现有缓存（不扫描）
-	oldApps := LoadAppsFromSource(source.ID)
+	oldApps := LoadAppsFromSource(source)
 
 	var newApps []models.App
-	if source.ID == "local_fpk_files" {
-		// 执行全量扫描并更新缓存
-		newApps = ParseLocalFPKSource()
+	if source.Local {
+		newApps = ScanFPKDir(source.URL, source.ID, false)
 	} else {
 		newApps = parseAndCacheSource(source.ID)
 	}

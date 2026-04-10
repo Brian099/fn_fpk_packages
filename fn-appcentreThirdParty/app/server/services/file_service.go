@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -22,7 +21,6 @@ func parseFPKFile(fpkPath string) (models.App, error) {
 	var app models.App
 	app.ID = strings.TrimSuffix(filepath.Base(fpkPath), ".fpk")
 	app.DownloadURL = filepath.Base(fpkPath)
-	app.SourceID = "local_fpk_files"
 
 	// Get file info for size
 	if info, err := os.Stat(fpkPath); err == nil {
@@ -202,132 +200,4 @@ func parseFPKFile(fpkPath string) (models.App, error) {
 	}
 
 	return app, nil
-}
-
-// scanFPKDirectory 扫描FPK目录
-func scanFPKDirectory(baseDir string, fpkFiles []string) map[string]models.FPKFingerprint {
-	fingerprints := make(map[string]models.FPKFingerprint)
-	for _, fpkFile := range fpkFiles {
-		fpkPath := filepath.Join(baseDir, fpkFile)
-		info, err := os.Stat(fpkPath)
-		if err != nil {
-			continue
-		}
-		appID := strings.TrimSuffix(fpkFile, ".fpk")
-		fingerprints[appID] = models.FPKFingerprint{
-			ModTime: info.ModTime().Unix(),
-			Size:    info.Size(),
-		}
-	}
-	return fingerprints
-}
-
-// scanBuiltInAppsDir 扫描内置应用目录
-func scanBuiltInAppsDir() []models.App {
-	if _, err := os.Stat(appStoreDir); os.IsNotExist(err) {
-		return []models.App{}
-	}
-
-	entries, err := os.ReadDir(appStoreDir)
-	if err != nil {
-		return []models.App{}
-	}
-
-	var fpkFiles []string
-	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".fpk") {
-			fpkFiles = append(fpkFiles, entry.Name())
-		}
-	}
-
-	if len(fpkFiles) == 0 {
-		return []models.App{}
-	}
-
-	allApps := make([]models.App, 0)
-	allFingerprints := make(map[string]models.FPKFingerprint)
-	currentFingerprints := scanFPKDirectory(appStoreDir, fpkFiles)
-
-	for _, fpkFile := range fpkFiles {
-		fpkPath := filepath.Join(appStoreDir, fpkFile)
-		appID := strings.TrimSuffix(fpkFile, ".fpk")
-
-		app, err := parseFPKFile(fpkPath)
-		if err != nil {
-			log.Printf("Failed to parse builtin FPK file %s: %v", fpkFile, err)
-			continue
-		}
-		app.DownloadURL = "/built-in-download/" + app.ID + ".fpk"
-		allApps = append(allApps, app)
-		allFingerprints[appID] = currentFingerprints[appID]
-	}
-
-	saveBuiltinCache(allApps, allFingerprints)
-	return allApps
-}
-
-// loadBuiltinCache 加载内置应用缓存
-func loadBuiltinCache() models.FPKCacheData {
-	cachePath := filepath.Join(cacheDir, "builtin_apps.json")
-	data, err := ioutil.ReadFile(cachePath)
-	if err != nil {
-		return models.FPKCacheData{Fingerprints: make(map[string]models.FPKFingerprint), Apps: []models.App{}}
-	}
-	var cache models.FPKCacheData
-	if err := json.Unmarshal(data, &cache); err != nil {
-		return models.FPKCacheData{Fingerprints: make(map[string]models.FPKFingerprint), Apps: []models.App{}}
-	}
-	if cache.Fingerprints == nil {
-		cache.Fingerprints = make(map[string]models.FPKFingerprint)
-	}
-	return cache
-}
-
-// saveBuiltinCache 保存内置应用缓存
-func saveBuiltinCache(apps []models.App, fingerprints map[string]models.FPKFingerprint) {
-	os.MkdirAll(cacheDir, 0755)
-	cacheData := models.FPKCacheData{
-		Fingerprints: fingerprints,
-		Apps:         apps,
-	}
-	data, _ := json.MarshalIndent(cacheData, "", "  ")
-	ioutil.WriteFile(filepath.Join(cacheDir, "builtin_apps.json"), data, 0644)
-}
-
-// loadUserCache 加载用户应用缓存
-func loadUserCache() models.FPKCacheData {
-	cachePath := filepath.Join(cacheDir, "user_apps.json")
-	data, err := ioutil.ReadFile(cachePath)
-	if err != nil {
-		return models.FPKCacheData{Fingerprints: make(map[string]models.FPKFingerprint), Apps: []models.App{}}
-	}
-	var cache models.FPKCacheData
-	if err := json.Unmarshal(data, &cache); err != nil {
-		return models.FPKCacheData{Fingerprints: make(map[string]models.FPKFingerprint), Apps: []models.App{}}
-	}
-	if cache.Fingerprints == nil {
-		cache.Fingerprints = make(map[string]models.FPKFingerprint)
-	}
-	return cache
-}
-
-// saveUserCache 保存用户应用缓存
-func saveUserCache(apps []models.App, fingerprints map[string]models.FPKFingerprint) {
-	os.MkdirAll(cacheDir, 0755)
-	cacheData := models.FPKCacheData{
-		Fingerprints: fingerprints,
-		Apps:         apps,
-	}
-	data, _ := json.MarshalIndent(cacheData, "", "  ")
-	ioutil.WriteFile(filepath.Join(cacheDir, "user_apps.json"), data, 0644)
-}
-
-// findCachedApp 查找缓存的应用
-func findCachedApp(apps []models.App, appID string) *models.App {
-	for i := range apps {
-		if apps[i].ID == appID {
-			return &apps[i]
-		}
-	}
-	return nil
 }

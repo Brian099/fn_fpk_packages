@@ -271,17 +271,7 @@ async function loadApps() {
     appGrid.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>加载中...</p></div>';
 
     try {
-        let endpoint;
-        switch (currentTab) {
-            case 'built-in':
-                endpoint = '/api/apps/built-in';
-                break;
-            case 'user':
-                endpoint = '/api/apps/user';
-                break;
-            default:
-                endpoint = '/api/apps';
-        }
+        let endpoint = '/api/apps';
 
         if (currentCategory) {
             endpoint += (endpoint.includes('?') ? '&' : '?') + `category=${encodeURIComponent(currentCategory)}&`;

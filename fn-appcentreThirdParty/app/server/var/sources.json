@@ -10,16 +10,6 @@
     "local": false
   },
   {
-    "id": "local_fpk_files",
-    "name": "本地 FPK 文件",
-    "url": "/vol1/1000/AppStore",
-    "enabled": true,
-    "auto_update": false,
-    "last_sync": "",
-    "app_count": 6,
-    "local": true
-  },
-  {
     "id": "source_2",
     "name": "aaa",
     "url": "ssss",
@@ -29,5 +19,4 @@
     "app_count": 0,
     "local": false
   }
-
 ]

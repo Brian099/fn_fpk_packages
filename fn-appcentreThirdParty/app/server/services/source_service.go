@@ -13,65 +13,17 @@ import (
 	"appcentre/models"
 )
 
-// scanDirectoryForSources 扫描目录中的源
-func scanDirectoryForSources(sources *[]models.Source, baseDir string) {
-	entries, err := os.ReadDir(baseDir)
-	if err != nil {
-		return
-	}
-
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		exists := false
-		for _, source := range *sources {
-			if source.ID == entry.Name() && source.Local {
-				exists = true
-				break
-			}
-		}
-
-		if !exists {
-			localSource := models.Source{
-				ID:         entry.Name(),
-				Name:       entry.Name(),
-				URL:        "http://localhost:18088/download/" + entry.Name(),
-				Enabled:    true,
-				AutoUpdate: true,
-				LastSync:   "",
-				Local:      true,
-			}
-			*sources = append(*sources, localSource)
-		}
-	}
-}
-
-// scanFPKFiles 扫描FPK文件
+// scanFPKFiles 扫描FPK文件（递归子目录）
 func scanFPKFiles(sources *[]models.Source, baseDir string) {
-	entries, err := os.ReadDir(baseDir)
-	if err != nil {
-		log.Printf("Failed to read directory %s: %v", baseDir, err)
-		return
-	}
-
-	var fpkFiles []string
-	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".fpk") {
-			fpkFiles = append(fpkFiles, entry.Name())
-		}
-	}
+	fpkFiles := collectFPKFiles(baseDir)
 
 	if len(fpkFiles) == 0 {
 		return
 	}
 
-	// Check if local FPK source already exists
-	sourceID := "local_fpk_files"
 	exists := false
 	for _, source := range *sources {
-		if source.ID == sourceID && source.Local {
+		if source.Local && source.URL == baseDir {
 			exists = true
 			break
 		}
@@ -79,7 +31,7 @@ func scanFPKFiles(sources *[]models.Source, baseDir string) {
 
 	if !exists {
 		localSource := models.Source{
-			ID:         sourceID,
+			ID:         "local_" + filepath.Base(baseDir),
 			Name:       "本地 FPK 文件",
 			URL:        baseDir,
 			Enabled:    true,
@@ -89,7 +41,7 @@ func scanFPKFiles(sources *[]models.Source, baseDir string) {
 			AppCount:   len(fpkFiles),
 		}
 		*sources = append(*sources, localSource)
-		log.Printf("Added local FPK source with %d files", len(fpkFiles))
+		log.Printf("Added local FPK source from %s with %d files", baseDir, len(fpkFiles))
 	}
 }
 
@@ -108,64 +60,59 @@ func parseAndCacheSource(sourceID string) []models.App {
 		return []models.App{}
 	}
 
-	// local_fpk_files 源：扫描用户目录中的 FPK 文件
-	if sourceID == "local_fpk_files" {
-		return ParseLocalFPKSource()
-	}
-
-	var fnpackPath string
+	var apps []models.App
 	if targetSource.Local {
-		fnpackPath = filepath.Join(downloadDir, sourceID, "fnpack.json")
-	} else {
-		url := strings.TrimRight(targetSource.URL, "/") + "/fnpack.json"
-		resp, err := http.Get(url)
-		if err != nil {
-			log.Printf("Failed to fetch fnpack.json from %s: %v", url, err)
-			return []models.App{}
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			log.Printf("Failed to fetch fnpack.json from %s: HTTP %d", url, resp.StatusCode)
-			return []models.App{}
-		}
-
-		os.MkdirAll(cacheDir, 0755)
-		tmpPath := filepath.Join(cacheDir, sourceID+"_fnpack.json.tmp")
-		data, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			log.Printf("Failed to read response body from %s: %v", url, err)
-			return []models.App{}
-		}
-		
-		// 检查数据是否以 '<' 开头（通常是 HTML）
-		trimmedData := strings.TrimSpace(string(data))
-		if strings.HasPrefix(trimmedData, "<") {
-			log.Printf("Received HTML instead of JSON from %s", url)
-			return []models.App{}
-		}
-
-		if err := ioutil.WriteFile(tmpPath, data, 0644); err != nil {
-			log.Printf("Failed to write temporary fnpack.json: %v", err)
-			return []models.App{}
-		}
-		fnpackPath = tmpPath
+		apps = ScanFPKDir(targetSource.URL, sourceID, false)
+		return apps
 	}
 
-	data, err := ioutil.ReadFile(fnpackPath)
+	url := strings.TrimRight(targetSource.URL, "/") + "/fnpack.json"
+	resp, err := http.Get(url)
 	if err != nil {
-		log.Printf("Failed to read fnpack.json: %v", err)
+		log.Printf("Failed to fetch fnpack.json from %s: %v", url, err)
+		return []models.App{}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Failed to fetch fnpack.json from %s: HTTP %d", url, resp.StatusCode)
 		return []models.App{}
 	}
 
-	var fnpackData models.FnpackData
-	if err := json.Unmarshal(data, &fnpackData); err != nil {
+	os.MkdirAll(cacheDir, 0755)
+	tmpPath := filepath.Join(cacheDir, sourceID+"_fnpack.json.tmp")
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("Failed to read response body from %s: %v", url, err)
+		return []models.App{}
+	}
+
+	trimmedData := strings.TrimSpace(string(data))
+	if strings.HasPrefix(trimmedData, "<") {
+		log.Printf("Received HTML instead of JSON from %s", url)
+		return []models.App{}
+	}
+
+	if err := ioutil.WriteFile(tmpPath, data, 0644); err != nil {
+		log.Printf("Failed to write temporary fnpack.json: %v", err)
+		return []models.App{}
+	}
+
+	fnpackData := new(models.FnpackData)
+	fnpackFile, err := os.Open(tmpPath)
+	if err != nil {
+		log.Printf("Failed to open fnpack.json: %v", err)
+		return []models.App{}
+	}
+	defer fnpackFile.Close()
+
+	if err := json.NewDecoder(fnpackFile).Decode(fnpackData); err != nil {
 		log.Printf("Failed to parse fnpack.json: %v", err)
 		return []models.App{}
 	}
 
-	var apps []models.App
-	for appName, fnpackApp := range fnpackData {
+	apps = make([]models.App, 0)
+	for appName, fnpackApp := range *fnpackData {
 		app := convertToApp(appName, fnpackApp, sourceID)
 		apps = append(apps, app)
 	}

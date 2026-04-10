@@ -40,29 +40,31 @@ func GetApps(c *gin.Context) {
 	sources := services.LoadSources()
 	services.DiscoverLocalSources(&sources)
 
-	// 确保本地 FPK 源总是被检查，即使目录中没有新文件
-	hasLocalFPKSource := false
+	hasLocalSource := false
 	for _, s := range sources {
-		if s.ID == "local_fpk_files" {
-			hasLocalFPKSource = true
+		if s.Local {
+			hasLocalSource = true
 			break
 		}
 	}
-	if !hasLocalFPKSource {
-		// 如果扫描没发现物理文件，但我们还是要显示已缓存的本地应用
-		sources = append(sources, models.Source{
-			ID:      "local_fpk_files",
-			Name:    "本地 FPK 文件",
-			Enabled: true,
-			Local:   true,
-		})
+	if !hasLocalSource {
+		userDir := services.GetUsersAppStoreDir()
+		if userDir != "" {
+			sources = append(sources, models.Source{
+				ID:      "local_" + filepath.Base(userDir),
+				Name:    "本地 FPK 文件",
+				URL:     userDir,
+				Enabled: true,
+				Local:   true,
+			})
+		}
 	}
 
-	for _, source := range sources {
-		if !source.Enabled {
+	for i := range sources {
+		if !sources[i].Enabled {
 			continue
 		}
-		apps := services.LoadAppsFromSource(source.ID)
+		apps := services.LoadAppsFromSource(&sources[i])
 		allApps = append(allApps, apps...)
 	}
 
@@ -118,32 +120,6 @@ func GetApps(c *gin.Context) {
 	})
 }
 
-// GetBuiltInApps 获取内置应用
-func GetBuiltInApps(c *gin.Context) {
-	builtInApps := services.LoadBuiltInApps()
-
-	c.JSON(http.StatusOK, gin.H{
-		"code": 0,
-		"data": gin.H{
-			"apps":  builtInApps,
-			"total": len(builtInApps),
-		},
-	})
-}
-
-// GetUserApps 获取用户应用
-func GetUserApps(c *gin.Context) {
-	userApps := services.LoadUserApps()
-
-	c.JSON(http.StatusOK, gin.H{
-		"code": 0,
-		"data": gin.H{
-			"apps":  userApps,
-			"total": len(userApps),
-		},
-	})
-}
-
 // GetAppDetail 获取应用详情
 func GetAppDetail(c *gin.Context) {
 	appID := c.Param("id")
@@ -151,11 +127,11 @@ func GetAppDetail(c *gin.Context) {
 	sources := services.LoadSources()
 	services.DiscoverLocalSources(&sources)
 
-	for _, source := range sources {
-		if !source.Enabled {
+	for i := range sources {
+		if !sources[i].Enabled {
 			continue
 		}
-		apps := services.LoadAppsFromSource(source.ID)
+		apps := services.LoadAppsFromSource(&sources[i])
 		for _, app := range apps {
 			if app.ID == appID {
 				c.JSON(http.StatusOK, gin.H{
