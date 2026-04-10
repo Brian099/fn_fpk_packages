@@ -48,7 +48,7 @@
 ## API 接口总览
 
 ### 基础信息
-- **服务地址**: `http://localhost:18088` (默认)
+- **服务地址**: `http://localhost:5668` (默认)
 - **API前缀**: `/api`
 - **响应格式**: JSON
 
@@ -287,7 +287,7 @@
             {
                 "id": "source_1",
                 "name": "远程源",
-                "url": "http://fpk.example.com:18088",
+                "url": "http://fpk.example.com:8080",
                 "enabled": true,
                 "auto_update": true,
                 "last_sync": "2026-04-07T20:25:24+08:00",
@@ -309,7 +309,7 @@
 ```json
 {
     "name": "源名称",
-    "url": "http://fpk.example.com:18088",
+    "url": "http://fpk.example.com:8080",
     "local": false
 }
 ```
@@ -327,7 +327,7 @@
     "data": {
         "id": "source_2",
         "name": "源名称",
-        "url": "http://fpk.example.com:18088",
+        "url": "http://fpk.example.com:8080",
         "enabled": true,
         "auto_update": true,
         "last_sync": "",

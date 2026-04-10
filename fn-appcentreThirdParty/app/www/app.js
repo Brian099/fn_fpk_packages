@@ -651,6 +651,7 @@ async function showSettingsManager(integrated = true, activeTab = 'basic') {
         ]);
 
         renderSettingsManager(settingsData.data, sourcesData.data.sources || [], 'settingsView', activeTab);
+        updateShareUrlDisplay();
         switchView('settingsView');
     } catch (error) {
         console.error('加载设置失败:', error);
@@ -686,6 +687,29 @@ function renderSettingsManager(settings, sources, containerId = 'settingsView', 
                             <input type="text" id="appStoreDirInput" class="semi-input" value="${escapeHtml(safeSettings.appStoreDir || '')}" placeholder="例如：/vol1/我的文件/AppStore">
                         </div>
                         <button class="semi-button semi-button-primary" style="height: 36px; padding: 0 20px;" onclick="saveSettings()">保存配置</button>
+                    </div>
+                </div>
+                <div class="settings-card">
+                    <div class="settings-card-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                    </div>
+                    <div class="settings-card-content">
+                        <div class="settings-card-title">分享我的应用</div>
+                        <div class="settings-card-description">开启后，其他用户可通过指定端口访问本地的应用列表数据。</div>
+                    </div>
+                    <div class="settings-card-actions">
+                        <div class="toggle-switch" style="margin-right: 16px;">
+                            <input type="checkbox" id="enableAppShareToggle" ${safeSettings.enableAppShare ? 'checked' : ''} onchange="toggleAppShare(this.checked)">
+                            <label for="enableAppShareToggle" class="toggle-label"></label>
+                        </div>
+                        <input type="number" id="sharePortInput" class="semi-input" value="${safeSettings.sharePort || 5668}" placeholder="端口" style="width: 80px;" ${safeSettings.enableAppShare ? '' : 'disabled'}>
+                        <span style="color: var(--semi-color-text-3); font-size: 12px; margin-left: 8px;">${safeSettings.enableAppShare ? '服务已开启' : '服务已关闭'}</span>
+                        <div id="shareUrlContainer" style="margin-left: 16px; display: ${safeSettings.enableAppShare ? 'flex' : 'none'}; align-items: center; gap: 8px;">
+                            <span id="shareUrlText" style="color: var(--semi-color-text-2); font-size: 12px; font-family: monospace;"></span>
+                            <button id="copyShareUrlBtn" onclick="copyShareUrl()" style="background: none; border: none; cursor: pointer; padding: 4px; color: var(--semi-color-text-3);" title="复制地址">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -776,11 +800,17 @@ function renderSourceList(sources) {
 
 async function saveSettings() {
     const appStoreDir = document.getElementById('appStoreDirInput').value.trim();
+    const enableAppShare = document.getElementById('enableAppShareToggle').checked;
+    const sharePort = parseInt(document.getElementById('sharePortInput').value.trim()) || 5668;
 
     try {
         const data = await apiRequest('/api/settings', {
             method: 'POST',
-            body: JSON.stringify({ appStoreDir: appStoreDir })
+            body: JSON.stringify({
+                appStoreDir: appStoreDir,
+                enableAppShare: enableAppShare,
+                sharePort: sharePort
+            })
         });
 
         if (data.code === 0) {
@@ -792,6 +822,121 @@ async function saveSettings() {
     } catch (error) {
         console.error('保存设置失败:', error);
         showNotification(error.message || '网络错误，请重试', 'error');
+    }
+}
+
+async function toggleAppShare(enabled) {
+    const portInput = document.getElementById('sharePortInput');
+    const statusText = portInput.nextElementSibling;
+    const toggle = document.getElementById('enableAppShareToggle');
+
+    if (enabled) {
+        const port = parseInt(portInput.value.trim()) || 5668;
+
+        try {
+            const checkResult = await apiRequest(`/api/settings/check-port?port=${port}`);
+            if (checkResult.code !== 0 || !checkResult.data.available) {
+                showNotification(checkResult.message || '端口已被占用，请修改', 'error');
+                toggle.checked = false;
+                return;
+            }
+
+            const settingsResult = await apiRequest('/api/settings');
+            const currentConfig = settingsResult.data || {};
+
+            const saveResult = await apiRequest('/api/settings', {
+                method: 'POST',
+                body: JSON.stringify({
+                    appStoreDir: currentConfig.appStoreDir || '',
+                    enableAppShare: true,
+                    sharePort: port
+                })
+            });
+
+            if (saveResult.code === 0) {
+                showNotification('服务已开启', 'success');
+                portInput.removeAttribute('disabled');
+                if (statusText) statusText.textContent = '服务已开启';
+                updateShareUrlDisplay();
+            } else {
+                showNotification(saveResult.message || '开启服务失败', 'error');
+                toggle.checked = false;
+            }
+        } catch (error) {
+            console.error('开启服务失败:', error);
+            showNotification(error.message || '网络错误', 'error');
+            toggle.checked = false;
+        }
+    } else {
+        try {
+            const settingsResult = await apiRequest('/api/settings');
+            const currentConfig = settingsResult.data || {};
+
+            const saveResult = await apiRequest('/api/settings', {
+                method: 'POST',
+                body: JSON.stringify({
+                    appStoreDir: currentConfig.appStoreDir || '',
+                    enableAppShare: false,
+                    sharePort: currentConfig.sharePort || 5668
+                })
+            });
+
+            if (saveResult.code === 0) {
+                showNotification('服务已关闭', 'success');
+            } else {
+                showNotification(saveResult.message || '关闭服务失败', 'error');
+            }
+        } catch (error) {
+            console.error('关闭服务失败:', error);
+            showNotification(error.message || '网络错误', 'error');
+        }
+        portInput.setAttribute('disabled', 'disabled');
+        if (statusText) statusText.textContent = '服务已关闭';
+        document.getElementById('shareUrlContainer').style.display = 'none';
+    }
+}
+
+function updateShareUrlDisplay() {
+    const portInput = document.getElementById('sharePortInput');
+    const shareUrlText = document.getElementById('shareUrlText');
+    const shareUrlContainer = document.getElementById('shareUrlContainer');
+    const toggle = document.getElementById('enableAppShareToggle');
+
+    if (toggle && toggle.checked) {
+        const port = portInput ? (parseInt(portInput.value) || 5668) : 5668;
+        const hostname = window.location.hostname || 'localhost';
+        const url = `http://${hostname}:${port}`;
+        if (shareUrlText) shareUrlText.textContent = url;
+        if (shareUrlContainer) shareUrlContainer.style.display = 'flex';
+    } else {
+        if (shareUrlContainer) shareUrlContainer.style.display = 'none';
+    }
+}
+
+async function copyShareUrl() {
+    const shareUrlText = document.getElementById('shareUrlText');
+    if (!shareUrlText || !shareUrlText.textContent) {
+        showNotification('地址不可用', 'error');
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(shareUrlText.textContent);
+        showNotification('地址已复制到剪贴板', 'success');
+    } catch (err) {
+        const textArea = document.createElement('textarea');
+        textArea.value = shareUrlText.textContent;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            showNotification('地址已复制到剪贴板', 'success');
+        } catch (e) {
+            showNotification('复制失败', 'error');
+        }
+        document.body.removeChild(textArea);
     }
 }
 

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -70,8 +71,48 @@ func SaveSettings(c *gin.Context) {
 	services.DiscoverLocalSources(&sources)
 	services.SaveSources(sources)
 
+	if req.EnableAppShare {
+		services.StartAppShareServer(req.SharePort)
+	} else {
+		services.StopAppShareServer()
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "保存设置成功",
+	})
+}
+
+// CheckPortAvailability 检测端口是否可用
+func CheckPortAvailability(c *gin.Context) {
+	port := c.Query("port")
+	if port == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "端口号不能为空",
+		})
+		return
+	}
+
+	addr := ":" + port
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    1,
+			"message": "端口已被占用，请修改",
+			"data": gin.H{
+				"available": false,
+			},
+		})
+		return
+	}
+	listener.Close()
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "端口可用",
+		"data": gin.H{
+			"available": true,
+		},
 	})
 }

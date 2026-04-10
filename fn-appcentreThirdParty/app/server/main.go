@@ -18,6 +18,7 @@ import (
 
 	"appcentre/config"
 	"appcentre/router"
+	"appcentre/services"
 	"appcentre/utils"
 )
 
@@ -28,7 +29,6 @@ var (
 func main() {
 	flag.Parse()
 
-	// Set default values if environment variables are not set
 	appDest := config.AppDest
 	if appDest == "" {
 		appDest = config.DefaultAppDest
@@ -38,7 +38,6 @@ func main() {
 		pkgVar = config.DefaultPkgVar
 	}
 
-	// Load configuration
 	appConfig := config.LoadConfig()
 
 	r := router.SetupRouter(appDest, pkgVar, appConfig)
@@ -48,21 +47,28 @@ func main() {
 	log.Printf("AppDest: %s", appDest)
 	log.Printf("PkgVar: %s", pkgVar)
 
+	services.InitAppShareService(pkgVar)
+
+	if appConfig.EnableAppShare {
+		if err := services.StartAppShareServer(appConfig.SharePort); err != nil {
+			log.Printf("Failed to start app share server: %v", err)
+		}
+	} else {
+		log.Printf("App share feature is disabled")
+	}
+
 	if *unixSocket != "" {
-		// 清理旧的 Socket 文件
 		if _, err := os.Stat(*unixSocket); err == nil {
 			if err := os.Remove(*unixSocket); err != nil {
 				log.Fatalf("Failed to remove existing unix socket: %v", err)
 			}
 		}
 
-		// 监听 Unix Socket
 		listener, err := net.Listen("unix", *unixSocket)
 		if err != nil {
 			log.Fatalf("Failed to listen on unix socket: %v", err)
 		}
 
-		// 设置 Socket 文件权限，确保 CGI 进程可以访问
 		if err := os.Chmod(*unixSocket, 0666); err != nil {
 			log.Printf("Warning: Failed to set socket permissions: %v", err)
 		}
@@ -74,11 +80,7 @@ func main() {
 		if err := server.Serve(listener); err != nil {
 			log.Fatalf("Failed to start server on unix socket: %v", err)
 		}
-	} else {
-		// 回退到 TCP 监听
-		log.Printf("Starting server on TCP port: :18088")
-		if err := r.Run(":18088"); err != nil {
-			log.Fatalf("Failed to start server on TCP: %v", err)
-		}
 	}
+
+	select {}
 }

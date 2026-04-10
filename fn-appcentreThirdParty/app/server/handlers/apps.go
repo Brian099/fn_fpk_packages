@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -28,6 +30,76 @@ func getAppCenterCliPath() string {
 		}
 	}
 	return "appcenter-cli"
+}
+
+// GetCacheApps 直接返回本地缓存的应用数据（用于 5668 端口）
+func GetCacheApps(c *gin.Context) {
+	pkgVar := config.PkgVar
+	if pkgVar == "" {
+		pkgVar = "/var/apps/fn-appcentreThirdParty/var"
+	}
+
+	cacheDir := filepath.Join(pkgVar, "cache")
+
+	sources := services.LoadSources()
+
+	var localSourceID string
+	for _, source := range sources {
+		if source.Local {
+			localSourceID = source.ID
+			break
+		}
+	}
+
+	if localSourceID == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 0,
+			"data": gin.H{
+				"apps":    []models.App{},
+				"total":   0,
+				"sources": 0,
+			},
+		})
+		return
+	}
+
+	cachePath := filepath.Join(cacheDir, localSourceID+".json")
+	data, err := ioutil.ReadFile(cachePath)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 0,
+			"data": gin.H{
+				"apps":    []models.App{},
+				"total":   0,
+				"sources": 1,
+			},
+		})
+		return
+	}
+
+	var cacheData struct {
+		Apps []models.App `json:"apps"`
+	}
+	if err := json.Unmarshal(data, &cacheData); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 0,
+			"data": gin.H{
+				"apps":    []models.App{},
+				"total":   0,
+				"sources": 1,
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"apps":    cacheData.Apps,
+			"total":   len(cacheData.Apps),
+			"sources": 1,
+		},
+	})
 }
 
 // GetApps 获取所有应用

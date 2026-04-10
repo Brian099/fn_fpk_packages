@@ -41,7 +41,11 @@ func SetupRouter(appDest, pkgVar string, appConfig config.Config) *gin.Engine {
 		// Settings API
 		api.GET("/settings", handlers.GetSettings)
 		api.POST("/settings", handlers.SaveSettings)
+		api.GET("/settings/check-port", handlers.CheckPortAvailability)
 	}
+
+	// 根路径直接返回本地缓存数据（用于 5668 端口直接访问）
+	r.GET("/", handlers.GetCacheApps)
 
 	// 内置 AppStore 目录使用 /built-in-download 前缀
 	// 用户配置的 AppStore 目录使用 /user-download 前缀

@@ -13,9 +13,16 @@ var (
 	AppCenterCliPath = os.Getenv("TRIM_APPCENTER_CLI_PATH")
 )
 
+var defaultConfig = Config{
+	EnableAppShare: false,
+	SharePort:      5668,
+}
+
 // Config 应用配置结构体
 type Config struct {
-	AppStoreDir string `json:"appStoreDir"`
+	AppStoreDir    string `json:"appStoreDir"`
+	EnableAppShare bool   `json:"enableAppShare"`
+	SharePort      int    `json:"sharePort"`
 }
 
 // LoadConfig 加载配置文件
@@ -34,10 +41,10 @@ func LoadConfig() Config {
 	if err != nil {
 		if os.IsNotExist(err) {
 			log.Printf("Config file not found, using default")
-			config = Config{}
+			config = defaultConfig
 		} else {
 			log.Printf("Failed to read config file: %v", err)
-			config = Config{}
+			config = defaultConfig
 		}
 		return config
 	}
@@ -45,7 +52,12 @@ func LoadConfig() Config {
 	// 解析配置文件
 	if err := json.Unmarshal(data, &config); err != nil {
 		log.Printf("Failed to parse config file: %v", err)
-		config = Config{}
+		config = defaultConfig
+	}
+
+	// 应用默认值（如果字段为零值）
+	if config.SharePort == 0 {
+		config.SharePort = defaultConfig.SharePort
 	}
 
 	log.Printf("Config loaded: %+v", config)
