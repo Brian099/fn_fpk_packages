@@ -4,6 +4,7 @@ echo "第三方应用中心安装回调..."
 
 chmod +x ${TRIM_APPDEST}/app/ui/*.cgi 2>/dev/null || true
 chmod +x ${TRIM_APPDEST}/app/www/*.cgi 2>/dev/null || true
+chmod +x ${TRIM_APPDEST}/app/server/* 2>/dev/null || true
 
 mkdir -p "${TRIM_PKGVAR}"
 mkdir -p "${TRIM_PKGVAR}/cache"

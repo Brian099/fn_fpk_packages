@@ -1,1 +1,11 @@
-[{"stepTitle": "卸载向导", "items": [{"type": "tips", "helpText": "<strong>卸载应用精选</strong><br><br>您正在卸载应用精选，此操作将：<br>1. 停止应用精选服务<br>2. 移除应用精选文件<br>3. 保留 AppStore 中的应用安装包<br><br><strong>提示：</strong>卸载后，您添加的应用源配置将会丢失。"}]}]
+[
+  {
+    "stepTitle": "卸载向导",
+    "items": [
+      {
+        "type": "tips",
+        "helpText": "<strong>卸载应用精选</strong><br><br>您正在卸载应用精选，此操作将：<br>1. 停止应用精选服务<br>2. 移除应用精选文件<br>3. 保留 AppStore 中的应用安装包<br><br><strong>提示：</strong>卸载后，您添加的应用源配置将会丢失。"
+      }
+    ]
+  }
+]

@@ -14,4 +14,3 @@ distributor_url       = https://github.com
 reloadui              = yes
 ctl_stop              = true
 install_type          = root
-size                  = 5
