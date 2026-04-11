@@ -323,7 +323,7 @@ textarea {
 .base-Tab-root {
     display: flex;
     align-items: center;
-    height: 33px;
+    height: 30px;
     padding: 0 12px;
     border: none;
     background: transparent;
@@ -567,7 +567,8 @@ textarea {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 6px; /* 增加行间距 */
+    margin-bottom: 6px;
+    /* 增加行间距 */
 }
 
 .app-installed-badge {
@@ -585,13 +586,15 @@ textarea {
 .app-card-meta {
     display: flex;
     align-items: center;
-    justify-content: flex-start; /* 靠左展示操作按钮 */
+    justify-content: flex-start;
+    /* 靠左展示操作按钮 */
     margin-top: auto;
     width: 100%;
 }
 
 .app-card-actions {
-    position: relative; /* 增加定位基准，使弹窗紧贴按钮 */
+    position: relative;
+    /* 增加定位基准，使弹窗紧贴按钮 */
     display: flex;
     align-items: center;
     gap: 8px;
@@ -603,7 +606,8 @@ textarea {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-bottom: 12px; /* 增加分类行与按钮行的间距 */
+    margin-bottom: 12px;
+    /* 增加分类行与按钮行的间距 */
 }
 
 /* My Apps 模式下的特殊样式：隐藏安装按钮，但保持分类和标签按钮可见 */
@@ -643,7 +647,8 @@ textarea {
 
 /* Tag Button on Card */
 .app-card-tag-btn {
-    display: none; /* 默认隐藏，仅在我的应用页面展示 */
+    display: none;
+    /* 默认隐藏，仅在我的应用页面展示 */
     flex-shrink: 0;
 }
 
@@ -659,7 +664,8 @@ textarea {
 /* Tag Popover */
 .tag-popover {
     position: absolute;
-    top: calc(100% + 6px); /* 紧贴按钮下方 6px */
+    top: calc(100% + 6px);
+    /* 紧贴按钮下方 6px */
     left: 0;
     z-index: 100;
     width: 160px;
@@ -678,8 +684,15 @@ textarea {
 }
 
 @keyframes popover-fade-in {
-    from { opacity: 0; transform: translateY(-4px) scale(0.95); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
+    from {
+        opacity: 0;
+        transform: translateY(-4px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .tag-item {
