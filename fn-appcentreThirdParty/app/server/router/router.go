@@ -25,6 +25,7 @@ func SetupRouter(appDest, pkgVar string, appConfig config.Config) *gin.Engine {
 		api.POST("/apps/:id/start", handlers.StartApp)
 		api.POST("/apps/:id/stop", handlers.StopApp)
 		api.DELETE("/apps/:id", handlers.UninstallApp)
+		api.GET("/apps/:id/check", handlers.CheckApp)
 		api.GET("/apps/:id/status", handlers.GetAppStatus)
 		// 新增应用管理API
 		api.GET("/apps/installed", handlers.GetInstalledApps)

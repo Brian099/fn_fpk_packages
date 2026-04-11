@@ -457,28 +457,45 @@ func StopApp(c *gin.Context) {
 func UninstallApp(c *gin.Context) {
 	appID := c.Param("id")
 
-	// First stop the app if it's running
 	cliPath := getAppCenterCliPath()
+
 	exec.Command(cliPath, "stop", appID).Run()
 
-	// Remove app directory
-	appDir := filepath.Join("/usr/local/apps/@appcenter", appID)
-	if err := os.RemoveAll(appDir); err != nil {
-		log.Printf("Failed to remove app directory %s: %v", appDir, err)
+	cmd := exec.Command(cliPath, "uninstall")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Failed to uninstall app %s: %v, output: %s", appID, err, string(output))
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
 			"message": fmt.Sprintf("Failed to uninstall: %v", err),
+			"output":  string(output),
 		})
 		return
 	}
 
-	// Remove app data directory
-	appDataDir := filepath.Join("/usr/local/apps/@appdata", appID)
-	os.RemoveAll(appDataDir) // Ignore error if directory doesn't exist
-
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "Application uninstalled successfully",
+		"output":  string(output),
+	})
+}
+
+// CheckApp 检查应用是否已安装
+func CheckApp(c *gin.Context) {
+	appID := c.Param("id")
+
+	cliPath := getAppCenterCliPath()
+	cmd := exec.Command(cliPath, "check", appID)
+	output, _ := cmd.CombinedOutput()
+
+	outputStr := strings.ToLower(string(output))
+	installed := strings.Contains(outputStr, "installed") && !strings.Contains(outputStr, "not")
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"installed": installed,
+		},
 	})
 }
 
@@ -486,9 +503,11 @@ func UninstallApp(c *gin.Context) {
 func GetAppStatus(c *gin.Context) {
 	appID := c.Param("id")
 
-	// Check if app is installed
-	appDir := filepath.Join("/usr/local/apps/@appcenter", appID)
-	if _, err := os.Stat(appDir); os.IsNotExist(err) {
+	cliPath := getAppCenterCliPath()
+	cmd := exec.Command(cliPath, "status", appID)
+	output, err := cmd.CombinedOutput()
+
+	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"code": 0,
 			"data": gin.H{
@@ -499,19 +518,8 @@ func GetAppStatus(c *gin.Context) {
 		return
 	}
 
-	// Check if app is running
-	running := false
-	pidFile := filepath.Join("/usr/local/apps/@appdata", appID, "app.pid")
-	if data, err := os.ReadFile(pidFile); err == nil {
-		pid := strings.TrimSpace(string(data))
-		if pid != "" {
-			// Check if process is running
-			if _, err := os.Stat(filepath.Join("/proc", pid)); err == nil {
-				running = true
-			}
-		}
-	}
-
+	outputStr := strings.ToLower(string(output))
+	running := strings.Contains(outputStr, "running")
 	status := "stopped"
 	if running {
 		status = "running"
@@ -553,32 +561,43 @@ func GetInstalledApps(c *gin.Context) {
 	})
 }
 
-// parseAppListOutput 解析appcenter-cli list命令的输出
+// parseAppListOutput 解析appcenter-cli list命令的输出（表格格式）
 func parseAppListOutput(output string) []map[string]string {
 	apps := []map[string]string{}
 	lines := strings.Split(output, "\n")
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "ID") || strings.HasPrefix(line, "-") {
+		if line == "" || strings.HasPrefix(line, "┌") || strings.HasPrefix(line, "├") || strings.HasPrefix(line, "└") {
 			continue
 		}
+		if strings.HasPrefix(line, "│") {
+			fields := strings.Split(line, "│")
+			if len(fields) >= 5 {
+				appID := strings.TrimSpace(fields[1])
+				appName := strings.TrimSpace(fields[2])
+				version := strings.TrimSpace(fields[3])
+				status := strings.TrimSpace(fields[4])
 
-		// 解析每行应用信息
-		fields := strings.Fields(line)
-		if len(fields) >= 3 {
-			app := map[string]string{
-				"id":      fields[0],
-				"name":    fields[1],
-				"version": fields[2],
-				"status":  "unknown",
+				if appID != "APP NAME" && appID != "" {
+					apps = append(apps, map[string]string{
+						"id":      appID,
+						"name":    appName,
+						"version": version,
+						"status":  status,
+					})
+				}
 			}
-
-			if len(fields) >= 4 {
-				app["status"] = fields[3]
+		} else if !strings.HasPrefix(line, "ID") && !strings.HasPrefix(line, "-") {
+			fields := strings.Fields(line)
+			if len(fields) >= 3 {
+				apps = append(apps, map[string]string{
+					"id":      fields[0],
+					"name":    fields[1],
+					"version": fields[2],
+					"status":  "unknown",
+				})
 			}
-
-			apps = append(apps, app)
 		}
 	}
 
