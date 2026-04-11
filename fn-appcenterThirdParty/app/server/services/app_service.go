@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"appcentre/config"
-	"appcentre/models"
+	"appcenter/config"
+	"appcenter/models"
 )
 
 var (

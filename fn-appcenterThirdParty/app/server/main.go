@@ -4,7 +4,7 @@ description: 应用中心【第三方】服务器端，负责处理应用安装�
 date: 2026-04-01
 */
 /* 编译指令
-env:GOOS="linux"; $env:GOARCH="amd64"; go build -v -ldflags="-s -w" -o appcentre
+env:GOOS="linux"; $env:GOARCH="amd64"; go build -v -ldflags="-s -w" -o appcenter
 */
 
 package main
@@ -16,10 +16,10 @@ import (
 	"net/http"
 	"os"
 
-	"appcentre/config"
-	"appcentre/router"
-	"appcentre/services"
-	"appcentre/utils"
+	"appcenter/config"
+	"appcenter/router"
+	"appcenter/services"
+	"appcenter/utils"
 )
 
 var (

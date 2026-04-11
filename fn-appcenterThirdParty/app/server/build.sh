@@ -4,12 +4,12 @@ set -e
 
 cd "$(dirname "$0")"
 
-echo "Building fn-appcentreThirdParty..."
+echo "Building fn-appcenterThirdParty..."
 
 export GOOS=linux
 export GOARCH=amd64
 
 go mod tidy
-go build -v -ldflags="-s -w" -o appcentre
+go build -v -ldflags="-s -w" -o appcenter
 
-echo "Build complete: appcentre"
+echo "Build complete: appcenter"

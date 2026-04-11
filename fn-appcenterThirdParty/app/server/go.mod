@@ -1,4 +1,4 @@
-module appcentre
+module appcenter
 
 go 1.21
 

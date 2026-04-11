@@ -1,7 +1,7 @@
 #!/bin/bash
 
-BASE_PATH="${TRIM_APPDEST:-/usr/local/apps/@appcenter/fn-appcentreThirdParty}/www"
-BACKEND_UNIX_SOCKET="${BACKEND_UNIX_SOCKET:-${TRIM_PKGVAR:-/usr/local/apps/@appdata/fn-appcentreThirdParty}/appcentre.sock}"
+BASE_PATH="${TRIM_APPDEST:-/usr/local/apps/@appcenter/fn-appcenterThirdParty}/www"
+BACKEND_UNIX_SOCKET="${BACKEND_UNIX_SOCKET:-${TRIM_PKGVAR:-/usr/local/apps/@appdata/fn-appcenterThirdParty}/appcenter.sock}"
 BACKEND_CONNECT_TIMEOUT="${BACKEND_CONNECT_TIMEOUT:-5}"
 BACKEND_MAX_TIME="${BACKEND_MAX_TIME:-300}"
 

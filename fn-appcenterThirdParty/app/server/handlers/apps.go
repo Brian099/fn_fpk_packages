@@ -12,9 +12,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"appcentre/config"
-	"appcentre/models"
-	"appcentre/services"
+	"appcenter/config"
+	"appcenter/models"
+	"appcenter/services"
 
 	"github.com/gin-gonic/gin"
 )
@@ -37,7 +37,7 @@ func getAppCenterCliPath() string {
 func GetCacheApps(c *gin.Context) {
 	pkgVar := config.PkgVar
 	if pkgVar == "" {
-		pkgVar = "/var/apps/fn-appcentreThirdParty/var"
+		pkgVar = "/var/apps/fn-appcenterThirdParty/var"
 	}
 
 	cacheDir := filepath.Join(pkgVar, "cache")

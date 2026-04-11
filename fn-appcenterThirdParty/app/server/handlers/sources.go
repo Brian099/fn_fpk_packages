@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"appcentre/config"
-	"appcentre/models"
-	"appcentre/services"
+	"appcenter/config"
+	"appcenter/models"
+	"appcenter/services"
 
 	"github.com/gin-gonic/gin"
 )

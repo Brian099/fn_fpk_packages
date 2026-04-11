@@ -2,7 +2,7 @@
 
 echo "第三方应用中心卸载回调..."
 
-DATA_DIR="${TRIM_PKGVAR:-/vol1/@appdata/fn-appcentreThirdParty}"
+DATA_DIR="${TRIM_PKGVAR:-/vol1/@appdata/fn-appcenterThirdParty}"
 
 if [ "${wizard_data_action}" = "delete" ] && [ -n "${DATA_DIR}" ] && [ -d "${DATA_DIR}" ]; then
     echo "Removing application data directory: ${DATA_DIR}"
@@ -17,7 +17,7 @@ else
 fi
 
 # Cleanup socket file
-rm -f "$TRIM_PKGVAR/appcentre.sock"
+rm -f "$TRIM_PKGVAR/appcenter.sock"
 rm -f "$TRIM_PKGVAR/app.pid"
 
 echo "卸载回调完成！"

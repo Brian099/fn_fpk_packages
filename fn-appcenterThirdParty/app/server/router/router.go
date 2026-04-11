@@ -4,8 +4,8 @@ import (
 	"log"
 	"path/filepath"
 
-	"appcentre/config"
-	"appcentre/handlers"
+	"appcenter/config"
+	"appcenter/handlers"
 
 	"github.com/gin-gonic/gin"
 )

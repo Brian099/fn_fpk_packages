@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"appcentre/models"
+	"appcenter/models"
 )
 
 func parseFPKFile(fpkPath string, baseDir string) (models.App, error) {

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"appcentre/models"
+	"appcenter/models"
 )
 
 var (

@@ -1,4 +1,4 @@
-appname               = fn-appcentreThirdParty
+appname               = fn-appcenterThirdParty
 version               = 1.0.65
 display_name          = 应用精选
 desc                  = <p>应用精选，用于管理和安装第三方飞牛应用。</p><p>功能特性：</p><ul><li>浏览和搜索第三方应用</li><li>支持多源管理，类似群晖套件中心</li><li>自动发现本地源目录</li><li>应用下载和安装</li></ul>
@@ -6,7 +6,7 @@ platform              = x86
 source                = thirdparty
 os_min_version        = 0.9.0
 desktop_uidir         = ui
-desktop_applaunchname = fn-appcentreThirdParty.Application
+desktop_applaunchname = fn-appcenterThirdParty.Application
 maintainer            = laok
 maintainer_url        = https://github.com
 distributor           = laok

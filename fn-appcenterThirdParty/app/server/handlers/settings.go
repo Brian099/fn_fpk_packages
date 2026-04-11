@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"appcentre/config"
-	"appcentre/services"
+	"appcenter/config"
+	"appcenter/services"
 
 	"github.com/gin-gonic/gin"
 )

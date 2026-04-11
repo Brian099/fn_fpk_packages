@@ -2,11 +2,11 @@ package config
 
 const (
 	// DefaultAppDest 默认应用目标目录
-	DefaultAppDest = "/var/apps/fn-appcentreThirdParty/target"
+	DefaultAppDest = "/var/apps/fn-appcenterThirdParty/target"
 	// DefaultPkgVar 默认变量目录
-	DefaultPkgVar = "/var/apps/fn-appcentreThirdParty/var"
+	DefaultPkgVar = "/var/apps/fn-appcenterThirdParty/var"
 	// DefaultUnixSocket 默认Unix socket路径
-	DefaultUnixSocket = "/var/apps/fn-appcentreThirdParty/var/appcentre.sock"
+	DefaultUnixSocket = "/var/apps/fn-appcenterThirdParty/var/appcenter.sock"
 	// DefaultAppStoreDir 默认应用商店目录
 	DefaultAppStoreDir = "AppStore"
 	// DefaultDownloadDir 默认下载目录

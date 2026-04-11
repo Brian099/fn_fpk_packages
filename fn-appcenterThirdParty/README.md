@@ -20,7 +20,7 @@
 ## 项目结构
 
 ```
-fn-appcentreThirdParty/
+fn-appcenterThirdParty/
 ├── app/
 │   ├── server/          # 后端服务 (Go)
 │   │   ├── main.go      # 主入口

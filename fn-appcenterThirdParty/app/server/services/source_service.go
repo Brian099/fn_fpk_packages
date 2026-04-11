@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"appcentre/models"
+	"appcenter/models"
 )
 
 // scanFPKFiles 扫描FPK文件（递归子目录）

@@ -3,14 +3,14 @@
 echo "第三方应用中心更新初始化..."
 
 # Stop the service before upgrade
-if [ -x "${TRIM_APPDEST:-/var/apps/fn-appcentreThirdParty/target}/main" ]; then
+if [ -x "${TRIM_APPDEST:-/var/apps/fn-appcenterThirdParty/target}/main" ]; then
     echo "Stopping service before upgrade..."
-    "${TRIM_APPDEST:-/var/apps/fn-appcentreThirdParty/target}/main" stop
+    "${TRIM_APPDEST:-/var/apps/fn-appcenterThirdParty/target}/main" stop
 else
     # Try alternative path
-    if [ -x "${TRIM_APPDEST:-/var/apps/fn-appcentreThirdParty/target}/cmd/main" ]; then
+    if [ -x "${TRIM_APPDEST:-/var/apps/fn-appcenterThirdParty/target}/cmd/main" ]; then
         echo "Stopping service before upgrade..."
-        "${TRIM_APPDEST:-/var/apps/fn-appcentreThirdParty/target}/cmd/main" stop
+        "${TRIM_APPDEST:-/var/apps/fn-appcenterThirdParty/target}/cmd/main" stop
     else
         echo "Service control script not found, skipping stop"
     fi
