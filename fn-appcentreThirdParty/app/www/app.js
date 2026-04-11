@@ -306,9 +306,15 @@ async function loadApps() {
     }
 }
 
-function renderAppGrid(apps) {
+function renderAppGrid(apps, grouped = true, mini = false) {
     const appGrid = document.getElementById('appGrid');
     
+    // 设置管理模式样式
+    if (mini) {
+        appGrid.classList.add('view-manage');
+    } else {
+        appGrid.classList.remove('view-manage');
+    }
     if (!apps || apps.length === 0) {
         appGrid.innerHTML = '<div class="empty-state"><p>暂无应用</p></div>';
         return;
@@ -316,19 +322,30 @@ function renderAppGrid(apps) {
 
     appGrid.innerHTML = '';
 
+    if (!grouped) {
+        // 扁平展示：只展示网格，不展示分类标题
+        const grid = document.createElement('div');
+        grid.className = 'app-grid';
+        apps.forEach(app => {
+            grid.appendChild(createAppCard(app));
+        });
+        appGrid.appendChild(grid);
+        return;
+    }
+
     // 根据分类进行分组
     const groups = {};
     apps.forEach(app => {
         const labels = app.labels?.length > 0 ? app.labels : (app.categories || []);
-        const cat = (Array.isArray(labels) && labels.length > 0) ? labels[0] : 'other';
+        const cat = (Array.isArray(labels) && labels.length > 0) ? labels[0] : '其他';
         if (!groups[cat]) groups[cat] = [];
         groups[cat].push(app);
     });
 
     // 默认排序：其他类别排在最后
     const sortedCategories = Object.keys(groups).sort((a, b) => {
-        if (a === 'other') return 1;
-        if (b === 'other') return -1;
+        if (a === '其他') return 1;
+        if (b === '其他') return -1;
         return a.localeCompare(b);
     });
     
@@ -367,14 +384,23 @@ function createAppCard(app) {
     card.dataset.appId = app.id;
 
     const iconUrl = app.icon || '/static/app/icons/trim.app-center/icon.png';
-    const labels = app.labels?.length > 0 ? app.labels : (app.categories || []);
-    const displayCategory = Array.isArray(labels) ? labels[0] : '应用';
+    // 规范化标签为数组
+    let allLabels = app.labels || app.categories || [];
+    if (typeof allLabels === 'string') {
+        allLabels = allLabels.split(',').map(s => s.trim()).filter(s => s);
+    }
+    
+    // 显示所有标签，不再过滤“已安装”，不再只显示第一个
+    const displayCategory = allLabels.length > 0 ? allLabels.join(', ') : '其他';
+    
+    // 是否已安装：根据属性或标签判断
+    const isInstalled = app.is_installed || allLabels.includes('已安装');
 
     // 状态检测逻辑
     let btnText = '安装';
     let btnClass = 'semi-button-primary';
 
-    if (app.is_installed) {
+    if (isInstalled) {
         btnText = '打开';
         btnClass = 'semi-button-secondary';
     }
@@ -382,24 +408,38 @@ function createAppCard(app) {
     card.innerHTML = `
         <div class="app-card-icon" style="background-image: url('${iconUrl}')"></div>
         <div class="app-card-info">
-            <div class="app-card-name">${escapeHtml(app.name)}</div>
+            <div class="app-card-name-row">
+                <div class="app-card-name">${escapeHtml(app.name)}</div>
+                ${isInstalled ? '<span class="app-installed-badge">已安装</span>' : ''}
+            </div>
+            <div class="app-card-category">${escapeHtml(displayCategory)}</div>
             <div class="app-card-meta">
-                <div class="app-card-category">${escapeHtml(displayCategory)}</div>
-                <button class="semi-button ${btnClass}">${btnText}</button>
+                <div class="app-card-actions">
+                    <button class="semi-button semi-button-secondary app-card-tag-btn">标签</button>
+                    <button class="semi-button ${btnClass}">${btnText}</button>
+                </div>
             </div>
         </div>
     `;
 
     card.addEventListener('click', function(e) {
-        if (!e.target.closest('.semi-button')) {
+        if (!e.target.closest('.semi-button') && !e.target.closest('.app-card-tag-btn')) {
             showAppDetail(app.id);
         }
     });
 
-    const installBtn = card.querySelector('.semi-button');
-    installBtn.addEventListener('click', function(e) {
+    const installBtn = card.querySelector('.semi-button:not(.app-card-tag-btn)');
+    if (installBtn) {
+        installBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            installApp(app);
+        });
+    }
+
+    const tagBtn = card.querySelector('.app-card-tag-btn');
+    tagBtn.addEventListener('click', function(e) {
         e.stopPropagation();
-        installApp(app);
+        showTagPopover(e, app);
     });
 
     return card;
@@ -659,84 +699,167 @@ async function uninstallApp(appId, appName) {
 }
 
 async function showMyAppsManager() {
+    const appGrid = document.getElementById('appGrid');
+    appGrid.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>加载中...</p></div>';
+    switchView('appGrid');
+
     try {
         const sourcesData = await apiRequest('/api/sources');
-        const sources = sourcesData.data.sources || [];
-        const localSources = sources.filter(s => s.local);
+        const localSource = sourcesData.data.sources.find(s => s.local);
 
-        if (localSources.length === 0) {
-            document.getElementById('settingsView').innerHTML = `
-                <div class="empty-state-container">
-                    <p>暂无本地应用源</p>
-                </div>
-            `;
-            switchView('settingsView');
+        if (!localSource) {
+            appGrid.innerHTML = '<div class="empty-state"><p>暂无本地应用源</p></div>';
             return;
         }
 
-        const localSource = localSources[0];
         const appsData = await apiRequest(`/api/apps?source=${encodeURIComponent(localSource.id)}`);
         const apps = appsData.data.apps || [];
 
-        renderMyAppsManager(apps, localSource, 'settingsView');
-        switchView('settingsView');
+        if (apps.length === 0) {
+            appGrid.innerHTML = '<div class="empty-state"><p>暂无本地应用</p></div>';
+            return;
+        }
+
+        // 统一展示布局：使用 renderAppGrid (不分组，开启管理模式)
+        renderAppGrid(apps, false, true);
     } catch (error) {
         console.error('加载我的应用失败:', error);
-        showNotification('加载我的应用失败', 'error');
+        appGrid.innerHTML = `<div class="empty-state"><p>加载失败: ${error.message}</p></div>`;
     }
 }
 
-function renderMyAppsManager(apps, source, containerId) {
-    const container = document.getElementById(containerId);
-    container.innerHTML = `
-        <div class="settings-header">
-            <h2>我的应用</h2>
-            <p class="settings-description">管理本地应用的分类标签</p>
-        </div>
-        <div class="settings-content">
-            <div class="app-labels-list">
-                ${apps.map(app => `
-                    <div class="app-label-item" data-app-id="${escapeHtml(app.id)}">
-                        <div class="app-label-info">
-                            <div class="app-label-name">${escapeHtml(app.name)}</div>
-                            <div class="app-label-current">
-                                当前标签: ${Array.isArray(app.labels) && app.labels.length > 0
-                                    ? app.labels.map(l => `<span class="tag">${escapeHtml(l)}</span>`).join('')
-                                    : '<span class="tag empty">无</span>'}
-                            </div>
-                        </div>
-                        <div class="app-label-actions">
-                            <input type="text" class="labels-input" value="${Array.isArray(app.labels) ? app.labels.join(', ') : ''}"
-                                   placeholder="输入标签，用逗号分隔" data-app-id="${escapeHtml(app.id)}">
-                            <button class="semi-button-primary save-labels-btn" onclick="saveAppLabels('${escapeHtml(source.id)}', '${escapeHtml(app.id)}')">保存</button>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    `;
+// === 新增：多标签系统逻辑 ===
+
+function getSidebarCategories() {
+    const categories = [];
+    const buttons = document.querySelectorAll('.base-Tab-root[data-category]');
+    buttons.forEach(btn => {
+        const name = btn.dataset.category;
+        // 过滤掉特殊分类
+        if (name && name !== 'latest' && name !== 'installed') {
+            const iconHtml = btn.querySelector('.tab-icon')?.outerHTML || '';
+            if (!categories.find(c => c.name === name)) {
+                categories.push({ name, iconHtml });
+            }
+        }
+    });
+    return categories;
 }
 
-async function saveAppLabels(sourceId, appId) {
-    const input = document.querySelector(`input[data-app-id="${appId}"]`);
-    const labelsStr = input.value.trim();
-    const labels = labelsStr ? labelsStr.split(',').map(l => l.trim()).filter(l => l) : [];
+let popoverCleanup = null;
+
+function showTagPopover(event, app) {
+    // 如果已有打开的，先清理
+    if (popoverCleanup) {
+        popoverCleanup();
+    }
+
+    const categories = getSidebarCategories();
+    const appLabels = app.labels || app.categories || [];
+    
+    const popover = document.createElement('div');
+    popover.className = 'tag-popover active';
+    
+    categories.forEach(cat => {
+        const item = document.createElement('div');
+        const isActive = appLabels.includes(cat.name);
+        item.className = 'tag-item' + (isActive ? ' active' : '');
+        item.innerHTML = `
+            <span class="tag-icon">${cat.iconHtml}</span>
+            <span>${escapeHtml(cat.name)}</span>
+        `;
+        
+        item.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await toggleTag(app, cat.name, !isActive, item);
+        });
+        
+        popover.appendChild(item);
+    });
+
+    const card = event.currentTarget.closest('.app-card');
+    const actions = event.currentTarget.closest('.app-card-actions');
+    const tagBtn = event.currentTarget;
+    
+    card.classList.add('has-popover');
+    // 将 popover 挂载到按钮容器上，确保位置紧凑
+    if (actions) {
+        actions.appendChild(popover);
+    } else {
+        card.appendChild(popover);
+    }
+
+    const closeHandler = (e) => {
+        // 如果点击的不是 popover 内部，也不是触发按钮本身，则收起
+        if (!popover.contains(e.target) && !tagBtn.contains(e.target)) {
+            cleanup();
+        }
+    };
+
+    function cleanup() {
+        if (popover.parentNode) {
+            popover.remove();
+        }
+        card.classList.remove('has-popover');
+        window.removeEventListener('click', closeHandler, true);
+        popoverCleanup = null;
+    }
+
+    popoverCleanup = cleanup;
+    // 使用 window 监听并开启捕获模式，确保能捕获到被 stopPropagation 的事件
+    setTimeout(() => window.addEventListener('click', closeHandler, true), 10);
+}
+
+async function toggleTag(app, tagName, shouldAdd, itemEl) {
+    const currentLabels = app.labels || app.categories || [];
+    let newLabels;
+    if (shouldAdd) {
+        newLabels = [...new Set([...currentLabels, tagName])];
+    } else {
+        newLabels = currentLabels.filter(t => t !== tagName);
+    }
 
     try {
-        const data = await apiRequest(`/api/sources/${encodeURIComponent(sourceId)}/apps/${encodeURIComponent(appId)}/labels`, {
+        let sourceId = app.source_id;
+        if (!sourceId) {
+            // 如果 app 对象中没有 source_id，尝试获取本地源 ID
+            const sourcesData = await apiRequest('/api/sources');
+            const localSource = sourcesData.data.sources.find(s => s.local);
+            if (localSource) sourceId = localSource.id;
+        }
+
+        if (!sourceId) {
+            showNotification('未找到应用源信息，无法保存标签', 'error');
+            return;
+        }
+
+        const data = await apiRequest(`/api/sources/${encodeURIComponent(sourceId)}/apps/${encodeURIComponent(app.id)}/labels`, {
             method: 'PUT',
-            body: JSON.stringify({ labels: labels })
+            body: JSON.stringify({ labels: newLabels })
         });
 
         if (data.code === 0) {
-            showNotification('标签保存成功', 'success');
-            showMyAppsManager();
+            app.labels = newLabels;
+            app.categories = newLabels;
+            itemEl.classList.toggle('active', shouldAdd);
+            
+            // 更新卡片上的分类显示：显示所有已选标签
+            const card = itemEl.closest('.app-card');
+            if (card) {
+                const catEl = card.querySelector('.app-card-category');
+                if (catEl) {
+                    // 确保 newLabels 是数组并显示全部
+                    const labelsToShow = Array.isArray(newLabels) ? newLabels : [];
+                    catEl.textContent = labelsToShow.length > 0 ? labelsToShow.join(', ') : '其他';
+                }
+            }
+            showNotification('标签更新成功', 'success');
         } else {
-            showNotification(data.message || '保存失败', 'error');
+            showNotification(data.message || '更新失败', 'error');
         }
     } catch (error) {
-        console.error('保存标签失败:', error);
-        showNotification('保存标签失败', 'error');
+        console.error('更新标签失败:', error);
+        showNotification('网络错误', 'error');
     }
 }
 

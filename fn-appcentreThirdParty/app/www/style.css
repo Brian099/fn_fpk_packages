@@ -530,6 +530,10 @@ textarea {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
+.app-card.has-popover {
+    z-index: 1000;
+}
+
 .app-card-icon {
     width: 52px;
     height: 52px;
@@ -559,12 +563,38 @@ textarea {
     line-height: 1.4;
 }
 
+.app-card-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px; /* 增加行间距 */
+}
+
+.app-installed-badge {
+    padding: 0 6px;
+    height: 18px;
+    line-height: 18px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--semi-color-primary);
+    background-color: var(--semi-color-primary-light-default);
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
 .app-card-meta {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start; /* 靠左展示操作按钮 */
     margin-top: auto;
     width: 100%;
+}
+
+.app-card-actions {
+    position: relative; /* 增加定位基准，使弹窗紧贴按钮 */
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .app-card-category {
@@ -573,7 +603,16 @@ textarea {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    padding-top: 4px;
+    margin-bottom: 12px; /* 增加分类行与按钮行的间距 */
+}
+
+/* My Apps 模式下的特殊样式：隐藏安装按钮，但保持分类和标签按钮可见 */
+.view-manage .semi-button:not(.app-card-tag-btn) {
+    display: none !important;
+}
+
+.view-manage .app-card-meta {
+    justify-content: flex-start;
 }
 
 /* Redundant actions container removed - button is now in meta */
@@ -592,7 +631,7 @@ textarea {
     padding: 0 16px;
     font-size: 12px;
     font-weight: 500;
-    border-radius: 14px;
+    border-radius: 6px;
     border: none;
     cursor: pointer;
     transition: all 0.2s;
@@ -600,6 +639,78 @@ textarea {
     align-items: center;
     justify-content: center;
     white-space: nowrap;
+}
+
+/* Tag Button on Card */
+.app-card-tag-btn {
+    display: none; /* 默认隐藏，仅在我的应用页面展示 */
+    flex-shrink: 0;
+}
+
+.view-manage .app-card-tag-btn {
+    display: flex;
+}
+
+.app-card-tag-btn:hover {
+    background-color: var(--semi-color-fill-1);
+    color: var(--semi-color-primary);
+}
+
+/* Tag Popover */
+.tag-popover {
+    position: absolute;
+    top: calc(100% + 6px); /* 紧贴按钮下方 6px */
+    left: 0;
+    z-index: 100;
+    width: 160px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), 0 0 1px rgba(0, 0, 0, 0.3);
+    padding: 6px;
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tag-popover.active {
+    display: flex;
+    animation: popover-fade-in 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes popover-fade-in {
+    from { opacity: 0; transform: translateY(-4px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.tag-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--semi-color-text-1);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.tag-item:hover {
+    background-color: var(--semi-color-fill-0);
+}
+
+.tag-item.active {
+    color: var(--semi-color-info);
+    background-color: var(--semi-color-primary-light-default);
+    font-weight: 600;
+}
+
+.tag-item .tag-icon {
+    width: 14px;
+    height: 14px;
+}
+
+.tag-item.active .tag-icon {
+    color: var(--semi-color-primary);
 }
 
 .semi-button-primary {
