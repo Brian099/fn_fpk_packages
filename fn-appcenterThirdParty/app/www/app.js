@@ -22,7 +22,7 @@ class ApiService {
         const url = this.baseUrl + endpoint;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-        
+
         try {
             const response = await fetch(url, {
                 signal: controller.signal,
@@ -32,9 +32,9 @@ class ApiService {
                 },
                 ...options
             });
-            
+
             clearTimeout(timeoutId);
-            
+
             let data;
             try {
                 data = await response.json();
@@ -44,28 +44,28 @@ class ApiService {
                 }
                 throw new Error('解析响应失败');
             }
-            
+
             if (!response.ok) {
                 throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
             }
-            
+
             // 检查后端返回的错误码
             if (data.code !== 0 && data.code !== undefined) {
                 throw new Error(data.message || 'API请求失败');
             }
-            
+
             return data;
         } catch (error) {
             clearTimeout(timeoutId);
-            
+
             if (error.name === 'AbortError') {
                 throw new Error('请求超时，请检查网络连接');
             }
-            
+
             if (error.name === 'TypeError' && error.message.includes('fetch')) {
                 throw new Error('网络连接失败，请检查网络设置');
             }
-            
+
             throw error;
         }
     }
@@ -193,7 +193,7 @@ function apiRequest(endpoint, options = {}) {
 function switchView(viewId) {
     const views = document.querySelectorAll('.app-main-view');
     views.forEach(v => v.classList.remove('active'));
-    
+
     const target = document.getElementById(viewId);
     if (target) {
         target.classList.add('active');
@@ -213,23 +213,23 @@ function init() {
 function setupEventListeners() {
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
-        searchInput.addEventListener('keypress', function(e) {
+        searchInput.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 currentKeyword = this.value;
                 loadApps();
             }
         });
-        
+
         // Optional: real-time search for clearing
-        searchInput.addEventListener('input', function() {
+        searchInput.addEventListener('input', function () {
             currentKeyword = this.value;
             if (this.value === '') loadApps();
         });
     }
 
-    document.querySelectorAll('.tab-item').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.tab-item').forEach(function(b) {
+    document.querySelectorAll('.tab-item').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.tab-item').forEach(function (b) {
                 b.classList.remove('active');
             });
             this.classList.add('active');
@@ -238,9 +238,9 @@ function setupEventListeners() {
         });
     });
 
-    document.querySelectorAll('.base-Tab-root[data-category]').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.base-Tab-root').forEach(function(b) {
+    document.querySelectorAll('.base-Tab-root[data-category]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.base-Tab-root').forEach(function (b) {
                 b.classList.remove('active');
             });
             document.getElementById('settingsBtn').classList.remove('active');
@@ -251,18 +251,18 @@ function setupEventListeners() {
         });
     });
 
-    document.getElementById('settingsBtn').addEventListener('click', function(e) {
+    document.getElementById('settingsBtn').addEventListener('click', function (e) {
         e.preventDefault();
-        document.querySelectorAll('.base-Tab-root').forEach(function(b) {
+        document.querySelectorAll('.base-Tab-root').forEach(function (b) {
             b.classList.remove('active');
         });
         this.classList.add('active');
         showSettingsManager(true);
     });
 
-    document.getElementById('myAppsBtn').addEventListener('click', function(e) {
+    document.getElementById('myAppsBtn').addEventListener('click', function (e) {
         e.preventDefault();
-        document.querySelectorAll('.base-Tab-root').forEach(function(b) {
+        document.querySelectorAll('.base-Tab-root').forEach(function (b) {
             b.classList.remove('active');
         });
         document.getElementById('settingsBtn').classList.remove('active');
@@ -270,7 +270,7 @@ function setupEventListeners() {
         showMyAppsManager();
     });
 
-    document.getElementById('appDetailOverlay').addEventListener('click', function() {
+    document.getElementById('appDetailOverlay').addEventListener('click', function () {
         hideAppDetail();
     });
 
@@ -308,7 +308,7 @@ async function loadApps() {
 
 function renderAppGrid(apps, grouped = true, mini = false) {
     const appGrid = document.getElementById('appGrid');
-    
+
     // 设置管理模式样式
     if (mini) {
         appGrid.classList.add('view-manage');
@@ -348,14 +348,14 @@ function renderAppGrid(apps, grouped = true, mini = false) {
         if (b === '其他') return -1;
         return a.localeCompare(b);
     });
-    
+
     sortedCategories.forEach(cat => {
         const groupApps = groups[cat];
-        
+
         // 分类容器
         const section = document.createElement('div');
         section.className = 'category-section';
-        
+
         // 分类头部
         const header = document.createElement('div');
         header.className = 'grid-category-header';
@@ -363,15 +363,15 @@ function renderAppGrid(apps, grouped = true, mini = false) {
             <span class="grid-category-title">${escapeHtml(cat)}</span>
             <span class="grid-category-count">${groupApps.length}</span>
         `;
-        
+
         // 分类网格
         const grid = document.createElement('div');
         grid.className = 'app-grid';
-        
+
         groupApps.forEach(app => {
             grid.appendChild(createAppCard(app));
         });
-        
+
         section.appendChild(header);
         section.appendChild(grid);
         appGrid.appendChild(section);
@@ -389,10 +389,10 @@ function createAppCard(app) {
     if (typeof allLabels === 'string') {
         allLabels = allLabels.split(',').map(s => s.trim()).filter(s => s);
     }
-    
+
     // 显示所有标签，不再过滤“已安装”，不再只显示第一个
     const displayCategory = allLabels.length > 0 ? allLabels.join(', ') : '其他';
-    
+
     // 是否已安装：根据属性或标签判断
     const isInstalled = app.is_installed || allLabels.includes('已安装');
 
@@ -415,14 +415,14 @@ function createAppCard(app) {
             <div class="app-card-category">${escapeHtml(displayCategory)}</div>
             <div class="app-card-meta">
                 <div class="app-card-actions">
-                    <button class="semi-button semi-button-secondary app-card-tag-btn">标签</button>
+                    <button class="semi-button semi-button-secondary app-card-tag-btn">分类</button>
                     <button class="semi-button ${btnClass}">${btnText}</button>
                 </div>
             </div>
         </div>
     `;
 
-    card.addEventListener('click', function(e) {
+    card.addEventListener('click', function (e) {
         if (!e.target.closest('.semi-button') && !e.target.closest('.app-card-tag-btn')) {
             showAppDetail(app.id);
         }
@@ -430,14 +430,14 @@ function createAppCard(app) {
 
     const installBtn = card.querySelector('.semi-button:not(.app-card-tag-btn)');
     if (installBtn) {
-        installBtn.addEventListener('click', function(e) {
+        installBtn.addEventListener('click', function (e) {
             e.stopPropagation();
             installApp(app);
         });
     }
 
     const tagBtn = card.querySelector('.app-card-tag-btn');
-    tagBtn.addEventListener('click', function(e) {
+    tagBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         showTagPopover(e, app);
     });
@@ -476,19 +476,19 @@ function renderAppDetail(app) {
     const status = app.status || { status: 'unknown', running: false };
 
     if (status.status === 'not_installed') {
-        actionButtons = `<button class="btn-primary" onclick="installApp(${JSON.stringify(app).replace(/"/g, '&quot;')})">安装</button>`;
+        actionButtons = `<button class="semi-button semi-button-primary" onclick="installApp(${JSON.stringify(app).replace(/"/g, '&quot;')})">安装</button>`;
     } else if (status.status === 'running') {
         actionButtons = `
-            <button class="btn-primary" style="background-color: var(--semi-color-fill-0); color: var(--semi-color-text-0);">打开 <span style="margin-left: 4px; font-size: 10px; opacity: 0.6;">▼</span></button>
-            <button class="btn-secondary" style="background-color: var(--semi-color-fill-0); color: var(--semi-color-text-0); border: 1px solid var(--semi-color-border);">应用设置</button>
+            <button class="semi-button semi-button-secondary">打开 <span style="margin-left: 4px; font-size: 10px; opacity: 0.6;">▼</span></button>
+            <button class="semi-button semi-button-secondary">应用设置</button>
         `;
     } else if (status.status === 'stopped') {
         actionButtons = `
-            <button class="btn-primary" onclick="startApp('${app.id}')">启动</button>
-            <button class="btn-secondary" onclick="uninstallApp('${app.id}', '${app.name}')" style="background: #f44336; color: white; border-color: #f44336;">卸载</button>
+            <button class="semi-button semi-button-primary" onclick="startApp('${app.id}')">启动</button>
+            <button class="semi-button semi-button-danger" onclick="uninstallApp('${app.id}', '${app.name}')">卸载</button>
         `;
     } else {
-        actionButtons = `<button class="btn-primary" onclick="installApp(${JSON.stringify(app).replace(/"/g, '&quot;')})">安装</button>`;
+        actionButtons = `<button class="semi-button semi-button-primary" onclick="installApp(${JSON.stringify(app).replace(/"/g, '&quot;')})">安装</button>`;
     }
 
     detailEl.innerHTML = `
@@ -581,11 +581,11 @@ async function installApp(app, envFilePath = null) {
 
     try {
         showLoading('正在安装应用...');
-        
+
         const data = await apiService.installApp(app.id, envFilePath);
 
         hideLoading();
-        
+
         if (data.code === 0) {
             showNotification('安装成功！', 'success');
             hideAppDetail();
@@ -618,14 +618,14 @@ function showInstallDialog(app, envFilePath) {
                 ${envFilePath ? `<p class="env-file-info">将使用环境变量文件: ${envFilePath}</p>` : ''}
                 
                 <div class="dialog-actions">
-                    <button class="btn-secondary" onclick="closeInstallDialog(false)">取消</button>
-                    <button class="btn-primary" onclick="closeInstallDialog(true)">确认安装</button>
+                    <button class="semi-button semi-button-secondary" onclick="closeInstallDialog(false)">取消</button>
+                    <button class="semi-button semi-button-primary" onclick="closeInstallDialog(true)">确认安装</button>
                 </div>
             </div>
         `;
-        
+
         document.body.appendChild(dialog);
-        
+
         window.closeInstallDialog = (confirmed) => {
             document.body.removeChild(dialog);
             resolve(confirmed);
@@ -756,10 +756,10 @@ function showTagPopover(event, app) {
 
     const categories = getSidebarCategories();
     const appLabels = app.labels || app.categories || [];
-    
+
     const popover = document.createElement('div');
     popover.className = 'tag-popover active';
-    
+
     categories.forEach(cat => {
         const item = document.createElement('div');
         const isActive = appLabels.includes(cat.name);
@@ -768,19 +768,19 @@ function showTagPopover(event, app) {
             <span class="tag-icon">${cat.iconHtml}</span>
             <span>${escapeHtml(cat.name)}</span>
         `;
-        
+
         item.addEventListener('click', async (e) => {
             e.stopPropagation();
             await toggleTag(app, cat.name, !isActive, item);
         });
-        
+
         popover.appendChild(item);
     });
 
     const card = event.currentTarget.closest('.app-card');
     const actions = event.currentTarget.closest('.app-card-actions');
     const tagBtn = event.currentTarget;
-    
+
     card.classList.add('has-popover');
     // 将 popover 挂载到按钮容器上，确保位置紧凑
     if (actions) {
@@ -842,7 +842,7 @@ async function toggleTag(app, tagName, shouldAdd, itemEl) {
             app.labels = newLabels;
             app.categories = newLabels;
             itemEl.classList.toggle('active', shouldAdd);
-            
+
             // 更新卡片上的分类显示：显示所有已选标签
             const card = itemEl.closest('.app-card');
             if (card) {
@@ -882,7 +882,7 @@ async function showSettingsManager(integrated = true, activeTab = 'basic') {
 function renderSettingsManager(settings, sources, containerId = 'settingsView', activeTab = 'basic') {
     const container = document.getElementById(containerId);
     if (!container) return;
-    
+
     // 默认空对象保护
     const safeSettings = settings || {};
     const safeSources = sources || [];
@@ -956,13 +956,13 @@ function renderSettingsManager(settings, sources, containerId = 'settingsView', 
     `;
 
     // 重新绑定标签页切换
-    document.querySelectorAll('.dialog-tab').forEach(function(tab) {
-        tab.addEventListener('click', function() {
-            document.querySelectorAll('.dialog-tab').forEach(function(t) {
+    document.querySelectorAll('.dialog-tab').forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            document.querySelectorAll('.dialog-tab').forEach(function (t) {
                 t.classList.remove('active');
             });
             this.classList.add('active');
-            document.querySelectorAll('.dialog-body .tab-content').forEach(function(content) {
+            document.querySelectorAll('.dialog-body .tab-content').forEach(function (content) {
                 content.classList.remove('active');
             });
             const targetId = this.dataset.tab + 'Tab';
@@ -983,8 +983,8 @@ function renderSourceList(sources) {
 
     return `
         <div class="source-list">
-            ${sources.map(function(source) {
-                return `
+            ${sources.map(function (source) {
+        return `
                     <div class="settings-card">
                         <div class="settings-card-icon">
                             <svg t="1775702187924" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="19267" width="24" height="24"><path d="M512 512v85.3504c47.104 0 85.3504-38.2464 85.3504-85.3504H512z m0 0H426.6496c0 47.104 38.2464 85.3504 85.3504 85.3504V512z m0 0V426.6496c-47.104 0-85.3504 38.2464-85.3504 85.3504H512z m0 0h85.3504c0-47.104-38.2464-85.3504-85.3504-85.3504V512zM680.0896 482.3552a42.6496 42.6496 0 0 0 84.0192-14.7968l-84.0192 14.848z m-123.648 281.7536a42.6496 42.6496 0 0 0-14.848-84.0192l14.848 84.0192z m207.6672-296.5504a256 256 0 0 0-67.1744-132.608l-61.6448 59.0336c23.3472 24.3712 38.912 55.1424 44.8 88.3712l84.0192-14.7968z m-67.1744-132.608a256 256 0 0 0-129.536-72.8576l-18.432 83.3024c32.9216 7.2704 62.976 24.2176 86.3232 48.64l61.6448-59.0336z m-129.536-72.8576a256 256 0 0 0-148.1728 11.264l30.9248 79.5648a170.6496 170.6496 0 0 1 98.816-7.5264l18.432-83.3024z m-148.1728 11.264a256 256 0 0 0-116.9408 91.8016l69.9392 48.9472c19.3536-27.648 46.4384-48.9472 77.9264-61.184L419.2256 273.408zM302.2848 365.2096a256 256 0 0 0-46.2336 141.2608l85.2992 1.8432c0.768-33.7408 11.4688-66.56 30.8736-94.208l-69.9392-48.896zM256.0512 506.368a256 256 0 0 0 40.0384 143.104l71.9872-45.824a170.6496 170.6496 0 0 1-26.7264-95.4368l-85.2992-1.8432z m40.0384 143.104a256 256 0 0 0 112.7936 96.768l34.3552-78.08a170.6496 170.6496 0 0 1-75.1616-64.512l-71.9872 45.824z m112.7936 96.768a256 256 0 0 0 147.5584 17.8176l-14.848-84.0192a170.6496 170.6496 0 0 1-98.304-11.8784l-34.4064 78.08zM170.6496 512a42.6496 42.6496 0 1 0-85.2992 0h85.2992zM512 85.3504a42.6496 42.6496 0 1 0 0 85.2992V85.3504zM85.3504 512c0 84.3776 24.9856 166.912 71.8848 237.056l70.9632-47.4112A341.3504 341.3504 0 0 1 170.6496 512H85.3504z m71.8848 237.056a426.6496 426.6496 0 0 0 191.488 157.1328l32.6656-78.848a341.2992 341.2992 0 0 1-153.1904-125.696l-70.9632 47.4112z m191.488 157.1328a426.7008 426.7008 0 0 0 246.528 24.2688L578.56 846.848a341.3504 341.3504 0 0 1-197.2224-19.456L348.672 906.24z m246.528 24.2688a426.7008 426.7008 0 0 0 218.4704-116.736l-60.3648-60.3648a341.3504 341.3504 0 0 1-174.7456 93.44l16.64 83.6608z m218.4704-116.736a426.7008 426.7008 0 0 0 116.736-218.4704L846.848 578.56a341.3504 341.3504 0 0 1-93.44 174.7456l60.3648 60.3648z m116.736-218.4704A426.7008 426.7008 0 0 0 906.24 348.672l-78.848 32.6656a341.3504 341.3504 0 0 1 19.456 197.2224l83.6608 16.64zM906.24 348.672a426.6496 426.6496 0 0 0-157.184-191.488l-47.36 70.9632a341.2992 341.2992 0 0 1 125.696 153.1904l78.848-32.6656z m-157.184-191.488A426.6496 426.6496 0 0 0 512 85.3504v85.2992c67.5328 0 133.5296 20.0192 189.6448 57.5488l47.4112-70.9632z" fill="#2B3038" p-id="19268"></path></svg>
@@ -1011,7 +1011,7 @@ function renderSourceList(sources) {
                         </div>
                     </div>
                 `;
-            }).join('')}
+    }).join('')}
         </div>
     `;
 }
@@ -1299,12 +1299,12 @@ function startAppStatusPolling(appId) {
     if (appStatusPollers.has(appId)) {
         return; // 已经在轮询中
     }
-    
+
     const interval = setInterval(async () => {
         try {
             const status = await apiService.getAppStatus(appId);
             updateAppStatusUI(appId, status.data);
-            
+
             // 如果应用已停止或未安装，停止轮询
             if (status.data.status === 'stopped' || status.data.status === 'not_installed') {
                 stopAppStatusPolling(appId);
@@ -1314,7 +1314,7 @@ function startAppStatusPolling(appId) {
             stopAppStatusPolling(appId);
         }
     }, 3000); // 每3秒轮询一次
-    
+
     appStatusPollers.set(appId, interval);
 }
 
@@ -1330,15 +1330,15 @@ function stopAppStatusPolling(appId) {
 function updateAppStatusUI(appId, statusData) {
     const appCard = document.querySelector(`[data-app-id="${appId}"]`);
     if (!appCard) return;
-    
+
     const statusElement = appCard.querySelector('.app-status');
     const actionButtons = appCard.querySelector('.app-actions');
-    
+
     if (statusElement && actionButtons) {
         // 更新状态显示
         statusElement.textContent = getStatusText(statusData.status);
         statusElement.className = `app-status status-${statusData.status}`;
-        
+
         // 更新操作按钮
         actionButtons.innerHTML = generateActionButtons(appId, statusData);
     }
@@ -1361,18 +1361,18 @@ function getStatusText(status) {
 function generateActionButtons(appId, statusData) {
     const app = window.appsCache?.[appId];
     if (!app) return '';
-    
+
     switch (statusData.status) {
         case 'running':
-            return `<button class="btn-secondary" onclick="stopApp('${appId}')">停止</button>
-                    <button class="btn-secondary" onclick="uninstallApp('${appId}', '${app.name}')" style="background: #f44336; color: white; border-color: #f44336;">卸载</button>`;
+            return `<button class="semi-button semi-button-secondary" onclick="stopApp('${appId}')">停止</button>
+                    <button class="semi-button semi-button-danger" onclick="uninstallApp('${appId}', '${app.name}')">卸载</button>`;
         case 'stopped':
-            return `<button class="btn-primary" onclick="startApp('${appId}')">启动</button>
-                    <button class="btn-secondary" onclick="uninstallApp('${appId}', '${app.name}')" style="background: #f44336; color: white; border-color: #f44336;">卸载</button>`;
+            return `<button class="semi-button semi-button-primary" onclick="startApp('${appId}')">启动</button>
+                    <button class="semi-button semi-button-danger" onclick="uninstallApp('${appId}', '${app.name}')">卸载</button>`;
         case 'not_installed':
-            return `<button class="btn-primary" onclick="installApp(${JSON.stringify(app).replace(/"/g, '&quot;')})">安装</button>`;
+            return `<button class="semi-button semi-button-primary" onclick="installApp(${JSON.stringify(app).replace(/"/g, '&quot;')})">安装</button>`;
         default:
-            return `<button class="btn-secondary" disabled>${getStatusText(statusData.status)}</button>`;
+            return `<button class="semi-button semi-button-secondary" disabled>${getStatusText(statusData.status)}</button>`;
     }
 }
 
@@ -1386,9 +1386,9 @@ function showNotification(message, type = 'info') {
             <button class="notification-close" onclick="this.parentElement.parentElement.remove()">×</button>
         </div>
     `;
-    
+
     document.body.appendChild(notification);
-    
+
     // 自动移除通知
     setTimeout(() => {
         if (notification.parentElement) {

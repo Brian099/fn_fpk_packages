@@ -753,6 +753,17 @@ textarea {
     background-color: rgba(var(--semi-grey-9), 0.08);
 }
 
+.semi-button-danger {
+    background-color: rgba(var(--semi-red-5), 0.1);
+    color: var(--semi-color-danger);
+    border: 1px solid transparent;
+}
+
+.semi-button-danger:hover {
+    background-color: var(--semi-color-danger-light-hover);
+    border-color: var(--semi-color-danger-light-default);
+}
+
 /* Scroll Container */
 .scroll-container::-webkit-scrollbar {
     width: 6px;
@@ -1242,7 +1253,8 @@ textarea {
 }
 
 .detail-actions .btn-primary,
-.detail-actions .btn-secondary {
+.detail-actions .btn-secondary,
+.detail-actions .semi-button {
     min-width: 80px;
 }
 
@@ -1439,7 +1451,8 @@ textarea {
 }
 
 .dialog-actions .btn-primary,
-.dialog-actions .btn-secondary {
+.dialog-actions .btn-secondary,
+.dialog-actions .semi-button {
     min-width: 80px;
 }
 
