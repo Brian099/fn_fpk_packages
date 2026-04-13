@@ -1,7 +1,7 @@
 #!/bin/bash
 
 WORKDIR="$(cd "$(dirname "$0")" && pwd)"
-PARENTDIR="$(dirname "${WORKDIR}")"
+PARENTDIR="${WORKDIR}"
 
 ARCH=(
   x86_64
@@ -10,7 +10,7 @@ ARCH=(
 
 for a in "${ARCH[@]}"; do
   echo "Building appcenter (Linux $a)..."
-  bash "${WORKDIR}/app/server/build.sh" $a
+  bash "${WORKDIR}/serverSourceCode/build.sh" $a
 done
 
 APPNAME=$(grep -w '^appname' "${WORKDIR}/manifest" | awk -F= '{print $2}' | xargs)

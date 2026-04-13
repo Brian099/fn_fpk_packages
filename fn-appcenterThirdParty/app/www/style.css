@@ -9,6 +9,36 @@
     --semi-brand-7: 0, 67, 184;
     --semi-brand-8: 0, 60, 150;
     --semi-brand-9: 0, 31, 77;
+    --semi-red-0: 255, 236, 232;
+    --semi-red-1: 255, 212, 203;
+    --semi-red-2: 255, 175, 161;
+    --semi-red-3: 255, 131, 110;
+    --semi-red-4: 255, 82, 63;
+    --semi-red-5: 249, 57, 32;
+    --semi-red-6: 215, 33, 17;
+    --semi-red-7: 184, 15, 6;
+    --semi-red-8: 153, 5, 0;
+    --semi-red-9: 102, 3, 0;
+    --semi-green-0: 232, 250, 239;
+    --semi-green-1: 206, 243, 221;
+    --semi-green-2: 159, 233, 192;
+    --semi-green-3: 105, 219, 158;
+    --semi-green-4: 56, 202, 128;
+    --semi-green-5: 0, 184, 102;
+    --semi-green-6: 0, 158, 84;
+    --semi-green-7: 0, 133, 67;
+    --semi-green-8: 0, 107, 51;
+    --semi-green-9: 0, 82, 36;
+    --semi-amber-0: 255, 248, 230;
+    --semi-amber-1: 255, 239, 204;
+    --semi-amber-2: 255, 223, 153;
+    --semi-amber-3: 255, 203, 102;
+    --semi-amber-4: 255, 182, 51;
+    --semi-amber-5: 255, 160, 0;
+    --semi-amber-6: 235, 142, 0;
+    --semi-amber-7: 214, 125, 0;
+    --semi-amber-8: 194, 110, 0;
+    --semi-amber-9: 173, 94, 0;
     --semi-grey-0: 248, 248, 248;
     --semi-grey-1: 242, 243, 244;
     --semi-grey-2: 194, 195, 196;
@@ -754,7 +784,7 @@ textarea {
 }
 
 .semi-button-danger {
-    background-color: rgba(var(--semi-red-5), 0.1);
+    background-color: var(--semi-color-danger-light-default);
     color: var(--semi-color-danger);
     border: 1px solid transparent;
 }

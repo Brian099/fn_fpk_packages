@@ -401,8 +401,8 @@ function createAppCard(app) {
     let btnClass = 'semi-button-primary';
 
     if (isInstalled) {
-        btnText = '打开';
-        btnClass = 'semi-button-secondary';
+        btnText = '卸载';
+        btnClass = 'semi-button-danger';
     }
 
     card.innerHTML = `
@@ -432,7 +432,12 @@ function createAppCard(app) {
     if (installBtn) {
         installBtn.addEventListener('click', function (e) {
             e.stopPropagation();
-            installApp(app);
+            if (isInstalled) {
+                // 如果已安装，点击按钮直接触发卸载确认
+                uninstallApp(app.id, app.name);
+            } else {
+                installApp(app);
+            }
         });
     }
 
@@ -479,8 +484,8 @@ function renderAppDetail(app) {
         actionButtons = `<button class="semi-button semi-button-primary" onclick="installApp(${JSON.stringify(app).replace(/"/g, '&quot;')})">安装</button>`;
     } else if (status.status === 'running') {
         actionButtons = `
-            <button class="semi-button semi-button-secondary">打开 <span style="margin-left: 4px; font-size: 10px; opacity: 0.6;">▼</span></button>
-            <button class="semi-button semi-button-secondary">应用设置</button>
+            <button class="semi-button semi-button-secondary" onclick="stopApp('${app.id}')">停止应用</button>
+            <button class="semi-button semi-button-danger" onclick="uninstallApp('${app.id}', '${app.name}')">卸载</button>
         `;
     } else if (status.status === 'stopped') {
         actionButtons = `
