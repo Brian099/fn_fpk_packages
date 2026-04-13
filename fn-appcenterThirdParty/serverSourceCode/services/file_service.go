@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -176,4 +177,105 @@ func parseFPKFile(fpkPath string, baseDir string) (models.App, error) {
 	app.IsInstalled = isInstalled
 
 	return app, nil
+}
+
+// ExtractWizardConfig 提取向导配置和 License
+func ExtractWizardConfig(fpkPath string) (models.WizardConfig, error) {
+	var config models.WizardConfig
+
+	file, err := os.Open(fpkPath)
+	if err != nil {
+		return config, err
+	}
+	defer file.Close()
+
+	gzipReader, err := gzip.NewReader(file)
+	if err != nil {
+		return config, err
+	}
+	defer gzipReader.Close()
+
+	tarReader := tar.NewReader(gzipReader)
+
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			break
+		}
+
+		name := strings.ToLower(header.Name)
+		// 查找 License
+		if name == "license" || name == "license.txt" || name == "license.md" {
+			data, err := ioutil.ReadAll(tarReader)
+			if err == nil {
+				config.License = string(data)
+			}
+		} else if header.Name == "wizard/install" {
+			// 查找并解析 Wizard
+			data, err := ioutil.ReadAll(tarReader)
+			if err == nil {
+				var steps []models.WizardStep
+				if err := json.Unmarshal(data, &steps); err == nil {
+					config.Steps = steps
+				} else {
+					log.Printf("Failed to unmarshal wizard/install from %s: %v", fpkPath, err)
+				}
+			}
+		}
+	}
+
+	return config, nil
+}
+
+// GetAppNameFromFPK 从 FPK 的 manifest 中提取实际的应用名称
+func GetAppNameFromFPK(fpkPath string) (string, error) {
+	file, err := os.Open(fpkPath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	gzipReader, err := gzip.NewReader(file)
+	if err != nil {
+		return "", err
+	}
+	defer gzipReader.Close()
+
+	tarReader := tar.NewReader(gzipReader)
+
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+
+		// manifest 文件名可能带路径，也可能不带，通常在根目录
+		baseName := filepath.Base(header.Name)
+		if strings.ToLower(baseName) == "manifest" {
+			data, err := ioutil.ReadAll(tarReader)
+			if err != nil {
+				return "", err
+			}
+
+			content := string(data)
+			lines := strings.Split(content, "\n")
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(strings.ToLower(line), "appname") {
+					parts := strings.SplitN(line, "=", 2)
+					if len(parts) == 2 {
+						return strings.TrimSpace(parts[1]), nil
+					}
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("appname not found in manifest")
 }

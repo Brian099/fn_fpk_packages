@@ -245,9 +245,12 @@ func GetAppIcon(c *gin.Context) {
 
 // InstallAppRequest 安装应用请求结构体
 type InstallAppRequest struct {
-	EnvFilePath string `json:"env_file_path"` // 环境变量文件路径
-	DownloadURL string `json:"download_url"`  // 下载地址（远程应用）
-	SourceID    string `json:"source_id"`     // 来源ID
+	EnvFilePath string            `json:"env_file_path"` // 环境变量文件路径（旧）
+	Env         map[string]string `json:"env"`           // 向导收集的环境变量
+	VolumeID    int               `json:"volume_id"`     // 目标存储池ID
+	DownloadURL string            `json:"download_url"`  // 下载地址（远程应用）
+	SourceID    string            `json:"source_id"`     // 来源ID
+	AutoStart   bool              `json:"auto_start"`    // 安装后是否自动启动
 }
 
 // InstallApp 安装应用
@@ -297,7 +300,28 @@ func InstallApp(c *gin.Context) {
 	cliPath := getAppCenterCliPath()
 	args := []string{"install-fpk", fpkPath}
 
-	if req.EnvFilePath != "" {
+	// 处理存储池
+	if req.VolumeID > 0 {
+		args = append(args, "-v", fmt.Sprintf("%d", req.VolumeID))
+	}
+
+	// 处理环境变量
+	var tempEnvPath string
+	if len(req.Env) > 0 {
+		// 生成临时 .env 文件
+		tempEnvDir := filepath.Join(config.PkgVar, "temp_env")
+		os.MkdirAll(tempEnvDir, 0755)
+		tempEnvPath = filepath.Join(tempEnvDir, fmt.Sprintf("%s_%d.env", appID, os.Getpid()))
+		
+		content := ""
+		for k, v := range req.Env {
+			content += fmt.Sprintf("%s=%s\n", k, v)
+		}
+		if err := ioutil.WriteFile(tempEnvPath, []byte(content), 0644); err == nil {
+			args = append(args, "-e", tempEnvPath)
+			defer os.Remove(tempEnvPath)
+		}
+	} else if req.EnvFilePath != "" {
 		if _, err := os.Stat(req.EnvFilePath); err == nil {
 			args = append(args, "--env", req.EnvFilePath)
 		} else {
@@ -309,22 +333,45 @@ func InstallApp(c *gin.Context) {
 		}
 	}
 
+	// 在执行安装前尝试获取真实的 appname (用于后续启动命令)
+	realAppName, extractErr := services.GetAppNameFromFPK(fpkPath)
+	if extractErr != nil {
+		log.Printf("Warning: Failed to extract appname from manifest: %v, will fallback to appID: %s", extractErr, appID)
+		realAppName = appID
+	} else {
+		log.Printf("Extracted real application name from manifest: %s", realAppName)
+	}
+
 	cmd := exec.Command(cliPath, args...)
 	output, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Printf("Failed to install app %s: %v, output: %s", appID, err, string(output))
+	outputStr := string(output)
+
+	// 只要退出码为0，或者日志中明确包含 "Installation complete"，即视为安装成功
+	isSuccess := (err == nil) || strings.Contains(outputStr, "Installation complete")
+
+	if !isSuccess {
+		log.Printf("Failed to install app %s: %v, output: %s", appID, err, outputStr)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
 			"message": fmt.Sprintf("Installation failed: %v", err),
-			"output":  string(output),
+			"output":  outputStr,
 		})
 		return
+	}
+
+	// 如果设置了自动启动，则执行启动命令 (使用真实的 realAppName)
+	if req.AutoStart {
+		log.Printf("Auto-starting app %s after successful installation...", realAppName)
+		startCmd := exec.Command(cliPath, "start", realAppName)
+		if startOutput, startErr := startCmd.CombinedOutput(); startErr != nil {
+			log.Printf("Auto-start failed for %s: %v, output: %s", realAppName, startErr, string(startOutput))
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "Application installed successfully",
-		"output":  string(output),
+		"output":  outputStr,
 	})
 }
 
@@ -456,15 +503,29 @@ func StopApp(c *gin.Context) {
 // UninstallApp 卸载应用
 func UninstallApp(c *gin.Context) {
 	appID := c.Param("id")
+	keepData := c.DefaultQuery("keep_data", "true") == "true"
 
 	cliPath := getAppCenterCliPath()
 
-	exec.Command(cliPath, "stop", appID).Run()
+	// 0. 获取真实的内部应用名称 (从 manifest 读取)
+	realAppName := getInstalledAppName(appID)
+	log.Printf("Uninstalling app. ID: %s, RealName: %s, KeepData: %v", appID, realAppName, keepData)
 
-	cmd := exec.Command(cliPath, "uninstall")
+	// 1. 尝试停止应用 (使用真实应用名)
+	exec.Command(cliPath, "stop", realAppName).Run()
+
+	// 2. 删除向导卸载配置
+	wizardUninstallPath := filepath.Join("/var/apps", appID, "wizard/uninstall")
+	if _, err := os.Stat(wizardUninstallPath); err == nil {
+		log.Printf("Deleting wizard uninstall config: %s", wizardUninstallPath)
+		os.Remove(wizardUninstallPath)
+	}
+
+	// 3. 执行标准卸载 (使用真实应用名)
+	cmd := exec.Command(cliPath, "uninstall", realAppName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("Failed to uninstall app %s: %v, output: %s", appID, err, string(output))
+		log.Printf("Failed to uninstall app %s (ID:%s): %v, output: %s", realAppName, appID, err, string(output))
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
 			"message": fmt.Sprintf("Failed to uninstall: %v", err),
@@ -473,11 +534,59 @@ func UninstallApp(c *gin.Context) {
 		return
 	}
 
+	// 4. 如果不保留数据，则清理所有储存池下的 @app 目录 (使用真实应用名)
+	if !keepData {
+		log.Printf("Nuke mode: Cleaning up data for realAppName: %s", realAppName)
+		volumes := services.ScanVolumes()
+		for _, vol := range volumes {
+			// 先找根目录下的所有以 @app 开头的目录
+			volPath := vol.Path
+			files, err := ioutil.ReadDir(volPath)
+			if err == nil {
+				for _, f := range files {
+					if f.IsDir() && strings.HasPrefix(f.Name(), "@app") {
+						// 注意：有些应用在 @app 下的目录名也是真实应用名
+						appDataPath := filepath.Join(volPath, f.Name(), realAppName)
+						if _, err := os.Stat(appDataPath); err == nil {
+							log.Printf("Deleting application data: %s", appDataPath)
+							os.RemoveAll(appDataPath)
+						}
+					}
+				}
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "Application uninstalled successfully",
 		"output":  string(output),
 	})
+}
+
+// getInstalledAppName 从已安装路径的 manifest 获取内部应用名
+func getInstalledAppName(appID string) string {
+	manifestPath := filepath.Join("/var/apps", appID, "manifest")
+	data, err := ioutil.ReadFile(manifestPath)
+	if err != nil {
+		return appID // 回退到 ID
+	}
+
+	content := string(data)
+	lines := strings.Split(content, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(strings.ToLower(line), "appname") {
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				name := strings.TrimSpace(parts[1])
+				if name != "" {
+					return name
+				}
+			}
+		}
+	}
+	return appID
 }
 
 // CheckApp 检查应用是否已安装
@@ -715,5 +824,56 @@ func SetManualInstall(c *gin.Context) {
 		"code":    0,
 		"message": "Manual install " + action + "d successfully",
 		"output":  string(output),
+	})
+}
+
+// GetAppWizard 获取安装向导配置
+func GetAppWizard(c *gin.Context) {
+	appID := c.Param("id")
+	sourceID := c.Query("source_id")
+	downloadURL := c.Query("download_url")
+
+	userAppStoreDir := services.GetUsersAppStoreDir()
+	if userAppStoreDir == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "AppStore directory not configured"})
+		return
+	}
+
+	fpkPath := filepath.Join(userAppStoreDir, appID+".fpk")
+
+	// 如果本地没有，尝试先下载（不删除，因为后续还要安装）
+	if _, err := os.Stat(fpkPath); os.IsNotExist(err) {
+		if downloadURL == "" {
+			downloadURL = findAppDownloadURL(appID, sourceID)
+		}
+		if downloadURL != "" {
+			if err := downloadFPKFile(downloadURL, fpkPath); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "Failed to download FPK for wizard: " + err.Error()})
+				return
+			}
+		} else {
+			c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "FPK not found and no download URL"})
+			return
+		}
+	}
+
+	config, err := services.ExtractWizardConfig(fpkPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "Failed to extract wizard: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": config,
+	})
+}
+
+// GetVolumes 获取系统储存池
+func GetVolumes(c *gin.Context) {
+	volumes := services.ScanVolumes()
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": volumes,
 	})
 }

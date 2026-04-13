@@ -55,3 +55,32 @@ type ArchDiff struct {
 	DownloadURL string `json:"download_url,omitempty"`
 	Changelog   string `json:"changelog,omitempty"`
 }
+
+// WizardItem 向导表单项
+type WizardItem struct {
+	Type      string      `json:"type"`
+	Field     string      `json:"field,omitempty"`
+	Label     string      `json:"label,omitempty"`
+	InitValue interface{} `json:"initValue,omitempty"`
+	HelpText  string      `json:"helpText,omitempty"`
+	Options   interface{} `json:"options,omitempty"`
+	Rules     interface{} `json:"rules,omitempty"`
+}
+
+// WizardStep 向导步骤定义
+type WizardStep struct {
+	StepTitle string       `json:"stepTitle"`
+	Items     []WizardItem `json:"items"`
+}
+
+// WizardConfig 向导总配置
+type WizardConfig struct {
+	License string       `json:"license,omitempty"`
+	Steps   []WizardStep `json:"steps"`
+}
+
+// StorageVolume 储存卷信息
+type StorageVolume struct {
+	ID   int    `json:"id"`
+	Path string `json:"path"`
+}

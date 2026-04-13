@@ -200,6 +200,10 @@ function switchView(viewId) {
     }
 }
 
+function hideAppDetail() {
+    switchView('appGrid');
+}
+
 let currentCategory = '';
 let currentKeyword = '';
 let currentTab = 'all';
@@ -578,65 +582,230 @@ async function installApp(app, envFilePath = null) {
         return;
     }
 
-    // 显示安装确认对话框（支持环境变量文件）
-    const installConfirmed = await showInstallDialog(app, envFilePath);
-    if (!installConfirmed) {
-        return;
-    }
-
     try {
-        showLoading('正在安装应用...');
-
-        const data = await apiService.installApp(app.id, envFilePath);
+        showLoading('正在准备安装向导...');
+        
+        // 1. 获取向导配置和储存池列表
+        const [wizardRes, volumesRes] = await Promise.all([
+            apiRequest(`/api/apps/${app.id}/wizard?source_id=${app.source_id || ''}&download_url=${encodeURIComponent(app.download_url || '')}`),
+            apiRequest('/api/system/volumes')
+        ]);
 
         hideLoading();
 
-        if (data.code === 0) {
-            showNotification('安装成功！', 'success');
-            hideAppDetail();
-            setTimeout(() => loadApps(), 500);
-            setTimeout(() => startAppStatusPolling(app.id), 500);
-        } else {
-            showNotification('安装失败: ' + (data.message || '未知错误'), 'error');
+        if (wizardRes.code !== 0) {
+            showNotification('无法获取向导配置: ' + wizardRes.message, 'error');
+            return;
         }
+
+        const wizardData = wizardRes.data || { steps: [] };
+        const volumes = volumesRes.data || [];
+
+        // 2. 启动分步向导
+        await showInstallationWizard(app, wizardData, volumes);
+
     } catch (error) {
+        console.error('准备安装向导失败:', error);
         hideLoading();
-        console.error('安装失败:', error);
-        if (error.message.includes('超时')) {
-            showNotification('安装可能成功，请手动刷新查看', 'warning');
-            setTimeout(() => loadApps(), 1000);
-        } else {
-            showNotification('安装失败: ' + error.message, 'error');
-        }
+        showNotification('网络错误，请重试', 'error');
     }
+}
+
+/**
+ * 显示多步安装向导
+ */
+function showInstallationWizard(app, wizardData, volumes) {
+    return new Promise((resolve) => {
+        let currentStep = 0;
+        const totalSteps = (wizardData.license ? 1 : 0) + (wizardData.steps ? wizardData.steps.length : 0) + 1; // +1 for Volume Select
+        const collectedEnv = {};
+        let selectedVolumeId = null;
+
+        const wizardOverlay = document.createElement('div');
+        wizardOverlay.className = 'wizard-overlay';
+        document.body.appendChild(wizardOverlay);
+
+        const updateWizardUI = () => {
+            // 计算当前逻辑步骤
+            let realStep = currentStep;
+            let currentContent = '';
+            let stepTitle = '';
+            let isFinal = false;
+            let canNext = true;
+
+            // Step 0: License (if exists)
+            if (wizardData.license && realStep === 0) {
+                stepTitle = '许可协议';
+                currentContent = `
+                    <div class="license-box">${escapeHtml(wizardData.license)}</div>
+                    <div style="margin-top: 16px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="agree-license" onchange="document.getElementById('wizard-next-btn').disabled = !this.checked">
+                            <span>我已阅读并同意以上许可协议</span>
+                        </label>
+                    </div>
+                `;
+                canNext = false; // Need to check agreement
+            } else {
+                // Adjust step index if license was shown
+                const wizardStepIdx = wizardData.license ? realStep - 1 : realStep;
+
+                if (wizardData.steps && wizardStepIdx < wizardData.steps.length) {
+                    // Step 1...N: Wizard Steps
+                    const step = wizardData.steps[wizardStepIdx];
+                    stepTitle = step.stepTitle || `配置 - 第${wizardStepIdx + 1}步`;
+                    currentContent = step.items.map(item => renderWizardItem(item, collectedEnv)).join('');
+                } else {
+                    // Final Step: Volume Selection
+                    stepTitle = '选择安装位置';
+                    isFinal = true;
+                    currentContent = `
+                        <p style="margin-bottom: 16px; color: var(--semi-color-text-2);">请选择要安装应用的储存池：</p>
+                        <div class="volume-list">
+                            ${volumes.map(v => `
+                                <div class="volume-item ${selectedVolumeId === v.id ? 'active' : ''}" onclick="selectWizardVolume(${v.id})">
+                                    <div class="volume-item-id">${v.id}</div>
+                                    <div class="volume-item-info">
+                                        <div class="volume-item-path">${v.path}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--semi-color-border);">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="auto-start-check" checked>
+                                <span style="font-size: 14px; color: var(--semi-color-text-1);">安装后立即启动</span>
+                            </label>
+                        </div>
+                    `;
+                    if (!selectedVolumeId && volumes.length > 0) {
+                        selectedVolumeId = volumes[0].id; // Default to first
+                    }
+                }
+            }
+
+            wizardOverlay.innerHTML = `
+                <div class="wizard-dialog">
+                    <div class="wizard-header">
+                        <h3>安装向导 - ${app.name}</h3>
+                        <button class="window-btn close" onclick="closeWizard(false)">×</button>
+                    </div>
+                    <div class="wizard-steps-indicator">
+                        步骤 ${realStep + 1} / ${totalSteps}: ${stepTitle}
+                    </div>
+                    <div class="wizard-body">
+                        ${currentContent}
+                    </div>
+                    <div class="wizard-footer">
+                        <button class="semi-button semi-button-secondary" onclick="closeWizard(false)">取消</button>
+                        ${realStep > 0 ? `<button class="semi-button semi-button-tertiary" onclick="prevWizardStep()">上一步</button>` : ''}
+                        <button id="wizard-next-btn" class="semi-button semi-button-primary" ${!canNext ? 'disabled' : ''} onclick="nextWizardStep()">
+                            ${isFinal ? '立即安装' : '下一步'}
+                        </button>
+                    </div>
+                </div>
+            `;
+        };
+
+        window.selectWizardVolume = (id) => {
+            selectedVolumeId = id;
+            updateWizardUI();
+        };
+
+        window.prevWizardStep = () => {
+            currentStep--;
+            updateWizardUI();
+        };
+
+        window.nextWizardStep = async () => {
+            // Save current fields
+            const inputs = wizardOverlay.querySelectorAll('[data-wizard-field]');
+            inputs.forEach(input => {
+                collectedEnv[input.dataset.wizardField] = input.value;
+            });
+
+            if (currentStep < totalSteps - 1) {
+                currentStep++;
+                updateWizardUI();
+            } else {
+                // Final submission
+                closeWizard(true);
+            }
+        };
+
+        window.closeWizard = async (confirmed) => {
+            if (confirmed) {
+                const autoStart = document.getElementById('auto-start-check')?.checked || false;
+                
+                // 立即更新状态为安装中 (Optimistic UI)
+                if (window.appsCache && window.appsCache[app.id]) {
+                    window.appsCache[app.id].status = 'installing';
+                    updateAppStatusUI(app.id, { status: 'installing' });
+                }
+                // 立即开始轮询监测状态
+                startAppStatusPolling(app.id);
+
+                showLoading('正在提交请求...');
+                try {
+                    const res = await apiRequest(`/api/apps/${app.id}/install`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            env: collectedEnv,
+                            volume_id: selectedVolumeId,
+                            download_url: app.download_url,
+                            source_id: app.source_id,
+                            auto_start: autoStart
+                        })
+                    });
+                    hideLoading();
+                    if (res.code === 0) {
+                        showNotification('提交成功，开始安装', 'success');
+                        hideAppDetail();
+                        setTimeout(() => loadApps(), 1000);
+                        startAppStatusPolling(app.id);
+                    } else {
+                        showNotification('安装请求失败: ' + res.message, 'error');
+                    }
+                } catch (e) {
+                    hideLoading();
+                    showNotification('网络错误', 'error');
+                }
+            }
+            document.body.removeChild(wizardOverlay);
+            resolve(confirmed);
+        };
+
+        updateWizardUI();
+    });
+}
+
+function renderWizardItem(item, collectedEnv) {
+    if (item.type === 'tips') {
+        return `<div class="wizard-form-item"><p class="wizard-form-desc" style="font-size: 14px; background: var(--semi-color-fill-0); padding: 10px; border-radius: 4px;">${item.helpText}</p></div>`;
+    }
+
+    const value = collectedEnv[item.field] || item.initValue || '';
+    
+    return `
+        <div class="wizard-form-item">
+            <label class="wizard-form-label">${item.label || item.field}</label>
+            ${item.type === 'select' ? `
+                <select class="wizard-form-input" data-wizard-field="${item.field}">
+                    ${(item.options || []).map(opt => `<option value="${opt.value || opt}" ${value == (opt.value || opt) ? 'selected' : ''}>${opt.label || opt}</option>`).join('')}
+                </select>
+            ` : `
+                <input type="${item.type === 'password' ? 'password' : 'text'}" 
+                       class="wizard-form-input" 
+                       data-wizard-field="${item.field}" 
+                       placeholder="${item.label || ''}"
+                       value="${value}">
+            `}
+            ${item.helpText ? `<p class="wizard-form-desc">${item.helpText}</p>` : ''}
+        </div>
+    `;
 }
 
 // 显示安装确认对话框
-function showInstallDialog(app, envFilePath) {
-    return new Promise((resolve) => {
-        const dialog = document.createElement('div');
-        dialog.className = 'install-dialog-overlay';
-        dialog.innerHTML = `
-            <div class="install-dialog">
-                <h3>安装应用</h3>
-                <p>确定要安装 <strong>${app.name}</strong> 吗？</p>
-                ${envFilePath ? `<p class="env-file-info">将使用环境变量文件: ${envFilePath}</p>` : ''}
-                
-                <div class="dialog-actions">
-                    <button class="semi-button semi-button-secondary" onclick="closeInstallDialog(false)">取消</button>
-                    <button class="semi-button semi-button-primary" onclick="closeInstallDialog(true)">确认安装</button>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(dialog);
-
-        window.closeInstallDialog = (confirmed) => {
-            document.body.removeChild(dialog);
-            resolve(confirmed);
-        };
-    });
-}
 
 async function startApp(appId) {
     try {
@@ -681,25 +850,75 @@ async function stopApp(appId) {
 }
 
 async function uninstallApp(appId, appName) {
-    if (!confirm(`确定要卸载 ${appName} 吗？卸载后将无法恢复。`)) {
-        return;
-    }
+    showUninstallConfirmDialog(appId, appName);
+}
 
+function showUninstallConfirmDialog(appId, appName) {
+    const overlay = document.createElement('div');
+    overlay.className = 'wizard-overlay';
+    overlay.innerHTML = `
+        <div class="wizard-dialog" style="max-width: 420px;">
+            <div class="wizard-header">
+                <h3>卸载应用 - ${appName}</h3>
+                <button class="window-btn close" onclick="this.closest('.wizard-overlay').remove()">×</button>
+            </div>
+            <div class="wizard-body" style="padding: 24px; text-align: center;">
+                <p style="margin-bottom: 24px; color: var(--semi-color-text-0); font-size: 15px; line-height: 1.6;">
+                    您确定要卸载应用 <strong>${appName}</strong> 吗？<br>请选择您希望如何处理应用产生的数据：
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <button class="semi-button semi-button-secondary" id="uninstall-keep-btn" style="height: 54px; flex-direction: column; align-items: center; justify-content: center; border: 1px solid var(--semi-color-border);">
+                        <div style="font-weight: 600;">保留数据卸载</div>
+                        <div style="font-size: 11px; opacity: 0.6; font-weight: normal; margin-top: 2px;">保留 /vol*/@app 目录下的应用配置</div>
+                    </button>
+                    <button class="semi-button semi-button-danger semi-button-light" id="uninstall-wipe-btn" style="height: 54px; flex-direction: column; align-items: center; justify-content: center;">
+                        <div style="font-weight: 600;">完全卸载 (包括数据)</div>
+                        <div style="font-size: 11px; opacity: 0.9; font-weight: normal; margin-top: 2px;">警告：将彻底删除所有关联数据且不可恢复</div>
+                    </button>
+                </div>
+            </div>
+            <div class="wizard-footer">
+                <button class="semi-button semi-button-tertiary" style="width: 100%;" onclick="this.closest('.wizard-overlay').remove()">点错了，不卸载了</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#uninstall-keep-btn').onclick = () => executeUninstall(appId, appName, true, overlay);
+    overlay.querySelector('#uninstall-wipe-btn').onclick = () => {
+        if (confirm(`再次确认：完全卸载将彻底删除 ${appName} 的所有数据和配置文件，此操作不可撤销！`)) {
+            executeUninstall(appId, appName, false, overlay);
+        }
+    };
+}
+
+async function executeUninstall(appId, appName, keepData, overlay) {
+    if (overlay) overlay.remove();
+    showLoading('正在卸载...');
     try {
-        const data = await apiRequest(`/api/apps/${appId}`, {
+        const data = await apiRequest(`/api/apps/${appId}?keep_data=${keepData}`, {
             method: 'DELETE'
         });
+        hideLoading();
 
         if (data.code === 0) {
-            alert('卸载成功！');
+            showNotification(`${appName} 已成功卸载`, 'success');
             hideAppDetail();
-            loadApps();
+            // 重新加载应用列表以刷新状态
+            setTimeout(() => loadApps(), 500);
+            
+            // 停止该应用的状态轮询
+            if (window.appPollers && window.appPollers[appId]) {
+                clearInterval(window.appPollers[appId]);
+                delete window.appPollers[appId];
+            }
         } else {
-            alert('卸载失败: ' + (data.message || '未知错误'));
+            showNotification(data.message || '卸载失败', 'error');
         }
     } catch (error) {
-        console.error('卸载失败:', error);
-        alert('网络错误，请重试');
+        hideLoading();
+        console.error('卸载请求失败:', error);
+        showNotification(error.message || '网络连接失败', 'error');
     }
 }
 

@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -64,6 +65,33 @@ func DiscoverLocalSources(sources *[]models.Source) {
 	if userAppStoreDir != "" {
 		scanFPKFiles(sources, userAppStoreDir)
 	}
+}
+
+// ScanVolumes 扫描系统储存池 (/vol*)
+func ScanVolumes() []models.StorageVolume {
+	var volumes []models.StorageVolume
+	// 扫描根目录下的所有 vol* 目录
+	entries, err := os.ReadDir("/")
+	if err != nil {
+		log.Printf("Failed to read root directory: %v", err)
+		return volumes
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() && strings.HasPrefix(entry.Name(), "vol") {
+			name := entry.Name()
+			// 提取序号，例如 vol1 -> 1
+			var id int
+			_, err := fmt.Sscanf(name, "vol%d", &id)
+			if err == nil {
+				volumes = append(volumes, models.StorageVolume{
+					ID:   id,
+					Path: filepath.Join("/", name),
+				})
+			}
+		}
+	}
+	return volumes
 }
 
 // GetUsersAppStoreDir 获取用户应用商店目录

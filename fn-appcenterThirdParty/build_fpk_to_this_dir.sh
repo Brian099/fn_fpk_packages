@@ -10,8 +10,22 @@ ARCH=(
 
 for a in "${ARCH[@]}"; do
   echo "Building appcenter (Linux $a)..."
-  bash "${WORKDIR}/serverSourceCode/build.sh" $a
+  bash "${WORKDIR}/serverSourceCode/build_sourceCode.sh" $a
 done
+
+# Auto-increment version in manifest
+if [ -f "${WORKDIR}/manifest" ]; then
+  CUR_VERSION=$(grep -w '^version' "${WORKDIR}/manifest" | awk -F= '{print $2}' | xargs)
+  if [ ! -z "$CUR_VERSION" ]; then
+    BASE_VERSION=${CUR_VERSION%.*}
+    PATCH_VERSION=${CUR_VERSION##*.}
+    NEW_PATCH=$((PATCH_VERSION + 1))
+    NEW_VERSION="${BASE_VERSION}.${NEW_PATCH}"
+    # Use sed to replace the version line specifically
+    sed -i "s/^version[[:space:]]*=.*/version               = ${NEW_VERSION}/" "${WORKDIR}/manifest"
+    echo "Auto-incremented version: ${CUR_VERSION} -> ${NEW_VERSION}"
+  fi
+fi
 
 APPNAME=$(grep -w '^appname' "${WORKDIR}/manifest" | awk -F= '{print $2}' | xargs)
 VERSION=$(grep -w '^version' "${WORKDIR}/manifest" | awk -F= '{print $2}' | xargs)
