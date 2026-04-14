@@ -174,3 +174,18 @@ body {
        url('font/iconfont.woff') format('woff'),
        url('font/iconfont.ttf') format('truetype');
 }
+
+/* --- 7. Service Control Icons --- */
+.btn-service-restart {
+  width: 24px; height: 24px; line-height: 24px; text-align: center;
+  border-radius: 50%; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-block; cursor: pointer;
+}
+.btn-service-restart:hover {
+  background-color: rgba(52, 120, 246, 0.1);
+  transform: rotate(180deg) scale(1.1);
+}
+.btn-service-restart:active {
+  transform: scale(0.95);
+}
+.btn-service-restart i { font-size: 16px !important; }

@@ -1,12 +1,40 @@
 #!/bin/bash
 
-reload_nginx_safe() {
-  # Safe reload for standard Nginx (avoiding system/trim Nginx)
-  SYSTEM_NGINX_PID=$(pgrep -f "/usr/sbin/nginx" | head -1)
-  if [ -n "$SYSTEM_NGINX_PID" ]; then
-    kill -HUP "$SYSTEM_NGINX_PID"
+get_web_server_type() {
+    local conf_file="/opt/webserver/web_server_type.conf"
+    if [ ! -f "$conf_file" ]; then
+        mkdir -p "/opt/webserver"
+        echo "nginx" > "$conf_file"
+    fi
+    cat "$conf_file"
+}
+
+detect_site_driver() {
+    local name="$1"
+    # Check Apache first (sites return with .conf sometimes)
+    if [ -f "/etc/apache2/sites-available/$name" ]; then
+        echo "apache"
+    elif [ -f "/etc/apache2/sites-available/${name}.conf" ]; then
+        echo "apache"
+    elif [ -f "/etc/nginx/sites-available/$name" ]; then
+        echo "nginx"
+    else
+        get_web_server_type
+    fi
+}
+
+reload_web_server() {
+  local target_type="${1:-$(get_web_server_type)}"
+  if [ "$target_type" = "apache" ]; then
+    systemctl reload apache2 >/dev/null 2>&1 || systemctl start apache2 >/dev/null 2>&1 || true
   else
-    systemctl start nginx >/dev/null 2>&1 || true
+    # Safe reload for standard Nginx (avoiding system/trim Nginx)
+    SYSTEM_NGINX_PID=$(pgrep -f "/usr/sbin/nginx" | head -1)
+    if [ -n "$SYSTEM_NGINX_PID" ]; then
+      kill -HUP "$SYSTEM_NGINX_PID"
+    else
+      systemctl start nginx >/dev/null 2>&1 || true
+    fi
   fi
 }
 
@@ -61,6 +89,64 @@ create_certificate_placeholder() {
     chmod 644 "$cert_file"
 }
 
+get_web_server_settings_json() {
+    local ws_type=$(get_web_server_type)
+    echo "{\"ok\":true,\"type\":\"$ws_type\"}"
+}
+
+set_web_server_type_json() {
+  if [ -n "$CONTENT_LENGTH" ] && [ "$CONTENT_LENGTH" -gt 0 ] 2>/dev/null; then
+    input=$(dd bs=1 count="$CONTENT_LENGTH" 2>/dev/null || cat)
+  fi
+  new_type=$(echo "$input" | grep "^type=" | cut -d= -f2- | tr -d '\r')
+  
+  if [ "$new_type" != "nginx" ] && [ "$new_type" != "apache" ]; then
+      echo '{"ok":false,"error":"invalid web server type"}'
+      return 1
+  fi
+  
+  echo "$new_type" > "/opt/webserver/web_server_type.conf"
+  echo '{"ok":true,"message":"Web server type updated"}'
+}
+
+generate_apache_vhost() {
+    local domain="$1"
+    local port="$2"
+    local root_dir="$3"
+    local use_ssl="$4" # "true" or "false"
+    local ssl_cert="$5"
+    local ssl_key="$6"
+    local php_socket="$7"
+    
+    cat <<EOF
+<VirtualHost *:${port}>
+    ServerName ${domain}
+    DocumentRoot ${root_dir}
+    
+    <Directory ${root_dir}>
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    <FilesMatch \.php$>
+        SetHandler "proxy:unix:${php_socket}|fcgi://localhost"
+    </FilesMatch>
+
+    ErrorLog \${APACHE_LOG_DIR}/${domain}_error.log
+    CustomLog \${APACHE_LOG_DIR}/${domain}_access.log combined
+EOF
+
+    if [ "$use_ssl" = "true" ]; then
+        cat <<EOF
+    SSLEngine on
+    SSLCertificateFile ${ssl_cert}
+    SSLCertificateKeyFile ${ssl_key}
+EOF
+    fi
+
+    echo "</VirtualHost>"
+}
+
 check_port_conflict() {
     check_port="$1"
     
@@ -77,25 +163,23 @@ check_port_conflict() {
     fi
     
     # 2. Check Nginx enabled configurations
-    # Use find to safely get files, avoiding glob issues if directory is empty
-    conf_files=$(find /etc/nginx/sites-enabled/ /etc/nginx/nginx.conf -type f 2>/dev/null)
-    
-    if [ -n "$conf_files" ]; then
-        # Use grep on the file list
-        # We process line by line to handle potential parsing issues more gracefully
-        # Extract ports: remove comments, find 'listen', get 2nd arg, remove semicolon
-        nginx_ports=$(grep "listen" $conf_files 2>/dev/null | \
-            sed 's/#.*//' | \
-            grep "listen" | \
-            awk '{print $2}' | \
-            tr -d ';' | \
-            awk -F':' '{print $NF}' | \
-            sort -u)
-            
+    conf_files_nginx=$(find /etc/nginx/sites-enabled/ /etc/nginx/nginx.conf -type f 2>/dev/null)
+    if [ -n "$conf_files_nginx" ]; then
+        nginx_ports=$(grep -h "listen" $conf_files_nginx 2>/dev/null | \
+            sed 's/#.*//' | grep "listen" | awk '{print $2}' | tr -d ';' | awk -F':' '{print $NF}' | sort -u)
         for p in $nginx_ports; do
-            if [ "$p" = "$check_port" ]; then
-                return 2
-            fi
+            if [ "$p" = "$check_port" ]; then return 2; fi
+        done
+    fi
+
+    # 3. Check Apache configurations
+    conf_files_apache=$(find /etc/apache2/sites-enabled/ /etc/apache2/ports.conf -type f 2>/dev/null)
+    if [ -n "$conf_files_apache" ]; then
+        apache_ports=$(grep -hE "Listen|VirtualHost" $conf_files_apache 2>/dev/null | \
+            sed 's/#.*//' | grep -E "Listen|VirtualHost" | sed 's/[<>]//g' | awk '{print $NF}' | \
+            awk -F':' '{print $NF}' | tr -d '"' | sort -u)
+        for p in $apache_ports; do
+            if [ "$p" = "$check_port" ]; then return 2; fi
         done
     fi
     
@@ -168,6 +252,7 @@ create_site_json() {
   use_http=$(echo "$input" | grep "^use_http=" | cut -d= -f2- | tr -d '\r')
   use_https=$(echo "$input" | grep "^use_https=" | cut -d= -f2- | tr -d '\r')
   php_version=$(echo "$input" | grep "^php_version=" | cut -d= -f2- | tr -d '\r')
+  requested_ws_type=$(echo "$input" | grep "^ws_type=" | cut -d= -f2- | tr -d '\r')
 
   # Fallback to the first available version if not specified
   if [ -z "$php_version" ]; then
@@ -212,6 +297,9 @@ create_site_json() {
         fastcgi_param HTTPS on;
     }"
 
+  # --- Common Preparations ---
+  ws_type=${requested_ws_type:-$(get_web_server_type)}
+  
   if [ "$mode" = "domain" ]; then
       if [ -z "$domain" ]; then
           echo '{"ok":false,"error":"missing domain"}'
@@ -230,37 +318,99 @@ create_site_json() {
       else
           site_name="$domain"
       fi
+  else
+      # Port mode
+      target_port="${port:-80}"
+      target_port_https="${port_https:-443}"
+
+      if [ -n "$custom_name" ]; then
+          site_name="$custom_name"
+      else
+          site_name="port_${target_port}"
+      fi
+  fi
+
+  # 1. Port Conflict Checks
+  if [ "$use_http" = "true" ]; then
+      check_port_conflict "$target_port"
+      if [ $? -ne 0 ]; then
+          echo "{\"ok\":false,\"error\":\"Port $target_port is already in use\"}"
+          return 0
+      fi
+  fi
+  if [ "$use_https" = "true" ]; then
+      check_port_conflict "$target_port_https"
+      if [ $? -ne 0 ]; then
+          echo "{\"ok\":false,\"error\":\"HTTPS Port $target_port_https is already in use\"}"
+          return 0
+      fi
+  fi
+
+  if [ "$ws_type" = "apache" ]; then
+      # --- Apache Implementation ---
+      config_file="/etc/apache2/sites-available/$site_name.conf"
+      if [ -f "$config_file" ]; then
+          echo "{\"ok\":false,\"error\":\"site/config already exists: $site_name\"}"
+          return 0
+      fi
+
+      # Use custom urldecode for rewrite if it was encoded
+      raw_rewrite=""
+      if [ -n "$rewrite_encoded" ]; then
+          raw_rewrite=$(urldecode "$rewrite_encoded")
+      fi
+
+      # Create .htaccess if rules provided
+      if [ -n "$raw_rewrite" ]; then
+          echo "$raw_rewrite" > "$root_dir/.htaccess"
+          chown www-data:www-data "$root_dir/.htaccess" 2>/dev/null || true
+          chmod 644 "$root_dir/.htaccess" 2>/dev/null || true
+      fi
+
+      # Generate Config
+      > "$config_file"
+      if [ "$use_http" = "true" ]; then
+          ssl_cert=""
+          ssl_key=""
+          generate_apache_vhost "$domain" "$target_port" "$root_dir" "false" "$ssl_cert" "$ssl_key" "$php_socket" >> "$config_file"
+      fi
+      if [ "$use_https" = "true" ]; then
+          ssl_cert="/etc/apache2/certs/${site_name}.pem"
+          ssl_key="/etc/apache2/certs/${site_name}.key"
+          create_certificate_placeholder "$ssl_cert" "$ssl_key" "$domain"
+          generate_apache_vhost "$domain" "$target_port_https" "$root_dir" "true" "$ssl_cert" "$ssl_key" "$php_socket" >> "$config_file"
+      fi
+
+      ln -sf "$config_file" "/etc/apache2/sites-enabled/$site_name.conf"
+      
+      if apache2ctl configtest >/dev/null 2>&1; then
+          reload_web_server
+          echo '{"ok":true,"message":"site created (Apache)"}'
+      else
+          # Rollback
+          rm -f "/etc/apache2/sites-enabled/$site_name.conf"
+          rm -f "$config_file"
+          echo "{\"ok\":false,\"error\":\"Apache config check failed\"}"
+      fi
+
+  else
+      # --- Nginx Implementation ---
       config_file="/etc/nginx/sites-available/$site_name"
       if [ -f "$config_file" ]; then
           echo "{\"ok\":false,\"error\":\"site/config already exists: $site_name\"}"
           return 0
       fi
 
-      # 1. Port Conflict Checks
-      if [ "$use_http" = "true" ]; then
-          check_port_conflict "$target_port"
-          if [ $? -ne 0 ]; then
-              echo "{\"ok\":false,\"error\":\"Port $target_port is already in use\"}"
-              return 0
-          fi
-      fi
-      if [ "$use_https" = "true" ]; then
-          check_port_conflict "$target_port_https"
-          if [ $? -ne 0 ]; then
-              echo "{\"ok\":false,\"error\":\"HTTPS Port $target_port_https is already in use\"}"
-              return 0
-          fi
-      fi
-
       # 2. Config Generation
       > "$config_file"
       
-      if [ "$use_http" = "true" ] && [ "$use_https" = "true" ]; then
-          # Redirection mode
-          redirect_url="https://\$host"
-          [ "$target_port_https" != "443" ] && redirect_url="https://\$host:$target_port_https"
-          
-          cat >> "$config_file" <<EOF
+      if [ "$mode" = "domain" ]; then
+          if [ "$use_http" = "true" ] && [ "$use_https" = "true" ]; then
+              # Redirection mode
+              redirect_url="https://\$host"
+              [ "$target_port_https" != "443" ] && redirect_url="https://\$host:$target_port_https"
+              
+              cat >> "$config_file" <<EOF
 server {
     listen $target_port;
     listen [::]:$target_port;
@@ -268,9 +418,9 @@ server {
     return 301 $redirect_url\$request_uri;
 }
 EOF
-      elif [ "$use_http" = "true" ]; then
-          # HTTP Only mode
-          cat >> "$config_file" <<EOF
+          elif [ "$use_http" = "true" ]; then
+              # HTTP Only mode
+              cat >> "$config_file" <<EOF
 server {
     listen $target_port;
     listen [::]:$target_port;
@@ -283,14 +433,14 @@ server {
     $php_block
 }
 EOF
-      fi
+          fi
 
-      if [ "$use_https" = "true" ]; then
-          ssl_cert="/etc/nginx/certs/${domain}.pem"
-          ssl_key="/etc/nginx/certs/${domain}.key"
-          create_certificate_placeholder "$ssl_cert" "$ssl_key" "$domain"
-          
-          cat >> "$config_file" <<EOF
+          if [ "$use_https" = "true" ]; then
+              ssl_cert="/etc/nginx/certs/${domain}.pem"
+              ssl_key="/etc/nginx/certs/${domain}.key"
+              create_certificate_placeholder "$ssl_cert" "$ssl_key" "$domain"
+              
+              cat >> "$config_file" <<EOF
 server {
     listen $target_port_https ssl;
     listen [::]:$target_port_https ssl;
@@ -310,58 +460,25 @@ server {
     $php_block_ssl
 }
 EOF
-      fi
-
-  else
-      # Port mode
-      target_port="${port:-80}"
-      target_port_https="${port_https:-443}"
-
-      if [ -n "$custom_name" ]; then
-          site_name="$custom_name"
+          fi
       else
-          site_name="port_${target_port}"
-      fi
-      config_file="/etc/nginx/sites-available/$site_name"
-      if [ -f "$config_file" ]; then
-          echo "{\"ok\":false,\"error\":\"site/config already exists: $site_name\"}"
-          return 0
-      fi
-
-      # 1. Port Conflict Checks
-      if [ "$use_http" = "true" ]; then
-          check_port_conflict "$target_port"
-          if [ $? -ne 0 ]; then
-              echo "{\"ok\":false,\"error\":\"Port $target_port is already in use\"}"
-              return 0
-          fi
-      fi
-      if [ "$use_https" = "true" ]; then
-          check_port_conflict "$target_port_https"
-          if [ $? -ne 0 ]; then
-              echo "{\"ok\":false,\"error\":\"HTTPS Port $target_port_https is already in use\"}"
-              return 0
-          fi
-      fi
-
-      # 2. Config Generation
-      > "$config_file"
-      cat >> "$config_file" <<EOF
+          # Port mode Nginx
+          cat >> "$config_file" <<EOF
 server {
     server_name _;
 EOF
-      if [ "$use_http" = "true" ]; then
-          echo "    listen $target_port default_server;" >> "$config_file"
-          echo "    listen [::]:$target_port default_server;" >> "$config_file"
-      fi
-      if [ "$use_https" = "true" ]; then
-          ssl_cert="/etc/nginx/certs/${site_name}_ssl${target_port_https}.pem"
-          ssl_key="/etc/nginx/certs/${site_name}_ssl${target_port_https}.key"
-          create_certificate_placeholder "$ssl_cert" "$ssl_key" "localhost"
-          
-          echo "    listen $target_port_https ssl default_server;" >> "$config_file"
-          echo "    listen [::]:$target_port_https ssl default_server;" >> "$config_file"
-          cat >> "$config_file" <<EOF
+          if [ "$use_http" = "true" ]; then
+              echo "    listen $target_port default_server;" >> "$config_file"
+              echo "    listen [::]:$target_port default_server;" >> "$config_file"
+          fi
+          if [ "$use_https" = "true" ]; then
+              ssl_cert="/etc/nginx/certs/${site_name}_ssl${target_port_https}.pem"
+              ssl_key="/etc/nginx/certs/${site_name}_ssl${target_port_https}.key"
+              create_certificate_placeholder "$ssl_cert" "$ssl_key" "localhost"
+              
+              echo "    listen $target_port_https ssl default_server;" >> "$config_file"
+              echo "    listen [::]:$target_port_https ssl default_server;" >> "$config_file"
+              cat >> "$config_file" <<EOF
     ssl_certificate $ssl_cert;
     ssl_certificate_key $ssl_key;
     ssl_session_timeout 5m;
@@ -369,91 +486,115 @@ EOF
     ssl_ciphers EECDH+CHACHA20:EECDH+AES128:RSA+AES128:EECDH+AES256:RSA+AES256:EECDH+3DES:RSA+3DES:!MD5;
     ssl_prefer_server_ciphers on;
 EOF
-      fi
+          fi
 
-      cat >> "$config_file" <<EOF
+          cat >> "$config_file" <<EOF
     root $root_dir;
     index index.html index.htm index.php;
     client_max_body_size 8M;
     $rewrite_block
     $root_location_block
 EOF
-      if [ "$use_https" = "true" ]; then
-          echo "    $php_block_ssl" >> "$config_file"
-      else
-          echo "    $php_block" >> "$config_file"
+          if [ "$use_https" = "true" ]; then
+              echo "    $php_block_ssl" >> "$config_file"
+          else
+              echo "    $php_block" >> "$config_file"
+          fi
+          echo "}" >> "$config_file"
       fi
-      echo "}" >> "$config_file"
-  fi
 
-  ln -sf "$config_file" "/etc/nginx/sites-enabled/$site_name"
-  
-  nginx_test_output=$(nginx -t 2>&1)
-  nginx_test_status=$?
-  
-  if [ $nginx_test_status -eq 0 ]; then
-      reload_nginx_safe
-      echo '{"ok":true,"message":"site created"}'
-  else
-      # Config check failed - Immediate Rollback
-      rm -f "/etc/nginx/sites-enabled/$site_name"
-      rm -f "$config_file"
+      ln -sf "$config_file" "/etc/nginx/sites-enabled/$site_name"
       
-      # Clean up error message for JSON (escape quotes, replace newlines)
-      error_msg=$(echo "$nginx_test_output" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' ' | sed 's/  */ /g')
+      nginx_test_output=$(nginx -t 2>&1)
+      nginx_test_status=$?
       
-      echo "{\"ok\":false,\"error\":\"Nginx check failed: $error_msg\"}"
-      return 0
+      if [ $nginx_test_status -eq 0 ]; then
+          reload_web_server
+          echo '{"ok":true,"message":"site created"}'
+      else
+          # Config check failed - Immediate Rollback
+          rm -f "/etc/nginx/sites-enabled/$site_name"
+          rm -f "$config_file"
+          error_msg=$(echo "$nginx_test_output" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' ' | sed 's/  */ /g')
+          echo "{\"ok\":false,\"error\":\"Nginx check failed: $error_msg\"}"
+      fi
   fi
 }
 
 list_sites_json() {
-  available_sites=$(ls /etc/nginx/sites-available/ 2>/dev/null)
+  local ws_type=$(get_web_server_type)
+  local available_sites=""
+  local conf_dir=""
+  local enabled_dir=""
+  
+  if [ "$ws_type" = "apache" ]; then
+    conf_dir="/etc/apache2/sites-available"
+    enabled_dir="/etc/apache2/sites-enabled"
+    available_sites=$(ls $conf_dir/*.conf 2>/dev/null | xargs -n1 basename 2>/dev/null)
+  else
+    conf_dir="/etc/nginx/sites-available"
+    enabled_dir="/etc/nginx/sites-enabled"
+    available_sites=$(ls $conf_dir/ 2>/dev/null)
+  fi
+
   if [ -z "$available_sites" ]; then
     echo "[]"
     return 0
   fi
+  
   first=1
   echo '['
   for site in $available_sites; do
-    config_file="/etc/nginx/sites-available/$site"
-    if [ ! -f "$config_file" ]; then
-      continue
-    fi
-    # Extract all unique IPv4 ports
-    port=$(grep "listen" "$config_file" 2>/dev/null | grep -v "\[::\]" | awk '{print $2}' | tr -d ';' | sort -nu | tr '\n' ',' | sed 's/,$//; s/,/, /g')
-    root_dir=$(grep "root" "$config_file" 2>/dev/null | head -1 | awk '{print $2}' | tr -d ';')
-    server_name=$(grep "server_name" "$config_file" 2>/dev/null | head -1 | awk '{print $2}' | tr -d ';')
+    config_file="$conf_dir/$site"
+    if [ ! -f "$config_file" ]; then continue; fi
     
-    if [ -z "$port" ] && [ -z "$root_dir" ]; then
-      continue
+    local port=""
+    local root_dir=""
+    local server_name=""
+    local php_ver="-"
+    local is_ssl=false
+    local mode="domain"
+    
+    if [ "$ws_type" = "apache" ]; then
+        # Apache parsing
+        port=$(grep "VirtualHost" "$config_file" | sed 's/[<>]//g' | awk '{print $2}' | awk -F':' '{print $NF}' | sort -u | tr '\n' ',' | sed 's/,$//; s/,/, /g')
+        root_dir=$(grep "DocumentRoot" "$config_file" | head -1 | awk '{print $2}' | tr -d ' "')
+        server_name=$(grep "ServerName" "$config_file" | head -1 | awk '{print $2}' | tr -d ' "')
+        php_ver=$(grep -oE "/run/php/php[0-9.]+-fpm\.sock" "$config_file" | head -1 | sed 's/.*php\(.*\)-fpm\.sock.*/\1/')
+        [ -z "$server_name" ] && mode="port"
+        # SSL check for Apache
+        if grep -iq "SSLEngine\s*on" "$config_file" || grep -q "VirtualHost\s*.*:443" "$config_file"; then
+            is_ssl=true
+        fi
+        site_link_name="$site"
+    else
+        # Nginx parsing
+        port=$(grep "listen" "$config_file" 2>/dev/null | grep -v "\[::\]" | awk '{print $2}' | tr -d ';' | sort -nu | tr '\n' ',' | sed 's/,$//; s/,/, /g')
+        root_dir=$(grep "root" "$config_file" 2>/dev/null | head -1 | awk '{print $2}' | tr -d ';')
+        server_name=$(grep "server_name" "$config_file" 2>/dev/null | head -1 | awk '{print $2}' | tr -d ';')
+        php_ver=$(grep "fastcgi_pass unix:/run/php/php" "$config_file" | head -1 | sed 's/.*php\(.*\)-fpm\.sock.*/\1/')
+        [ "$server_name" = "_" ] && mode="port"
+        # SSL check for Nginx
+        if grep -q "listen.*443.*ssl" "$config_file" || grep -q "ssl_certificate" "$config_file"; then
+            is_ssl=true
+        fi
+        site_link_name="$site"
     fi
     
-    mode="domain"
-    if [ "$server_name" = "_" ]; then
-        mode="port"
-    fi
-    
-    # Extract PHP version from fastcgi_pass
-    php_ver=$(grep "fastcgi_pass unix:/run/php/php" "$config_file" | head -1 | sed 's/.*php\(.*\)-fpm\.sock.*/\1/')
-    if [ -z "$php_ver" ]; then
-        php_ver="-"
-    fi
+    [ -z "$php_ver" ] && php_ver="-"
     
     enabled=false
-    if [ -L "/etc/nginx/sites-enabled/$site" ]; then
+    if [ -L "$enabled_dir/$site_link_name" ]; then
       enabled=true
     fi
     
-    if [ $first -eq 0 ]; then
-      echo ','
-    fi
+    if [ $first -eq 0 ]; then echo ','; fi
     first=0
     esc_site=$(echo "$site" | sed 's/\\/\\\\/g; s/"/\\"/g')
     esc_port=$(echo "$port" | sed 's/\\/\\\\/g; s/"/\\"/g')
     esc_root=$(echo "$root_dir" | sed 's/\\/\\\\/g; s/"/\\"/g')
     esc_php=$(echo "$php_ver" | sed 's/\\/\\\\/g; s/"/\\"/g')
-    echo "{\"name\":\"$esc_site\",\"port\":\"$esc_port\",\"root\":\"$esc_root\",\"php\":\"$esc_php\",\"enabled\":$enabled,\"mode\":\"$mode\"}"
+    echo "{\"name\":\"$esc_site\",\"port\":\"$esc_port\",\"root\":\"$esc_root\",\"php\":\"$esc_php\",\"enabled\":$enabled,\"mode\":\"$mode\",\"is_ssl\":$is_ssl}"
   done
   echo ']'
 }
@@ -484,6 +625,41 @@ nginx_status_json() {
   fi
   
   echo "{\"installed\":$installed,\"running\":$running,\"version\":$version_json,\"config_exists\":$config_exists}"
+}
+
+apache_status_json() {
+  local installed=false
+  local version_raw=""
+  local running=false
+  
+  if [ -x "/usr/sbin/apache2" ] && [ -d "/etc/apache2" ]; then
+    installed=true
+    version_raw=$(/usr/sbin/apache2 -v | head -1 | sed 's/Server version: //')
+    if systemctl is-active --quiet apache2 2>/dev/null; then
+        running=true
+    fi
+  fi
+  
+  local config_exists=false
+  [ -d "/etc/apache2/sites-available" ] && config_exists=true
+
+  local mod_rewrite=false
+  local mod_ssl=false
+  local mod_proxy_fcgi=false
+  local mod_headers=false
+  local default_site_enabled=false
+  [ -L "/etc/apache2/mods-enabled/rewrite.load" ] && mod_rewrite=true
+  [ -L "/etc/apache2/mods-enabled/ssl.load" ] && mod_ssl=true
+  [ -L "/etc/apache2/mods-enabled/proxy_fcgi.load" ] && mod_proxy_fcgi=true
+  [ -L "/etc/apache2/mods-enabled/headers.load" ] && mod_headers=true
+
+  local default_site_enabled=false
+  [ -L "/etc/apache2/sites-enabled/000-default.conf" ] && default_site_enabled=true
+
+  local version_json="\"\""
+  [ -n "$version_raw" ] && version_json="\"$(echo "$version_raw" | sed 's/\\/\\\\/g; s/"/\\"/g')\""
+  
+  echo "{\"installed\":$installed,\"running\":$running,\"version\":$version_json,\"config_exists\":$config_exists,\"modules\":{\"rewrite\":$mod_rewrite,\"ssl\":$mod_ssl,\"proxy_fcgi\":$mod_proxy_fcgi,\"headers\":$mod_headers},\"default_site_enabled\":$default_site_enabled}"
 }
 
 php_status_json() {
@@ -557,13 +733,21 @@ list_dirs_json() {
 
 
 get_upload_limit_json() {
-    # Fetch common limit from Nginx as PHP limits are now decentralized
+    local ws_type=$(get_web_server_type)
     local limit="20M"
-    local first_conf=$(ls /etc/nginx/sites-available/* 2>/dev/null | head -1)
-    if [ -n "$first_conf" ] && [ -f "$first_conf" ]; then
-        local found_limit=$(grep "client_max_body_size" "$first_conf" | head -1 | awk '{print $2}' | tr -d ';')
-        if [ -n "$found_limit" ]; then
-            limit="$found_limit"
+    local first_conf=""
+    if [ "$ws_type" = "apache" ]; then
+        first_conf=$(ls /etc/apache2/sites-available/*.conf 2>/dev/null | head -1)
+        if [ -n "$first_conf" ] && [ -f "$first_conf" ]; then
+            # Extract LimitRequestBody if it exists (but use 20M as fallback for common UX)
+            local found_limit=$(grep "LimitRequestBody" "$first_conf" | head -1 | awk '{print $2}' | tr -d ';')
+            [ -n "$found_limit" ] && limit="$found_limit"
+        fi
+    else
+        first_conf=$(ls /etc/nginx/sites-available/* 2>/dev/null | head -1)
+        if [ -n "$first_conf" ] && [ -f "$first_conf" ]; then
+            local found_limit=$(grep "client_max_body_size" "$first_conf" | head -1 | awk '{print $2}' | tr -d ';')
+            [ -n "$found_limit" ] && limit="$found_limit"
         fi
     fi
     echo "{\"ok\":true,\"limit\":\"$limit\"}"
@@ -589,142 +773,128 @@ update_site_port_json() {
       return 0
   fi
 
-  old_config_file="/etc/nginx/sites-available/$site_name"
+  ws_type=$(detect_site_driver "$site_name")
+  local old_config_file=""
+  local enabled_link_parent=""
+  if [ "$ws_type" = "apache" ]; then
+      old_config_file="/etc/apache2/sites-available/$site_name"
+      enabled_link_parent="/etc/apache2/sites-enabled"
+  else
+      old_config_file="/etc/nginx/sites-available/$site_name"
+      enabled_link_parent="/etc/nginx/sites-enabled"
+  fi
+
   if [ ! -f "$old_config_file" ]; then
       echo '{"ok":false,"error":"site configuration not found"}'
       return 0
   fi
   
   # 1. Get current ports
-  old_port=$(grep "listen" "$old_config_file" | grep -v "ssl" | grep -v "\[::\]" | awk '{print $2}' | tr -d ';' | head -1)
-  old_port_https=$(grep "listen" "$old_config_file" | grep "ssl" | grep -v "\[::\]" | awk '{print $2}' | tr -d ';' | head -1)
+  local old_port=""
+  local old_port_https=""
+  if [ "$ws_type" = "apache" ]; then
+      old_port=$(grep "VirtualHost" "$old_config_file" | grep -v "443" | head -1 | sed 's/[<>]//g' | awk '{print $2}' | awk -F':' '{print $NF}')
+      old_port_https=$(grep "VirtualHost" "$old_config_file" | grep "443" | head -1 | sed 's/[<>]//g' | awk '{print $2}' | awk -F':' '{print $NF}')
+  else
+      old_port=$(grep "listen" "$old_config_file" | grep -v "ssl" | grep -v "\[::\]" | awk '{print $2}' | tr -d ';' | head -1)
+      old_port_https=$(grep "listen" "$old_config_file" | grep "ssl" | grep -v "\[::\]" | awk '{print $2}' | tr -d ';' | head -1)
+  fi
 
   # 2. Check conflicts (only if ports changed)
   if [ "$new_port" != "$old_port" ]; then
       check_port_conflict "$new_port"
-      conflict_status=$?
-      if [ $conflict_status -ne 0 ]; then
-          echo "{\"ok\":false,\"error\":\"Port $new_port is already in use\"}"
-          return 0
-      fi
+      [ $? -ne 0 ] && { echo "{\"ok\":false,\"error\":\"Port $new_port is already in use\"}"; return 0; }
   fi
-  
   if [ -n "$new_port_https" ] && [ "$new_port_https" != "$old_port_https" ]; then
       check_port_conflict "$new_port_https"
-      conflict_status=$?
-      if [ $conflict_status -ne 0 ]; then
-          echo "{\"ok\":false,\"error\":\"HTTPS Port $new_port_https is already in use\"}"
-          return 0
-      fi
+      [ $? -ne 0 ] && { echo "{\"ok\":false,\"error\":\"HTTPS Port $new_port_https is already in use\"}"; return 0; }
   fi
 
   # 3. Determine New Site Name and Config File
-  final_site_name="$site_name"
-  if [[ "$site_name" =~ ^port_[0-9]+$ ]] && [ "$new_port" != "$old_port" ]; then
-      new_site_name="port_${new_port}"
-  else
-      new_site_name="$site_name"
+  local new_site_name="$site_name"
+  if [[ "$site_name" =~ ^port_[0-9]+(\.conf)?$ ]] && [ "$new_port" != "$old_port" ]; then
+      if [ "$ws_type" = "apache" ]; then new_site_name="port_${new_port}.conf"; else new_site_name="port_${new_port}"; fi
   fi
   
-  new_config_file="/etc/nginx/sites-available/$new_site_name"
+  local new_config_file=""
+  if [ "$ws_type" = "apache" ]; then new_config_file="/etc/apache2/sites-available/$new_site_name"; else new_config_file="/etc/nginx/sites-available/$new_site_name"; fi
   
-  # Safety check: if new file exists and it's NOT the same as old file
   if [ "$new_config_file" != "$old_config_file" ] && [ -f "$new_config_file" ]; then
       echo "{\"ok\":false,\"error\":\"Target config file $new_site_name already exists\"}"
       return 0
   fi
 
   # 4. Create New Config (Copy Logic)
+  local temp_cleanup_file=""
+  local backup_file=""
   if [ "$new_config_file" != "$old_config_file" ]; then
       cp "$old_config_file" "$new_config_file"
       temp_cleanup_file="$new_config_file"
-      backup_file=""
   else
       cp "$old_config_file" "${old_config_file}.bak"
-      temp_cleanup_file=""
       backup_file="${old_config_file}.bak"
   fi
 
-  # 5. Modify New Config (In Place on new_config_file)
-  if [ -n "$old_port" ] && [ "$new_port" != "$old_port" ]; then
-      sed -i "s/listen $old_port/listen $new_port/g" "$new_config_file"
-      sed -i "s/listen \[::\]:$old_port/listen [::]:$new_port/g" "$new_config_file"
-  fi
-  
-  if [ -n "$new_port_https" ]; then
-       if [ -n "$old_port_https" ] && [ "$new_port_https" != "$old_port_https" ]; then
-          sed -i "s/listen $old_port_https/listen $new_port_https/g" "$new_config_file"
-          sed -i "s/listen \[::\]:$old_port_https/listen [::]:$new_port_https/g" "$new_config_file"
-          
-          if grep -q "_ssl${old_port_https}" "$new_config_file"; then
-              sed -i "s/_ssl${old_port_https}/_ssl${new_port_https}/g" "$new_config_file"
-          fi
-       fi
-  fi
-  
-  # Update Site Name in Config & Certs
-  if [ "$new_site_name" != "$site_name" ]; then
-      sed -i "s/${site_name}_ssl/${new_site_name}_ssl/g" "$new_config_file"
-      
-      if [ -n "$new_port_https" ]; then
-           ssl_cert="/etc/nginx/certs/${new_site_name}_ssl${new_port_https}.pem"
-           ssl_key="/etc/nginx/certs/${new_site_name}_ssl${new_port_https}.key"
-           if [ ! -f "$ssl_cert" ]; then
-               create_certificate_placeholder "$ssl_cert" "$ssl_key" "localhost"
-           fi
+  # 5. Modify New Config
+  if [ "$ws_type" = "apache" ]; then
+      if [ -n "$old_port" ] && [ "$new_port" != "$old_port" ]; then
+          sed -i "s/VirtualHost \*:$old_port/VirtualHost \*:$new_port/g" "$new_config_file"
       fi
-      
-      root_dir=$(grep "root" "$new_config_file" | head -1 | awk '{print $2}' | tr -d ';')
-      if [ -f "$root_dir/website_info.txt" ]; then
-          sed -i "s/网站名称: $site_name/网站名称: $new_site_name/" "$root_dir/website_info.txt"
+      if [ -n "$new_port_https" ] && [ "$new_port_https" != "$old_port_https" ]; then
+          sed -i "s/VirtualHost \*:$old_port_https/VirtualHost \*:$new_port_https/g" "$new_config_file"
       fi
   else
+      if [ -n "$old_port" ] && [ "$new_port" != "$old_port" ]; then
+          sed -i "s/listen $old_port/listen $new_port/g" "$new_config_file"
+          sed -i "s/listen \[::\]:$old_port/listen [::]:$new_port/g" "$new_config_file"
+      fi
       if [ -n "$new_port_https" ] && [ "$new_port_https" != "$old_port_https" ]; then
-          if grep -q "${site_name}_ssl${new_port_https}" "$new_config_file"; then
-               ssl_cert="/etc/nginx/certs/${site_name}_ssl${new_port_https}.pem"
-               ssl_key="/etc/nginx/certs/${site_name}_ssl${new_port_https}.key"
-               if [ ! -f "$ssl_cert" ]; then
-                   create_certificate_placeholder "$ssl_cert" "$ssl_key" "localhost"
-               fi
-          fi
+          sed -i "s/listen $old_port_https/listen $new_port_https/g" "$new_config_file"
+          sed -i "s/listen \[::\]:$old_port_https/listen [::]:$new_port_https/g" "$new_config_file"
+      fi
+  fi
+  
+  # Update Site Name in Config & Certs (Enhanced for SSL placeholders)
+  if [ -n "$new_port_https" ] && [ "$new_port_https" != "$old_port_https" ]; then
+      local ssl_cert=""
+      local ssl_key=""
+      if [ "$ws_type" = "apache" ]; then
+          ssl_cert="/etc/apache2/certs/${new_site_name}_ssl${new_port_https}.pem"
+          ssl_key="/etc/apache2/certs/${new_site_name}_ssl${new_port_https}.key"
+      else
+          ssl_cert="/etc/nginx/certs/${new_site_name}_ssl${new_port_https}.pem"
+          ssl_key="/etc/nginx/certs/${new_site_name}_ssl${new_port_https}.key"
+      fi
+      
+      if [ ! -f "$ssl_cert" ]; then
+          mkdir -p "$(dirname "$ssl_cert")"
+          create_certificate_placeholder "$ssl_cert" "$ssl_key" "localhost"
       fi
   fi
 
   # 6. Switch Links & Test
-  rm -f "/etc/nginx/sites-enabled/$site_name"
-  ln -sf "$new_config_file" "/etc/nginx/sites-enabled/$new_site_name"
+  rm -f "$enabled_link_parent/$site_name"
+  ln -sf "$new_config_file" "$enabled_link_parent/$new_site_name"
   
-  if nginx -t > /dev/null 2>&1; then
-      reload_nginx_safe
-      
-      # Success! Cleanup
-      if [ -n "$temp_cleanup_file" ]; then
-          rm -f "$old_config_file"
-      fi
-      if [ -n "$backup_file" ]; then
-          rm -f "$backup_file"
-      fi
-      
+  local check_ok=false
+  if [ "$ws_type" = "apache" ]; then
+      apache2ctl configtest >/dev/null 2>&1 && check_ok=true
+  else
+      nginx -t >/dev/null 2>&1 && check_ok=true
+  fi
+
+  if [ "$check_ok" = "true" ]; then
+      reload_web_server "$ws_type"
+      [ -n "$temp_cleanup_file" ] && rm -f "$old_config_file"
+      [ -n "$backup_file" ] && rm -f "$backup_file"
       echo '{"ok":true,"message":"site updated"}'
   else
-      # Failure! Rollback
-      rm -f "/etc/nginx/sites-enabled/$new_site_name"
-      ln -sf "$old_config_file" "/etc/nginx/sites-enabled/$site_name"
-      
-      if [ -n "$temp_cleanup_file" ]; then
-          rm -f "$temp_cleanup_file"
-          # Revert info file
-          root_dir=$(grep "root" "$old_config_file" | head -1 | awk '{print $2}' | tr -d ';')
-          if [ -n "$root_dir" ] && [ -f "$root_dir/website_info.txt" ]; then
-               sed -i "s/网站名称: $new_site_name/网站名称: $site_name/" "$root_dir/website_info.txt"
-          fi
-      fi
-      if [ -n "$backup_file" ]; then
-          mv "$backup_file" "$old_config_file"
-      fi
-      
-      echo '{"ok":false,"error":"Nginx configuration test failed. Reverted to old config."}'
-      return 0
+      # Rollback
+      rm -f "$enabled_link_parent/$new_site_name"
+      ln -sf "$old_config_file" "$enabled_link_parent/$site_name"
+      if [ -n "$backup_file" ]; then mv "$backup_file" "$old_config_file"; fi
+      [ -n "$temp_cleanup_file" ] && rm -f "$temp_cleanup_file"
+      echo "{\"ok\":false,\"error\":\"Config check failed. Reverted to old config.\"}"
   fi
 }
 
@@ -740,29 +910,50 @@ delete_site_json() {
     return 1
   fi
   
-  config_file="/etc/nginx/sites-available/$site_name"
-  if [ ! -f "$config_file" ]; then
+  ws_type=$(detect_site_driver "$site_name")
+  local conf_file=""
+  local enabled_link=""
+  
+  if [ "$ws_type" = "apache" ]; then
+      conf_file="/etc/apache2/sites-available/$site_name"
+      # If site_name doesn't end with .conf, add it? (but list_sites_json returns it with suffix)
+      enabled_link="/etc/apache2/sites-enabled/$site_name"
+  else
+      conf_file="/etc/nginx/sites-available/$site_name"
+      enabled_link="/etc/nginx/sites-enabled/$site_name"
+  fi
+
+  if [ ! -f "$conf_file" ]; then
     echo '{"ok":false,"error":"site not found"}'
     return 1
   fi
 
-  # Extract root dir to remove website_info.txt
-  root_dir=$(grep "root" "$config_file" | head -1 | awk '{print $2}' | tr -d ';')
+  # Extract root dir safely (supports spaces and quotes)
+  if [ "$ws_type" = "apache" ]; then
+      root_dir=$(grep -i "DocumentRoot" "$conf_file" | head -1 | sed -E 's/^\s*DocumentRoot\s+"?([^"]+)"?.*$/\1/')
+  else
+      root_dir=$(grep -i "^\s*root\s" "$conf_file" | head -1 | sed -E 's/^\s*root\s+([^;]+);.*$/\1/')
+  fi
   
-  rm -f "/etc/nginx/sites-enabled/$site_name"
-  rm -f "$config_file"
+  rm -f "$enabled_link"
+  rm -f "$conf_file"
+  
+  # Cleanup SSL certificates if they match the site name convention
+  if [ "$ws_type" = "apache" ]; then
+      rm -f /etc/apache2/certs/"${site_name}"_ssl*.pem 2>/dev/null
+      rm -f /etc/apache2/certs/"${site_name}"_ssl*.key 2>/dev/null
+  else
+      rm -f /etc/nginx/certs/"${site_name}"_ssl*.pem 2>/dev/null
+      rm -f /etc/nginx/certs/"${site_name}"_ssl*.key 2>/dev/null
+  fi
   
   if [ -n "$root_dir" ] && [ -d "$root_dir" ]; then
       rm -f "$root_dir/website_info.txt"
       rm -f "$root_dir/phpinfo.php"
   fi
   
-  if nginx -t > /dev/null 2>&1; then
-      reload_nginx_safe
-      echo '{"ok":true,"message":"site deleted"}'
-  else
-      echo '{"ok":true,"message":"site deleted, but nginx config check failed"}'
-  fi
+  reload_web_server "$ws_type"
+  echo '{"ok":true,"message":"site deleted"}'
 }
 
 set_upload_limit_json() {
@@ -781,39 +972,38 @@ set_upload_limit_json() {
         return 1
   fi
   
-  # 1. Cleanup legacy PHP custom settings (for any installed version)
-  rm -f /etc/php/*/fpm/conf.d/99-custom-upload.ini 2>/dev/null
+  # Apply to Apache if installed
+  if [ -x "/usr/sbin/apache2" ]; then
+      local bytes_size=$(echo "$new_size" | tr -d 'mMgGkK')
+      local unit=$(echo "$new_size" | grep -o "[mMgGkK]")
+      case "$unit" in
+          [kK]|"") bytes_size=$((bytes_size * 1024)) ;;
+          [mM]) bytes_size=$((bytes_size * 1024 * 1024)) ;;
+          [gG]) bytes_size=$((bytes_size * 1024 * 1024 * 1024)) ;;
+      esac
+      limit_conf="/etc/apache2/conf-available/webserver-limits.conf"
+      mkdir -p "$(dirname "$limit_conf")"
+      echo "LimitRequestBody $bytes_size" > "$limit_conf"
+      [ -f "/usr/sbin/a2enconf" ] && a2enconf webserver-limits >/dev/null 2>&1
+      reload_web_server "apache"
+  fi
 
-  # 2. Update all Nginx site configs
-  nginx_configs=$(find /etc/nginx/sites-available -type f ! -name "*.backup.*" 2>/dev/null)
-  for config in $nginx_configs; do
-      if grep -q "client_max_body_size" "$config"; then
-          sed -i "s/client_max_body_size\s*[0-9KMGkmg]*;/client_max_body_size ${new_size};/g" "$config"
-      else
-          if grep -q "root.*;" "$config"; then
-              sed -i "0,/root.*;/s/root.*;/&\n    client_max_body_size ${new_size};/" "$config"
-          elif grep -q "server {" "$config"; then
-              sed -i "0,/server {/s/server {/&\n    client_max_body_size ${new_size};/" "$config"
+  # Apply to Nginx if installed
+  if [ -x "/usr/sbin/nginx" ]; then
+      nginx_configs=$(find /etc/nginx/sites-available -type f ! -name "*.backup.*" 2>/dev/null)
+      for config in $nginx_configs; do
+          if grep -q "client_max_body_size" "$config"; then
+              sed -i "s/client_max_body_size\s*[0-9KMGkmg]*;/client_max_body_size ${new_size};/g" "$config"
           fi
-      fi
-  done
-
-  main_nginx_conf="/etc/nginx/nginx.conf"
-  if [ -f "$main_nginx_conf" ]; then
-      if grep -q "client_max_body_size" "$main_nginx_conf"; then
+      done
+      main_nginx_conf="/etc/nginx/nginx.conf"
+      if [ -f "$main_nginx_conf" ] && grep -q "client_max_body_size" "$main_nginx_conf"; then
           sed -i "s/client_max_body_size\s*[0-9KMGkmg]*;/client_max_body_size ${new_size};/g" "$main_nginx_conf"
-      else
-          if grep -q "http {" "$main_nginx_conf"; then
-              sed -i "/http {/a\    client_max_body_size ${new_size};" "$main_nginx_conf"
-          fi
       fi
+      reload_web_server "nginx"
   fi
 
-  if reload_nginx_safe; then
-      printf '{"ok":true,"message":"Nginx upload limit applied (PHP limit must be managed via applications)"}'
-  else
-      printf '{"ok":false,"error":"Nginx reload failed"}'
-  fi
+  echo "{\"ok\":true,\"message\":\"Upload limit applied to all active web servers\"}"
 }
 
 enable_site_json() {
@@ -828,8 +1018,17 @@ enable_site_json() {
     return 1
   fi
   
-  available_config="/etc/nginx/sites-available/$site_name"
-  enabled_link="/etc/nginx/sites-enabled/$site_name"
+  ws_type=$(detect_site_driver "$site_name")
+  local available_config=""
+  local enabled_link=""
+  
+  if [ "$ws_type" = "apache" ]; then
+      available_config="/etc/apache2/sites-available/$site_name"
+      enabled_link="/etc/apache2/sites-enabled/$site_name"
+  else
+      available_config="/etc/nginx/sites-available/$site_name"
+      enabled_link="/etc/nginx/sites-enabled/$site_name"
+  fi
   
   if [ ! -f "$available_config" ]; then
     echo '{"ok":false,"error":"site config not found"}'
@@ -843,12 +1042,19 @@ enable_site_json() {
   
   ln -s "$available_config" "$enabled_link"
   
-  if nginx -t > /dev/null 2>&1; then
-      reload_nginx_safe
+  local check_ok=false
+  if [ "$ws_type" = "apache" ]; then
+      apache2ctl configtest >/dev/null 2>&1 && check_ok=true
+  else
+      nginx -t >/dev/null 2>&1 && check_ok=true
+  fi
+
+  if [ "$check_ok" = "true" ]; then
+      reload_web_server "$ws_type"
       echo '{"ok":true,"message":"site enabled"}'
   else
       rm -f "$enabled_link"
-      echo '{"ok":false,"error":"Nginx config check failed, site remains disabled"}'
+      echo '{"ok":false,"error":"Config check failed, site remains disabled"}'
   fi
 }
 
@@ -864,7 +1070,14 @@ disable_site_json() {
     return 1
   fi
   
-  enabled_link="/etc/nginx/sites-enabled/$site_name"
+  ws_type=$(detect_site_driver "$site_name")
+  local enabled_link=""
+  
+  if [ "$ws_type" = "apache" ]; then
+      enabled_link="/etc/apache2/sites-enabled/$site_name"
+  else
+      enabled_link="/etc/nginx/sites-enabled/$site_name"
+  fi
   
   if [ ! -L "$enabled_link" ] && [ ! -f "$enabled_link" ]; then
      echo '{"ok":true,"message":"site already disabled"}'
@@ -872,14 +1085,8 @@ disable_site_json() {
   fi
   
   rm -f "$enabled_link"
-  
-  if nginx -t > /dev/null 2>&1; then
-      reload_nginx_safe
-      echo '{"ok":true,"message":"site disabled"}'
-  else
-      reload_nginx_safe
-      echo '{"ok":true,"message":"site disabled (reload check warning)"}'
-  fi
+  reload_web_server "$ws_type"
+  echo '{"ok":true,"message":"site disabled"}'
 }
 
 fix_permissions_json() {
@@ -894,13 +1101,25 @@ fix_permissions_json() {
     return 1
   fi
   
-  config_file="/etc/nginx/sites-available/$site_name"
+  ws_type=$(detect_site_driver "$site_name")
+  local config_file=""
+  if [ "$ws_type" = "apache" ]; then
+      config_file="/etc/apache2/sites-available/$site_name"
+  else
+      config_file="/etc/nginx/sites-available/$site_name"
+  fi
+
   if [ ! -f "$config_file" ]; then
     echo '{"ok":false,"error":"site config not found"}'
     return 1
   fi
   
-  root_dir=$(grep "root" "$config_file" | head -1 | awk '{print $2}' | tr -d ';')
+  local root_dir=""
+  if [ "$ws_type" = "apache" ]; then
+      root_dir=$(grep -i "DocumentRoot" "$config_file" | head -1 | sed -E 's/^\s*DocumentRoot\s+"?([^"]+)"?.*$/\1/')
+  else
+      root_dir=$(grep -i "^\s*root\s" "$config_file" | head -1 | sed -E 's/^\s*root\s+([^;]+);.*$/\1/')
+  fi
   
   if [ -z "$root_dir" ] || [ ! -d "$root_dir" ]; then
     echo '{"ok":false,"error":"root directory not found"}'
@@ -924,10 +1143,23 @@ get_db_instance_id() {
 }
 
 nginx_restart_json() {
-  if systemctl restart nginx >/dev/null 2>&1; then
-    echo '{"ok":true,"message":"Nginx restarted successfully"}'
+  web_server_restart_json
+}
+
+web_server_restart_json() {
+  if [ -n "$CONTENT_LENGTH" ] && [ "$CONTENT_LENGTH" -gt 0 ] 2>/dev/null; then
+    input=$(dd bs=1 count="$CONTENT_LENGTH" 2>/dev/null || cat)
+  fi
+  req_type=$(echo "$input" | grep "^type=" | cut -d= -f2- | tr -d '\r')
+  
+  local ws_type="${req_type:-$(get_web_server_type)}"
+  local service_name="nginx"
+  [ "$ws_type" = "apache" ] && service_name="apache2"
+  
+  if systemctl restart $service_name >/dev/null 2>&1; then
+    echo "{\"ok\":true,\"message\":\"$service_name restarted successfully\"}"
   else
-    echo '{"ok":false,"error":"Failed to restart Nginx"}'
+    echo "{\"ok\":false,\"error\":\"Failed to restart $service_name\"}"
   fi
 }
 
@@ -1156,10 +1388,13 @@ case "$1" in
     fix_permissions_json
     ;;
   nginx-restart)
-    nginx_restart_json
+    web_server_restart_json
     ;;
   nginx-status)
     nginx_status_json
+    ;;
+  apache-status)
+    apache_status_json
     ;;
   php-status)
     php_status_json
@@ -1172,6 +1407,12 @@ case "$1" in
     ;;
   get-install-log)
     get_install_log_json
+    ;;
+  get-web-server-settings)
+    get_web_server_settings_json
+    ;;
+  set-web-server-type)
+    set_web_server_type_json
     ;;
   *)
     echo '{"error":"unsupported action"}'

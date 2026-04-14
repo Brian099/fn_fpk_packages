@@ -152,14 +152,26 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
     // --- System Environment ---
     function loadStatus() {
         // Update Hero Site Count
-        fetch(apiBase + '/api/sites').then(r => r.json()).then(res => {
-            if (res) {
-                var filtered = res.filter(function (item) {
-                    return item.name !== 'default';
-                });
-                var count = filtered.length || 0;
-                $('#site-count-hero').text(count);
-                $('#site-count').text(count);
+        fetch(apiBase + "/api/sites/list").then(r => r.json()).then(data => {
+            if (Array.isArray(data)) {
+                $('.layui-font-30').first().text(data.length); 
+            }
+        }).catch(err => console.error("Load count failed", err));
+        
+        // Web Server Driver
+        fetch(apiBase + "/api/web-server/settings").then(r => r.json()).then(data => {
+            if (data.ok) {
+                window.currentWsType = data.type;
+                form.val('form-driver-settings', { "ws_type": data.type });
+                // Update Site Tips (legacy helper if still used)
+                updateSiteFormTips();
+                
+                // Card order: highlight no longer needed, they are independent
+                if (data.type === 'apache') {
+                    $('#view-system-cards').css('flex-direction', 'row-reverse');
+                } else {
+                    $('#view-system-cards').css('flex-direction', 'row');
+                }
             }
         });
 
@@ -176,6 +188,48 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
                 el.html('<span style="color:#FF5722">未检测到系统 Nginx</span><div style="font-size:12px;color:#999;margin-top:5px">请确保环境中已安装并启动 Nginx 服务</div>');
             }
         }).catch(() => $('#nginx-status').text('获取失败'));
+        
+        // Apache
+        fetch(apiBase + "/api/apache/status").then(r => r.json()).then(data => {
+            var el = $('#apache-status');
+            if (data.installed) {
+                var statusColor = data.running ? '#5FB878' : '#FF5722';
+                var statusText = data.running ? '运行中' : '未运行';
+                var html = `<div style="color:${statusColor}"><i class="layui-icon ${data.running ? 'layui-icon-ok-circle' : 'layui-icon-close-fill'}"></i> ${statusText} (${data.version || ''})</div>`;
+                html += data.config_exists ? '<div>配置文件: <span style="color:#5FB878">正常</span></div>' : '<div>配置文件: <span style="color:#FF5722">缺失</span></div>';
+                
+                // Smart module detection UI
+                if (data.modules) {
+                    html += '<div style="margin-top:8px; display:flex; gap:4px; flex-wrap:wrap;">';
+                    Object.keys(data.modules).forEach(m => {
+                        var active = data.modules[m];
+                        var color = active ? 'layui-bg-green' : 'layui-bg-orange';
+                        var cursor = active ? 'default' : 'pointer';
+                        var title = active ? '组件已就绪' : '组件缺失，点击查看修复命令';
+                        html += `<span class="layui-badge ${color} mod-badge" data-mod="${m}" data-active="${active}" style="font-size:10px; cursor:${cursor};" title="${title}">${m}</span>`;
+                    });
+                    html += '</div>';
+                }
+                
+                if (data.default_site_enabled) {
+                    html += '<div style="margin-top:5px; color:#FFB800; font-size:11px;"><i class="layui-icon layui-icon-tips"></i> 检测到 000-default 启用，可能冲突</div>';
+                }
+
+                el.html(html);
+                
+                // Bind click events for badges
+                el.find('.mod-badge').click(function() {
+                    var m = $(this).data('mod');
+                    var active = $(this).data('active');
+                    if (!active) {
+                        var cmd = `sudo a2enmod ${m} && sudo systemctl restart apache2`;
+                        layer.alert(`检测到 Apache 核心组件 <b>${m}</b> 未启用。<br><br><b>修复建议：</b><br><code style="background:#f2f2f2;padding:4px;display:block;margin-top:5px;">${cmd}</code>`, {title: '环境体检建议', icon: 7});
+                    }
+                });
+            } else {
+                el.html('<span style="color:#999">未检测到系统 Apache</span>');
+            }
+        }).catch(() => $('#apache-status').text('获取失败'));
 
         // PHP
         fetch(apiBase + "/api/php/status").then(r => r.json()).then(data => {
@@ -260,7 +314,12 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
             };
         },
         cols: [[
-            { field: 'name', title: '网站名称', width: 140 },
+            {
+                field: 'name', title: '网站名称', width: 140, templet: function (d) {
+                    var sslIcon = d.is_ssl ? ' <i class="layui-icon layui-icon-vercode" style="color:#5FB878; font-size:12px;" title="SSL已开启"></i>' : '';
+                    return d.name + sslIcon;
+                }
+            },
             { field: 'mode', title: '类型', width: 70, templet: function (d) { return d.mode === 'domain' ? '域名' : '端口'; } },
             {
                 field: 'port', title: '监听端口', width: 110, templet: function (d) {
@@ -336,10 +395,24 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
         apiPost("/api/settings/set-upload-limit", "limit=" + encodeURIComponent(val), "修改成功");
     });
 
-    $('#btn-restart-nginx').click(function () {
-        layer.confirm('确定重启 Nginx 服务？<br>这可能会中断当前连接', function (index) {
+    // --- Advanced Service Controls ---
+    $('.btn-service-restart').click(function () {
+        var type = $(this).data('type');
+        var name = type === 'nginx' ? 'Nginx' : 'Apache';
+        var $btn = $(this);
+        var $icon = $btn.find('i');
+        
+        layer.confirm(`确定要重启 ${name} 服务吗？此操作可能会中断现有连接。`, { icon: 3, title: '服务运维提示' }, function (index) {
             layer.close(index);
-            apiPost("/api/nginx/restart", "", "重启成功");
+            
+            // Start spinning animation
+            $icon.addClass('layui-anim layui-anim-rotate layui-anim-loop');
+            
+            apiPost("/api/web-server/restart", "type=" + type, name + " 重启成功", function() {
+                // Stop spinning
+                $icon.removeClass('layui-anim layui-anim-rotate layui-anim-loop');
+                loadStatus(); // Refresh status
+            });
         });
     });
 
@@ -350,15 +423,17 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
         var checkLoading = layer.load(2);
         Promise.all([
             fetch(apiBase + "/api/nginx/status").then(r => r.json()),
+            fetch(apiBase + "/api/apache/status").then(r => r.json()),
             fetch(apiBase + "/api/php/status").then(r => r.json())
         ]).then(results => {
             layer.close(checkLoading);
             var nginxData = results[0];
-            var phpData = results[1];
+            var apacheData = results[1];
+            var phpData = results[2];
 
-            if (!nginxData.installed || !phpData.installed || !phpData.versions || phpData.versions.length === 0) {
+            if ((!nginxData.installed && !apacheData.installed) || !phpData.installed || !phpData.versions || phpData.versions.length === 0) {
                 var msg = "缺少必要运行环境，无法创建网站：<br><br>";
-                if (!nginxData.installed) msg += "- <b style='color:#FF5722'>Nginx 未安装</b> (请先安装并配置 Nginx)<br>";
+                if (!nginxData.installed && !apacheData.installed) msg += "- <b style='color:#FF5722'>未检测到 Web 服务器</b> (Nginx 和 Apache 均未安装)<br>";
                 if (!phpData.installed || !phpData.versions || phpData.versions.length === 0) msg += "- <b style='color:#FF5722'>PHP 未就绪</b> (未检测到可用的 PHP-FPM 版本)<br>";
 
                 layer.alert(msg, {
@@ -386,9 +461,24 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
             form.val('form-create-site', {
                 "name": "", "mode": "port", "domain": "", "port": "80",
                 "use_http": true, "use_https": false, "port_ssl": "443",
+                "ws_type": window.currentWsType || "nginx",
                 "php_version": phpData.versions[0].version,
                 "root": "", "rewrite": ""
             });
+
+            // Handle server driver options availability
+            $('input[name=ws_type][value=nginx]').attr('disabled', !nginxData.installed);
+            $('input[name=ws_type][value=apache]').attr('disabled', !apacheData.installed);
+            
+            // Auto-fallback if the default driver is missing
+            if (window.currentWsType === 'nginx' && !nginxData.installed && apacheData.installed) {
+                form.val('form-create-site', { "ws_type": "apache" });
+            } else if (window.currentWsType === 'apache' && !apacheData.installed && nginxData.installed) {
+                form.val('form-create-site', { "ws_type": "nginx" });
+            }
+
+            form.render(); // Re-render to show disabled states
+            
             $('input[name=mode][value=port]').prop('checked', true);
             form.render();
             updateCreateSiteVisibility("port");
@@ -427,6 +517,7 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
         var mode = field.mode;
         var body = "mode=" + mode + "\nroot=" + field.root;
         if (field.name) body += "\nname=" + encodeURIComponent(field.name);
+        if (field.ws_type) body += "\nws_type=" + field.ws_type;
 
         var useHttp, useHttps, p, ph;
         if (mode === 'domain') {
@@ -671,6 +762,52 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
         return false;
     });
 
+    // --- Global Settings ---
+    $('#btn-save-driver-settings').click(function () {
+        var formData = form.val('form-driver-settings');
+        var newType = formData.ws_type;
+
+        var doSave = function () {
+            apiJSON("/api/web-server/set-type", "POST", { type: newType }, "设置已更新", function () {
+                loadStatus();
+                layer.alert(`Web 服务器驱动已切换为 <b>${newType === 'apache' ? 'Apache' : 'Nginx'}</b>。<br><br>注意：切换驱动仅影响新创建的网站。现有网站配置不会自动迁移，您可能需要手动调整或重新创建站点。`, { icon: 1, title: '设置成功' });
+            });
+        };
+
+        if (newType === 'apache') {
+            // Pre-check Apache health before switching
+            var loading = layer.load(2);
+            fetch(apiBase + "/api/apache/status").then(r => r.json()).then(data => {
+                layer.close(loading);
+                if (data.installed) {
+                    var missing = [];
+                    if (data.modules) {
+                        if (!data.modules.rewrite) missing.push('rewrite');
+                        if (!data.modules.proxy_fcgi) missing.push('proxy_fcgi');
+                    }
+                    if (missing.length > 0) {
+                        layer.confirm(`检测到 Apache 必要组件（<b>${missing.join(', ')}</b>）缺失，这可能导致站点运行异常。<br><br><b>确定要强制切换吗？</b>`, { icon: 0, title: '环境风险预警', btn: ['确认切换', '先去修复'] }, function (index) {
+                            layer.close(index);
+                            doSave();
+                        });
+                    } else {
+                        doSave();
+                    }
+                } else {
+                    layer.confirm('系统中尚未检测到 Apache 服务，确定要切换吗？', { icon: 7, title: '预警' }, function (index) {
+                        layer.close(index);
+                        doSave();
+                    });
+                }
+            }).catch(() => {
+                layer.close(loading);
+                doSave();
+            });
+        } else {
+            doSave();
+        }
+    });
+
     // --- Initialize ---
     switchTab('system'); // Clear state and show default tab
 
@@ -711,6 +848,10 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
     });
 
     // --- External Trigger for Rebranding verification ---
+    // --- Initial Load ---
+    switchTab('system');
+    reloadSites();
+
     console.log("WebServer Panel Initialized");
 
 });
