@@ -537,6 +537,12 @@ function renderAppDetail(app) {
                     <div class="info-label">分类</div>
                     <div class="info-value">${escapeHtml(displayLabels)}</div>
                 </div>
+                <div class="info-item">
+                    <div class="info-label">运行状态</div>
+                    <div class="info-value">
+                        <span class="status-badge status-${status.status}">${getStatusText(status.status)}</span>
+                    </div>
+                </div>
             </div>
 
             <div class="detail-section">

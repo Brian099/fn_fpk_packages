@@ -240,6 +240,7 @@ func convertToApp(appName string, fnpackApp models.FnpackApp, sourceID string) m
 
 	return models.App{
 		ID:          appName,
+		AppName:     appName, // 远程源通常 ID 和 AppName 是一致的
 		Name:        fnpackApp.DisplayName,
 		Description: desc,
 		Version:     version,

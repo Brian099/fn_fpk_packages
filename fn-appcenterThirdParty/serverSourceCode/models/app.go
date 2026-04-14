@@ -18,6 +18,7 @@ type App struct {
 	Size        string   `json:"size"`
 	Icon        string   `json:"icon"`
 	Screenshots []string `json:"screenshots"`
+	AppName     string   `json:"appname"`
 	DownloadURL string   `json:"download_url"`
 	Changelog   string   `json:"changelog"`
 	SourceID    string   `json:"source_id"`

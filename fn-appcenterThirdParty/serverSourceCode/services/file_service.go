@@ -17,7 +17,7 @@ import (
 	"appcenter/models"
 )
 
-func parseFPKFile(fpkPath string, baseDir string) (models.App, error) {
+func ParseFPKFile(fpkPath string, baseDir string) (models.App, error) {
 	var app models.App
 	app.ID = strings.TrimSuffix(filepath.Base(fpkPath), ".fpk")
 
@@ -31,19 +31,6 @@ func parseFPKFile(fpkPath string, baseDir string) (models.App, error) {
 	if info, err := os.Stat(fpkPath); err == nil {
 		sizeMB := float64(info.Size()) / 1024 / 1024
 		app.Size = fmt.Sprintf("%.2f", sizeMB)
-	}
-
-	isInstalled := false
-	cmd := exec.Command("appcenter-cli", "list")
-	output, err := cmd.Output()
-	if err == nil {
-		lines := strings.Split(string(output), "\n")
-		for _, line := range lines {
-			if strings.Contains(line, app.ID) {
-				isInstalled = true
-				break
-			}
-		}
 	}
 
 	file, err := os.Open(fpkPath)
@@ -119,10 +106,16 @@ func parseFPKFile(fpkPath string, baseDir string) (models.App, error) {
 		return app, fmt.Errorf("manifest not found in FPK")
 	}
 
+	if appname, ok := manifestData["appname"]; ok && appname != "" {
+		app.AppName = appname
+	} else {
+		app.AppName = app.ID
+	}
+
 	if displayName, ok := manifestData["display_name"]; ok && displayName != "" {
 		app.Name = displayName
-	} else if appname, ok := manifestData["appname"]; ok && appname != "" {
-		app.Name = appname
+	} else if app.AppName != "" {
+		app.Name = app.AppName
 	} else {
 		app.Name = app.ID
 	}
@@ -174,6 +167,19 @@ func parseFPKFile(fpkPath string, baseDir string) (models.App, error) {
 	}
 	app.Categories = app.Labels
 
+	// 判定安装状态（必须使用真正的 AppName）
+	isInstalled := false
+	cmd := exec.Command("appcenter-cli", "list")
+	output, err := cmd.Output()
+	if err == nil {
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, app.AppName) {
+				isInstalled = true
+				break
+			}
+		}
+	}
 	app.IsInstalled = isInstalled
 
 	return app, nil

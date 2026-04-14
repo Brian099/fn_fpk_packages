@@ -2556,5 +2556,38 @@ textarea {
 .volume-item-path {
     font-size: 14px;
     color: var(--semi-color-text-1);
+}/* Status Badge for Details */
+.status-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-badge.status-running {
+    background-color: var(--semi-green-1);
+    color: var(--semi-green-5);
+}
+
+.status-badge.status-stopped {
+    background-color: var(--semi-grey-1);
+    color: var(--semi-grey-5);
+}
+
+.status-badge.status-not_installed {
+    background-color: var(--semi-amber-0);
+    color: var(--semi-amber-5);
+}
+
+.status-badge.status-starting, .status-badge.status-stopping, .status-badge.status-installing {
+    background-color: var(--semi-blue-0);
+    color: var(--semi-blue-5);
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
 }
 }

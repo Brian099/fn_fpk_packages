@@ -196,8 +196,8 @@ func ScanFPKDir(baseDir string, sourceID string, forceRescan bool) []models.App 
 
 		newFingerprints[cachedApp.ID] = currentFp
 
-		// 指纹未变化，使用缓存
-		if !forceRescan && hasCachedFp && currentFp == cachedFp && currentFp.ModTime != 0 {
+		// 指纹未变化，且 AppName 存在时，才使用缓存
+		if !forceRescan && hasCachedFp && currentFp == cachedFp && currentFp.ModTime != 0 && cachedApp.AppName != "" {
 			allApps = append(allApps, cachedApp)
 			continue
 		}
@@ -218,7 +218,7 @@ func ScanFPKDir(baseDir string, sourceID string, forceRescan bool) []models.App 
 			continue
 		}
 
-		app, err := parseFPKFile(fpkPath, baseDir)
+		app, err := ParseFPKFile(fpkPath, baseDir)
 		if err != nil {
 			log.Printf("Failed to parse FPK file %s: %v", fpkPath, err)
 			// 解析失败时保留旧的
@@ -242,7 +242,7 @@ func ScanFPKDir(baseDir string, sourceID string, forceRescan bool) []models.App 
 		}
 		seenIDs[appID] = true
 
-		app, err := parseFPKFile(fpkPath, baseDir)
+		app, err := ParseFPKFile(fpkPath, baseDir)
 		if err != nil {
 			log.Printf("Failed to parse new FPK file %s: %v", fpkPath, err)
 			continue

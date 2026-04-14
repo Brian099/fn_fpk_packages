@@ -19,6 +19,40 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// resolveAppName 根据 appID 获取其内部真实的 AppName
+func resolveAppName(appID string) string {
+	// 1. 尝试从缓存中查找（仅在 AppName 字段有效时返回）
+	sources := services.LoadSources()
+	for i := range sources {
+		if !sources[i].Enabled {
+			continue
+		}
+		apps := services.LoadAppsFromSource(&sources[i])
+		for _, app := range apps {
+			if app.ID == appID && app.AppName != "" {
+				log.Printf("[Resolve] Found AppName '%s' from CACHE for ID: %s", app.AppName, appID)
+				return app.AppName
+			}
+		}
+	}
+
+	// 2. 如果缓存中没有 AppName，尝试实时解析本地 FPK 文件
+	userAppStoreDir := services.GetUsersAppStoreDir()
+	fpkPath := filepath.Join(userAppStoreDir, appID+".fpk")
+	if _, err := os.Stat(fpkPath); err == nil {
+		app, err := services.ParseFPKFile(fpkPath, userAppStoreDir)
+		if err == nil && app.AppName != "" {
+			log.Printf("[Resolve] Found AppName '%s' from LIVE FPK scan for ID: %s", app.AppName, appID)
+			return app.AppName
+		}
+	}
+
+	// 3. 最后手段：查已安装目录探测
+	realName := getInstalledAppName(appID)
+	log.Printf("[Resolve] Fallback to name '%s' for ID: %s", realName, appID)
+	return realName
+}
+
 // getAppCenterCliPath 获取appcenter-cli的路径
 func getAppCenterCliPath() string {
 	if config.AppCenterCliPath != "" {
@@ -453,13 +487,14 @@ func copyFile(src, dst string) error {
 // StartApp 启动应用
 func StartApp(c *gin.Context) {
 	appID := c.Param("id")
+	realAppName := resolveAppName(appID)
 
 	// Use appcenter-cli to start the app
 	cliPath := getAppCenterCliPath()
-	cmd := exec.Command(cliPath, "start", appID)
+	cmd := exec.Command(cliPath, "start", realAppName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("Failed to start app %s: %v, output: %s", appID, err, string(output))
+		log.Printf("Failed to start app %s (ID:%s): %v, output: %s", realAppName, appID, err, string(output))
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
 			"message": fmt.Sprintf("Failed to start: %v", err),
@@ -478,13 +513,14 @@ func StartApp(c *gin.Context) {
 // StopApp 停止应用
 func StopApp(c *gin.Context) {
 	appID := c.Param("id")
+	realAppName := resolveAppName(appID)
 
 	// Use appcenter-cli to stop the app
 	cliPath := getAppCenterCliPath()
-	cmd := exec.Command(cliPath, "stop", appID)
+	cmd := exec.Command(cliPath, "stop", realAppName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("Failed to stop app %s: %v, output: %s", appID, err, string(output))
+		log.Printf("Failed to stop app %s (ID:%s): %v, output: %s", realAppName, appID, err, string(output))
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
 			"message": fmt.Sprintf("Failed to stop: %v", err),
@@ -508,7 +544,7 @@ func UninstallApp(c *gin.Context) {
 	cliPath := getAppCenterCliPath()
 
 	// 0. 获取真实的内部应用名称 (从 manifest 读取)
-	realAppName := getInstalledAppName(appID)
+	realAppName := resolveAppName(appID)
 	log.Printf("Uninstalling app. ID: %s, RealName: %s, KeepData: %v", appID, realAppName, keepData)
 
 	// 1. 尝试停止应用 (使用真实应用名)
@@ -611,9 +647,10 @@ func CheckApp(c *gin.Context) {
 // GetAppStatus 获取应用状态
 func GetAppStatus(c *gin.Context) {
 	appID := c.Param("id")
+	realAppName := resolveAppName(appID)
 
 	cliPath := getAppCenterCliPath()
-	cmd := exec.Command(cliPath, "status", appID)
+	cmd := exec.Command(cliPath, "status", realAppName)
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
@@ -628,10 +665,17 @@ func GetAppStatus(c *gin.Context) {
 	}
 
 	outputStr := strings.ToLower(string(output))
-	running := strings.Contains(outputStr, "running")
+	
+	running := false
 	status := "stopped"
-	if running {
+
+	if strings.Contains(outputStr, "noinstall") || strings.Contains(outputStr, "not installed") {
+		status = "not_installed"
+	} else if strings.Contains(outputStr, "running") {
 		status = "running"
+		running = true
+	} else if strings.Contains(outputStr, "stopped") {
+		status = "stopped"
 	}
 
 	c.JSON(http.StatusOK, gin.H{
