@@ -118,9 +118,15 @@ generate_apache_vhost() {
     local ssl_key="$6"
     local php_socket="$7"
     
+    # Fallback for ServerName if domain is empty (e.g. port mode)
+    local server_name="${domain:-localhost}"
+    
+    # Fallback to general log names if domain is empty
+    local log_prefix="${domain:-port_${port}}"
+
     cat <<EOF
 <VirtualHost *:${port}>
-    ServerName ${domain}
+    ServerName ${server_name}
     DocumentRoot ${root_dir}
     
     <Directory ${root_dir}>
@@ -132,8 +138,8 @@ generate_apache_vhost() {
         SetHandler "proxy:unix:${php_socket}|fcgi://localhost"
     </FilesMatch>
 
-    ErrorLog \${APACHE_LOG_DIR}/${domain}_error.log
-    CustomLog \${APACHE_LOG_DIR}/${domain}_access.log combined
+    ErrorLog \${APACHE_LOG_DIR}/${log_prefix}_error.log
+    CustomLog \${APACHE_LOG_DIR}/${log_prefix}_access.log combined
 EOF
 
     if [ "$use_ssl" = "true" ]; then
@@ -354,6 +360,18 @@ create_site_json() {
           return 0
       fi
 
+      # Ensure Apache listens on the required ports globally
+      if [ "$use_http" = "true" ]; then
+          if ! grep -qE "^\s*Listen\s+([0-9\.]+:)?$target_port\b" /etc/apache2/ports.conf 2>/dev/null; then
+              echo "Listen $target_port" >> /etc/apache2/ports.conf
+          fi
+      fi
+      if [ "$use_https" = "true" ]; then
+          if ! grep -qE "^\s*Listen\s+([0-9\.]+:)?$target_port_https\b" /etc/apache2/ports.conf 2>/dev/null; then
+              echo "Listen $target_port_https" >> /etc/apache2/ports.conf
+          fi
+      fi
+
       # Use custom urldecode for rewrite if it was encoded
       raw_rewrite=""
       if [ -n "$rewrite_encoded" ]; then
@@ -383,14 +401,18 @@ create_site_json() {
 
       ln -sf "$config_file" "/etc/apache2/sites-enabled/$site_name.conf"
       
-      if apache2ctl configtest >/dev/null 2>&1; then
-          reload_web_server
+      apache_test_output=$(apache2ctl configtest 2>&1)
+      apache_test_status=$?
+
+      if [ $apache_test_status -eq 0 ]; then
+          reload_web_server "apache"
           echo '{"ok":true,"message":"site created (Apache)"}'
       else
           # Rollback
           rm -f "/etc/apache2/sites-enabled/$site_name.conf"
           rm -f "$config_file"
-          echo "{\"ok\":false,\"error\":\"Apache config check failed\"}"
+          error_msg=$(echo "$apache_test_output" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' ' | sed 's/  */ /g')
+          echo "{\"ok\":false,\"error\":\"Apache config check failed: $error_msg\"}"
       fi
 
   else
@@ -522,80 +544,111 @@ EOF
 }
 
 list_sites_json() {
-  local ws_type=$(get_web_server_type)
-  local available_sites=""
-  local conf_dir=""
-  local enabled_dir=""
+  local first=1
+  echo '['
+
+  # --- Apache Sites ---
+  local conf_dir="/etc/apache2/sites-available"
+  local enabled_dir="/etc/apache2/sites-enabled"
+  local available_sites=$(ls $conf_dir/*.conf 2>/dev/null | xargs -n1 basename 2>/dev/null)
   
-  if [ "$ws_type" = "apache" ]; then
-    conf_dir="/etc/apache2/sites-available"
-    enabled_dir="/etc/apache2/sites-enabled"
-    available_sites=$(ls $conf_dir/*.conf 2>/dev/null | xargs -n1 basename 2>/dev/null)
-  else
-    conf_dir="/etc/nginx/sites-available"
-    enabled_dir="/etc/nginx/sites-enabled"
-    available_sites=$(ls $conf_dir/ 2>/dev/null)
+  if [ -n "$available_sites" ]; then
+      for site in $available_sites; do
+          local config_file="$conf_dir/$site"
+          if [ ! -f "$config_file" ]; then continue; fi
+          if [ "$site" = "000-default.conf" ] || [ "$site" = "default-ssl.conf" ]; then continue; fi
+          
+          local port=""
+          local root_dir=""
+          local server_name=""
+          local php_ver="-"
+          local is_ssl=false
+          local mode="domain"
+          
+          port=$(grep "<VirtualHost" "$config_file" | sed 's/[<>]//g' | awk '{print $2}' | awk -F':' '{print $NF}' | sort -u | tr '\n' ',' | sed 's/,$//; s/,/, /g')
+          root_dir=$(grep "DocumentRoot" "$config_file" | head -1 | awk '{print $2}' | tr -d ' "')
+          server_name=$(grep "ServerName" "$config_file" | head -1 | awk '{print $2}' | tr -d ' "')
+          php_ver=$(grep -oE "/run/php/php[0-9.]+-fpm\.sock" "$config_file" | head -1 | sed 's/.*php\(.*\)-fpm\.sock.*/\1/')
+          
+          # Detect mode
+          if [ -n "$server_name" ] && [ "$server_name" != "localhost" ]; then
+              mode="domain"
+          else
+              mode="port"
+          fi
+          
+          if grep -iq "SSLEngine\s*on" "$config_file" || grep -q "VirtualHost\s*.*:443" "$config_file"; then
+              is_ssl=true
+          fi
+          
+          [ -z "$php_ver" ] && php_ver="-"
+          
+          local enabled=false
+          if [ -L "$enabled_dir/$site" ]; then
+            enabled=true
+          fi
+          
+          if [ $first -eq 0 ]; then echo ','; fi
+          first=0
+          
+          # Strip .conf for clean name in UI
+          local display_name="${site%.conf}"
+          local esc_site=$(echo "$display_name" | sed 's/\\/\\\\/g; s/"/\\"/g')
+          local esc_port=$(echo "$port" | sed 's/\\/\\\\/g; s/"/\\"/g')
+          local esc_root=$(echo "$root_dir" | sed 's/\\/\\\\/g; s/"/\\"/g')
+          local esc_php=$(echo "$php_ver" | sed 's/\\/\\\\/g; s/"/\\"/g')
+          
+          echo "{\"name\":\"$esc_site\",\"port\":\"$esc_port\",\"root\":\"$esc_root\",\"php\":\"$esc_php\",\"enabled\":$enabled,\"mode\":\"$mode\",\"is_ssl\":$is_ssl,\"engine\":\"apache\"}"
+      done
   fi
 
-  if [ -z "$available_sites" ]; then
-    echo "[]"
-    return 0
+  # --- Nginx Sites ---
+  conf_dir="/etc/nginx/sites-available"
+  enabled_dir="/etc/nginx/sites-enabled"
+  available_sites=$(ls $conf_dir/ 2>/dev/null)
+
+  if [ -n "$available_sites" ]; then
+      for site in $available_sites; do
+          local config_file="$conf_dir/$site"
+          if [ ! -f "$config_file" ] || [ "$site" = "default" ]; then continue; fi
+          
+          local port=""
+          local root_dir=""
+          local server_name=""
+          local php_ver="-"
+          local is_ssl=false
+          local mode="domain"
+          
+          port=$(grep "listen" "$config_file" 2>/dev/null | grep -v "\[::\]" | awk '{print $2}' | tr -d ';' | sort -nu | tr '\n' ',' | sed 's/,$//; s/,/, /g')
+          root_dir=$(grep "root" "$config_file" 2>/dev/null | head -1 | awk '{print $2}' | tr -d ';')
+          server_name=$(grep "server_name" "$config_file" 2>/dev/null | head -1 | awk '{print $2}' | tr -d ';')
+          php_ver=$(grep "fastcgi_pass unix:/run/php/php" "$config_file" | head -1 | sed 's/.*php\(.*\)-fpm\.sock.*/\1/')
+          
+          [ "$server_name" = "_" ] && mode="port"
+          
+          if grep -q "listen.*443.*ssl" "$config_file" || grep -q "ssl_certificate" "$config_file"; then
+              is_ssl=true
+          fi
+          
+          [ -z "$php_ver" ] && php_ver="-"
+          
+          local enabled=false
+          if [ -L "$enabled_dir/$site" ]; then
+            enabled=true
+          fi
+          
+          if [ $first -eq 0 ]; then echo ','; fi
+          first=0
+          
+          local esc_site=$(echo "$site" | sed 's/\\/\\\\/g; s/"/\\"/g')
+          local esc_port=$(echo "$port" | sed 's/\\/\\\\/g; s/"/\\"/g')
+          local esc_root=$(echo "$root_dir" | sed 's/\\/\\\\/g; s/"/\\"/g')
+          local esc_php=$(echo "$php_ver" | sed 's/\\/\\\\/g; s/"/\\"/g')
+          
+          echo "{\"name\":\"$esc_site\",\"port\":\"$esc_port\",\"root\":\"$esc_root\",\"php\":\"$esc_php\",\"enabled\":$enabled,\"mode\":\"$mode\",\"is_ssl\":$is_ssl,\"engine\":\"nginx\"}"
+      done
   fi
-  
-  first=1
-  echo '['
-  for site in $available_sites; do
-    config_file="$conf_dir/$site"
-    if [ ! -f "$config_file" ]; then continue; fi
-    
-    local port=""
-    local root_dir=""
-    local server_name=""
-    local php_ver="-"
-    local is_ssl=false
-    local mode="domain"
-    
-    if [ "$ws_type" = "apache" ]; then
-        # Apache parsing
-        port=$(grep "VirtualHost" "$config_file" | sed 's/[<>]//g' | awk '{print $2}' | awk -F':' '{print $NF}' | sort -u | tr '\n' ',' | sed 's/,$//; s/,/, /g')
-        root_dir=$(grep "DocumentRoot" "$config_file" | head -1 | awk '{print $2}' | tr -d ' "')
-        server_name=$(grep "ServerName" "$config_file" | head -1 | awk '{print $2}' | tr -d ' "')
-        php_ver=$(grep -oE "/run/php/php[0-9.]+-fpm\.sock" "$config_file" | head -1 | sed 's/.*php\(.*\)-fpm\.sock.*/\1/')
-        [ -z "$server_name" ] && mode="port"
-        # SSL check for Apache
-        if grep -iq "SSLEngine\s*on" "$config_file" || grep -q "VirtualHost\s*.*:443" "$config_file"; then
-            is_ssl=true
-        fi
-        site_link_name="$site"
-    else
-        # Nginx parsing
-        port=$(grep "listen" "$config_file" 2>/dev/null | grep -v "\[::\]" | awk '{print $2}' | tr -d ';' | sort -nu | tr '\n' ',' | sed 's/,$//; s/,/, /g')
-        root_dir=$(grep "root" "$config_file" 2>/dev/null | head -1 | awk '{print $2}' | tr -d ';')
-        server_name=$(grep "server_name" "$config_file" 2>/dev/null | head -1 | awk '{print $2}' | tr -d ';')
-        php_ver=$(grep "fastcgi_pass unix:/run/php/php" "$config_file" | head -1 | sed 's/.*php\(.*\)-fpm\.sock.*/\1/')
-        [ "$server_name" = "_" ] && mode="port"
-        # SSL check for Nginx
-        if grep -q "listen.*443.*ssl" "$config_file" || grep -q "ssl_certificate" "$config_file"; then
-            is_ssl=true
-        fi
-        site_link_name="$site"
-    fi
-    
-    [ -z "$php_ver" ] && php_ver="-"
-    
-    enabled=false
-    if [ -L "$enabled_dir/$site_link_name" ]; then
-      enabled=true
-    fi
-    
-    if [ $first -eq 0 ]; then echo ','; fi
-    first=0
-    esc_site=$(echo "$site" | sed 's/\\/\\\\/g; s/"/\\"/g')
-    esc_port=$(echo "$port" | sed 's/\\/\\\\/g; s/"/\\"/g')
-    esc_root=$(echo "$root_dir" | sed 's/\\/\\\\/g; s/"/\\"/g')
-    esc_php=$(echo "$php_ver" | sed 's/\\/\\\\/g; s/"/\\"/g')
-    echo "{\"name\":\"$esc_site\",\"port\":\"$esc_port\",\"root\":\"$esc_root\",\"php\":\"$esc_php\",\"enabled\":$enabled,\"mode\":\"$mode\",\"is_ssl\":$is_ssl}"
-  done
+
   echo ']'
 }
 
@@ -915,9 +968,8 @@ delete_site_json() {
   local enabled_link=""
   
   if [ "$ws_type" = "apache" ]; then
-      conf_file="/etc/apache2/sites-available/$site_name"
-      # If site_name doesn't end with .conf, add it? (but list_sites_json returns it with suffix)
-      enabled_link="/etc/apache2/sites-enabled/$site_name"
+      conf_file="/etc/apache2/sites-available/$site_name.conf"
+      enabled_link="/etc/apache2/sites-enabled/$site_name.conf"
   else
       conf_file="/etc/nginx/sites-available/$site_name"
       enabled_link="/etc/nginx/sites-enabled/$site_name"
@@ -1023,8 +1075,8 @@ enable_site_json() {
   local enabled_link=""
   
   if [ "$ws_type" = "apache" ]; then
-      available_config="/etc/apache2/sites-available/$site_name"
-      enabled_link="/etc/apache2/sites-enabled/$site_name"
+      available_config="/etc/apache2/sites-available/$site_name.conf"
+      enabled_link="/etc/apache2/sites-enabled/$site_name.conf"
   else
       available_config="/etc/nginx/sites-available/$site_name"
       enabled_link="/etc/nginx/sites-enabled/$site_name"
@@ -1074,7 +1126,7 @@ disable_site_json() {
   local enabled_link=""
   
   if [ "$ws_type" = "apache" ]; then
-      enabled_link="/etc/apache2/sites-enabled/$site_name"
+      enabled_link="/etc/apache2/sites-enabled/$site_name.conf"
   else
       enabled_link="/etc/nginx/sites-enabled/$site_name"
   fi
@@ -1104,7 +1156,7 @@ fix_permissions_json() {
   ws_type=$(detect_site_driver "$site_name")
   local config_file=""
   if [ "$ws_type" = "apache" ]; then
-      config_file="/etc/apache2/sites-available/$site_name"
+      config_file="/etc/apache2/sites-available/$site_name.conf"
   else
       config_file="/etc/nginx/sites-available/$site_name"
   fi
@@ -1387,7 +1439,7 @@ case "$1" in
   fix-permissions)
     fix_permissions_json
     ;;
-  nginx-restart)
+  web-server-restart)
     web_server_restart_json
     ;;
   nginx-status)
