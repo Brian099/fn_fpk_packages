@@ -315,15 +315,27 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
         },
         cols: [[
             {
-                field: 'name', title: '网站名称', width: 140, templet: function (d) {
+                field: 'name', title: '网站名称', width: 150, templet: function (d) {
                     var sslIcon = d.is_ssl ? ' <i class="layui-icon layui-icon-vercode" style="color:#5FB878; font-size:12px;" title="SSL已开启"></i>' : '';
                     return d.name + sslIcon;
+                }
+            },
+            {
+                field: 'engine', title: 'Web 服务器', width: 100, templet: function (d) {
+                    if (d.engine === 'apache') return '<span class="layui-badge layui-bg-orange">Apache</span>';
+                    return '<span class="layui-badge layui-bg-green">Nginx</span>';
                 }
             },
             { field: 'mode', title: '类型', width: 70, templet: function (d) { return d.mode === 'domain' ? '域名' : '端口'; } },
             {
                 field: 'port', title: '监听端口', width: 110, templet: function (d) {
-                    if (d.port) return d.port.split(',').map(p => `<span class="layui-badge layui-bg-gray">${p}</span>`).join(' ');
+                    if (d.port) {
+                        return d.port.split(',')
+                            .map(p => p.trim())
+                            .filter(p => p !== '')
+                            .map(p => `<span class="layui-badge layui-bg-gray">${p}</span>`)
+                            .join(' ');
+                    }
                     return '-';
                 }
             },
