@@ -1,5 +1,4 @@
 #!/bin/bash
-set -x
 # Music Scanning Function
 scan_music_json() {
   # Read raw body from stdin
@@ -324,10 +323,107 @@ except Exception:
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# Force use of app-local config directory as requested
-CONFIG_DIR="$APP_ROOT/config"
+# Persistent path detection for FnOS
+PERSISTENT_BASE="/var/apps/waves"
+if [ -d "$PERSISTENT_BASE" ]; then
+    CONFIG_DIR="$PERSISTENT_BASE/home"
+else
+    # Fallback to app-local config directory
+    CONFIG_DIR="$APP_ROOT/home"
+fi
+
 CONFIG_FILE="$CONFIG_DIR/config.json"
 LIBRARY_FILE="$CONFIG_DIR/library.json"
+PLAYLISTS_DIR="$CONFIG_DIR"
+
+# Ensure essential directories exist
+if [ ! -d "$CONFIG_DIR" ]; then
+  mkdir -p "$CONFIG_DIR"
+fi
+
+# Migration: move old playlists from config/playlists/ to config/playlist_*.json
+OLD_PLAYLISTS_DIR="$CONFIG_DIR/playlists"
+if [ -d "$OLD_PLAYLISTS_DIR" ]; then
+  ls "$OLD_PLAYLISTS_DIR"/*.json 2>/dev/null | while read -r old_file; do
+    playlist_name=$(basename "$old_file" .json)
+    new_file="$CONFIG_DIR/playlist_${playlist_name}.json"
+    if [ ! -f "$new_file" ]; then
+      mv "$old_file" "$new_file"
+    fi
+  done
+  # Try to remove the directory if empty
+  rmdir "$OLD_PLAYLISTS_DIR" 2>/dev/null
+fi
+
+list_playlists() {
+  echo -n '{"ok":true, "playlists":['
+  first=1
+  # Find playlist_*.json files in config dir
+  ls "$PLAYLISTS_DIR"/playlist_*.json 2>/dev/null | while read -r file; do
+    if [ $first -eq 0 ]; then echo -n ','; fi
+    first=0
+    filename=$(basename "$file" .json)
+    name="${filename#playlist_}"
+    # Simple escape for JSON
+    esc_name=$(echo "$name" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    echo -n "\"$esc_name\""
+  done
+  echo ']}'
+}
+
+save_playlist() {
+  # Expects input like: {"name": "MyList", "data": [...]}
+  content=$(cat)
+  name=$(echo "$content" | python3 -c "import sys, json; print(json.load(sys.stdin).get('name', ''))" 2>/dev/null)
+  
+  if [ -z "$name" ]; then
+      echo '{"ok":false, "error":"Invalid playlist name"}'
+      return
+  fi
+
+  # Protect core config files
+  if [ "$name" == "config" ] || [ "$name" == "library" ]; then
+      echo '{"ok":false, "error":"Reserved name not allowed"}'
+      return
+  fi
+
+  file_path="$PLAYLISTS_DIR/playlist_${name}.json"
+  
+  if echo "$content" > "$file_path"; then
+      echo '{"ok":true}'
+  else
+      echo '{"ok":false,"error":"Failed to save playlist file"}'
+  fi
+}
+
+get_playlist() {
+  name=$(cat)
+  # Trim
+  name=$(echo "$name" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  file_path="$PLAYLISTS_DIR/playlist_${name}.json"
+  
+  if [ -f "$file_path" ]; then
+    cat "$file_path"
+  else
+    echo "{\"ok\":false, \"error\":\"Playlist not found: $name\"}"
+  fi
+}
+
+delete_playlist() {
+  name=$(cat)
+  name=$(echo "$name" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  file_path="$PLAYLISTS_DIR/playlist_${name}.json"
+  
+  if [ -f "$file_path" ]; then
+    if rm "$file_path"; then
+        echo '{"ok":true}'
+    else
+        echo '{"ok":false, "error":"Permission denied deleting playlist"}'
+    fi
+  else
+      echo '{"ok":false, "error":"Playlist not found"}'
+  fi
+}
 
 get_config() {
   if [ -f "$CONFIG_FILE" ]; then
@@ -469,6 +565,18 @@ case "$1" in
     ;;
   save-library)
     save_library
+    ;;
+  list-playlists)
+    list_playlists
+    ;;
+  save-playlist)
+    save_playlist
+    ;;
+  get-playlist)
+    get_playlist
+    ;;
+  delete-playlist)
+    delete_playlist
     ;;
   *)
     echo '{"error":"unsupported action"}'

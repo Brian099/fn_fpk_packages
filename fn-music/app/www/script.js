@@ -12,6 +12,10 @@ let isLoop = false; // true = loop one, false = loop all (default) or no loop?
 let isLoopOne = false;
 let lastPlaybackState = null; // { path, position, timestamp }
 let isInitialRestore = false;
+let savedPlaylists = [];
+let currentPlaylist = null; // Currently viewed playlist metadata
+let matchingResults = []; // Temporary storage for playlist matching process
+let activeMatchingIndex = -1; // For manual song picker
 
 // API Base Path (Matches installation path)
 const apiBase = "/cgi/ThirdParty/waves/index.cgi";
@@ -200,18 +204,24 @@ async function saveSettings() {
 // Navigation
 function showSection(id) {
     document.querySelectorAll('.section').forEach(el => el.style.display = 'none');
-    document.getElementById('section-' + id).style.display = 'flex';
+    const targetSection = document.getElementById('section-' + id);
+    if (targetSection) targetSection.style.display = 'flex';
     
-    const menuItems = document.querySelectorAll('.menu-item');
-    menuItems.forEach(el => el.classList.remove('active'));
+    // Highlight sidebar
+    document.querySelectorAll('.menu-item').forEach(el => {
+        const onClickAttr = el.getAttribute('onclick') || '';
+        if (onClickAttr.includes(`'${id}'`)) {
+            el.classList.add('active');
+        } else {
+            el.classList.remove('active');
+        }
+    });
     
-    if (id === 'library') {
-        menuItems[0].classList.add('active');
-    } else if (id === 'artists') {
-        menuItems[1].classList.add('active');
+    // Specific logic per section
+    if (id === 'artists') {
         renderArtists();
-    } else if (id === 'settings') {
-        menuItems[2].classList.add('active');
+    } else if (id === 'playlists') {
+        loadPlaylists();
     }
 }
 
@@ -1152,9 +1162,6 @@ function openDirBrowser() {
     loadBrowserPath('/');
 }
 
-function closeModal() {
-    document.getElementById('modal-browser').style.display = 'none';
-}
 
 async function loadBrowserPath(path) {
     browserCurrentPath = path;
@@ -1216,7 +1223,343 @@ function selectDirectory(path) {
     const input = document.getElementById('manual-dir-input');
     if (input) {
         input.value = path;
-        // Trigger any potential change events if needed? No, just setting value is fine for this app.
     }
-    closeModal();
+    closeModal('modal-browser');
+}
+
+// Playlists Logic
+async function loadPlaylists() {
+    const container = document.getElementById('playlist-list-container');
+    const view = document.getElementById('selected-playlist-view');
+    view.style.display = 'none';
+    container.style.display = 'grid';
+    container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:20px;">加载中...</div>';
+    
+    try {
+        const res = await fetch(`${apiBase}?api_route=/api/music/playlist/list`);
+        const data = await res.json();
+        if (data.ok) {
+            savedPlaylists = data.playlists || [];
+            renderPlaylists();
+        }
+    } catch (e) {
+        console.error('Failed to load playlists', e);
+        container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:20px; color:#ff5722;">加载失败</div>';
+    }
+}
+
+function renderPlaylists() {
+    const container = document.getElementById('playlist-list-container');
+    container.innerHTML = '';
+    document.getElementById('playlist-status').innerText = `共 ${savedPlaylists.length} 个歌单`;
+
+    if (savedPlaylists.length === 0) {
+        container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:50px; color:#666;">暂无歌单，点击上方“新建歌单”开始。</div>';
+        return;
+    }
+
+    savedPlaylists.forEach(name => {
+        const div = document.createElement('div');
+        div.className = 'playlist-card';
+        div.innerHTML = `
+            <i class="layui-icon layui-icon-list"></i>
+            <div class="name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
+        `;
+        div.onclick = () => viewPlaylist(name);
+        container.appendChild(div);
+    });
+}
+
+async function viewPlaylist(name) {
+    const container = document.getElementById('playlist-list-container');
+    const view = document.getElementById('selected-playlist-view');
+    container.style.display = 'none';
+    view.style.display = 'flex';
+    const mainToolbar = document.getElementById('playlist-main-toolbar');
+    if (mainToolbar) mainToolbar.style.display = 'none';
+    
+    document.getElementById('current-playlist-name').innerText = name;
+    const songsContainer = document.getElementById('playlist-songs-container');
+    songsContainer.innerHTML = '<div style="text-align:center; padding:20px;">正在加载内容...</div>';
+    
+    try {
+        const res = await fetch(`${apiBase}?api_route=/api/music/playlist/get&name=${encodeURIComponent(name)}`);
+        currentPlaylist = await res.json();
+        
+        if (currentPlaylist && currentPlaylist.data) {
+            renderPlaylistSongs(currentPlaylist.data);
+        } else {
+            songsContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#f44336;">无法获取歌单内容</div>';
+        }
+    } catch (e) {
+        console.error(e);
+        songsContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#f44336;">读取失败</div>';
+    }
+}
+
+function backToPlaylistList() {
+    document.getElementById('playlist-list-container').style.display = 'grid';
+    document.getElementById('selected-playlist-view').style.display = 'none';
+    const mainToolbar = document.getElementById('playlist-main-toolbar');
+    if (mainToolbar) mainToolbar.style.display = 'flex';
+}
+
+function renderPlaylistSongs(data) {
+    const container = document.getElementById('playlist-songs-container');
+    container.innerHTML = '';
+    
+    data.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = 'playlist-item';
+        
+        // Find track info in allTracks if possible
+        const track = allTracks.find(t => t.path === item.path);
+        
+        const title = track ? (track.title || track.name) : item.query;
+        const artist = track ? (track.artist || 'Unknown Artist') : 'Unknown';
+        const album = track ? (track.album || '--') : '--';
+        const size = track ? formatSize(track.size) : '--';
+        const duration = track ? formatTime(track.duration) : '--';
+        
+        div.innerHTML = `
+            <div class="col-name" title="${escapeHtml(title)}">${escapeHtml(title)}</div>
+            <div class="col-artist">${escapeHtml(artist)}</div>
+            <div class="col-album">${escapeHtml(album)}</div>
+            <div class="col-size">${size}</div>
+            <div class="col-duration">${duration}</div>
+        `;
+        
+        div.onclick = () => {
+             // Play from here in the context of THIS playlist
+             playPlaylistAt(index);
+        };
+        
+        container.appendChild(div);
+    });
+}
+
+function playPlaylistAt(startIndex) {
+    if (!currentPlaylist || !currentPlaylist.data) return;
+    
+    // Construct new temporary playlist from matched paths
+    const newPlaylist = [];
+    currentPlaylist.data.forEach(item => {
+        const track = allTracks.find(t => t.path === item.path);
+        if (track) {
+            newPlaylist.push(track);
+        } else {
+            // Placeholder for missing file
+            newPlaylist.push({
+                name: item.query,
+                path: item.path,
+                title: item.query + " (已丢失)"
+            });
+        }
+    });
+    
+    playlist = newPlaylist;
+    document.getElementById('library-status').innerText = `歌单播放中: ${currentPlaylist.name}`;
+    play(startIndex);
+}
+
+function playCurrentPlaylist() {
+    playPlaylistAt(0);
+}
+
+// Create Playlist Workflow
+function openCreatePlaylistModal() {
+    document.getElementById('modal-create-playlist').style.display = 'flex';
+    document.getElementById('playlist-input-step').style.display = 'block';
+    document.getElementById('playlist-match-step').style.display = 'none';
+    document.getElementById('btn-next-step').style.display = 'inline-block';
+    document.getElementById('btn-save-playlist').style.display = 'none';
+    document.getElementById('playlist-raw-input').value = '';
+    matchingResults = [];
+}
+
+function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+}
+
+function processPlaylistInput() {
+    const input = document.getElementById('playlist-raw-input').value;
+    const lines = input.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    
+    if (lines.length === 0) {
+        alert('请输入歌曲名称');
+        return;
+    }
+    
+    matchingResults = [];
+    lines.forEach(query => {
+        const match = matchSong(query);
+        matchingResults.push({
+            query: query,
+            path: match ? match.path : null,
+            track: match
+        });
+    });
+    
+    document.getElementById('playlist-input-step').style.display = 'none';
+    document.getElementById('playlist-match-step').style.display = 'block';
+    document.getElementById('btn-next-step').style.display = 'none';
+    document.getElementById('btn-save-playlist').style.display = 'inline-block';
+    
+    renderMatchResults();
+}
+
+function matchSong(query) {
+    const q = query.toLowerCase();
+    // 1. Precise check: name or title exactly
+    let match = allTracks.find(t => (t.name && t.name.toLowerCase() === q) || (t.title && t.title.toLowerCase() === q));
+    if (match) return match;
+    
+    // 2. Contains check
+    match = allTracks.find(t => (t.name && t.name.toLowerCase().includes(q)) || (t.title && t.title.toLowerCase().includes(q)));
+    return match || null;
+}
+
+function renderMatchResults() {
+    const tbody = document.getElementById('match-results-body');
+    tbody.innerHTML = '';
+    
+    matchingResults.forEach((res, index) => {
+        const tr = document.createElement('tr');
+        const songInfo = res.track ? `${res.track.title || res.track.name} - ${res.track.artist || 'Unknown'}` : '未找到匹配';
+        const statusClass = res.track ? 'matched' : 'unmatched';
+        const statusText = res.track ? '已匹配' : '无结果';
+        
+        tr.innerHTML = `
+            <td>${escapeHtml(res.query)}</td>
+            <td>
+                <div class="match-status-cell">
+                    <span class="match-status-tag ${statusClass}">${statusText}</span>
+                    <span style="color: #aaa; font-size: 13px;">${escapeHtml(songInfo)}</span>
+                </div>
+            </td>
+            <td>
+                <button class="layui-btn layui-btn-xs layui-btn-primary" onclick="openSongPicker(${index})">切换</button>
+                <button class="layui-btn layui-btn-xs layui-btn-danger" onclick="removeMatchRow(${index})">删除</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function removeMatchRow(index) {
+    matchingResults.splice(index, 1);
+    renderMatchResults();
+}
+
+// Manual picker
+function openSongPicker(index) {
+    activeMatchingIndex = index;
+    document.getElementById('modal-song-picker').style.display = 'flex';
+    document.getElementById('song-picker-search').value = matchingResults[index].query;
+    updatePickerResults(matchingResults[index].query);
+    
+    // Setup search listener
+    document.getElementById('song-picker-search').oninput = (e) => {
+        updatePickerResults(e.target.value);
+    };
+}
+
+function updatePickerResults(query) {
+    const container = document.getElementById('song-picker-list');
+    const q = query.toLowerCase().trim();
+    
+    const results = allTracks.filter(t => 
+        (t.name && t.name.toLowerCase().includes(q)) || 
+        (t.title && t.title.toLowerCase().includes(q)) ||
+        (t.artist && t.artist.toLowerCase().includes(q))
+    ).slice(0, 50); // Limit results
+    
+    container.innerHTML = '';
+    if (results.length === 0) {
+        container.innerHTML = '<div style="padding:10px; color:#888;">无搜索结果</div>';
+        return;
+    }
+    
+    results.forEach(t => {
+        const div = document.createElement('div');
+        div.className = 'picker-item';
+        div.innerHTML = `
+            <div class="song-title">${escapeHtml(t.title || t.name)}</div>
+            <div class="song-info">${escapeHtml(t.artist || 'Unknown Artist')} - ${escapeHtml(t.album || 'Unknown Album')}</div>
+        `;
+        div.onclick = () => {
+            matchingResults[activeMatchingIndex].track = t;
+            matchingResults[activeMatchingIndex].path = t.path;
+            renderMatchResults();
+            closeModal('modal-song-picker');
+        };
+        container.appendChild(div);
+    });
+}
+
+function promptPlaylistName() {
+    const validResults = matchingResults.filter(r => r.path);
+    if (validResults.length === 0) {
+        alert('歌单内没有有效的音乐匹配，请先匹配或选择音乐');
+        return;
+    }
+    
+    const name = prompt('请输入歌单名称：');
+    if (!name) return;
+    
+    // Check duplicates
+    if (savedPlaylists.includes(name)) {
+        alert('歌单名称已存在，请使用其他名称');
+        return;
+    }
+    
+    savePlaylist(name, validResults);
+}
+
+async function savePlaylist(name, items) {
+    const data = {
+        name: name,
+        data: items.map(it => ({ query: it.query, path: it.path }))
+    };
+    
+    try {
+        const res = await fetch(`${apiBase}?api_route=/api/music/playlist/save`, {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (result.ok) {
+            alert('歌单保存成功');
+            closeModal('modal-create-playlist');
+            loadPlaylists();
+        } else {
+            alert('保存失败: ' + result.error);
+        }
+    } catch (e) {
+        console.error(e);
+        alert('服务器连接失败');
+    }
+}
+
+function deletePlaylistPrompt() {
+    if (!currentPlaylist) return;
+    const name = currentPlaylist.name;
+    if (confirm(`确认要删除歌单 "${name}" 吗？`)) {
+        doDeletePlaylist(name);
+    }
+}
+
+async function doDeletePlaylist(name) {
+    try {
+        const res = await fetch(`${apiBase}?api_route=/api/music/playlist/delete&name=${encodeURIComponent(name)}`);
+        const data = await res.json();
+        if (data.ok) {
+            backToPlaylistList();
+            loadPlaylists();
+        } else {
+            alert('删除失败: ' + data.error);
+        }
+    } catch (e) {
+        console.error(e);
+    }
 }

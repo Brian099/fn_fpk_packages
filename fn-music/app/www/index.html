@@ -1,146 +1,256 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Waves</title>
-  <link rel="stylesheet" href="layui.css">
-  <link rel="stylesheet" href="style.css">
-  <!-- Use layui icons since we have them -->
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1">
+   <title>Waves</title>
+   <link rel="stylesheet" href="layui.css">
+   <link rel="stylesheet" href="style.css">
+   <!-- Use layui icons since we have them -->
 </head>
+
 <body>
-  <div id="app">
-    <div class="layout-body">
-      <div id="sidebar">
-        <div class="brand">Waves</div>
-        <div class="menu-item active" onclick="showSection('library')">
-          <i class="layui-icon layui-icon-headset"></i> 我的音乐库
-        </div>
-        <div class="menu-item" onclick="showSection('artists')">
-          <i class="layui-icon layui-icon-user"></i> 歌手列表
-        </div>
-        <div class="menu-item" onclick="showSection('settings')">
-          <i class="layui-icon layui-icon-set"></i> 管理目录
-        </div>
-      </div>
-      
-      <div id="main">
-        <!-- Library View -->
-        <div id="section-library" class="section">
-          <div class="toolbar" style="display: flex; align-items: center; gap: 10px;">
-             <button onclick="playAll()"><i class="layui-icon layui-icon-play"></i> 播放全部</button>
-             <button class="secondary" onclick="shufflePlay()"><i class="layui-icon layui-icon-refresh"></i> 随机播放</button>
-             <input type="text" id="search-input" placeholder="搜索音乐..." oninput="onSearchInput(this.value)" style="flex: 1; max-width: 200px; padding: 6px 10px; border-radius: 4px; border: 1px solid #3e3e42; background-color: #252526; color: #cccccc; outline: none;">
-             <span id="library-status" style="margin-left: 10px; color: #888;"></span>
-          </div>
-          
-          <div class="playlist-header">
-             <div class="col-name">歌曲标题</div>
-             <div class="col-artist">演唱者</div>
-             <div class="col-album">专辑</div>
-             <div class="col-size">大小</div>
-             <div class="col-duration">时长</div>
-          </div>
-          
-          <div id="playlist-container">
-             <!-- List of songs -->
-             <div style="text-align:center; margin-top: 50px; color: #666;">
-               暂无音乐，请去“管理目录”添加文件夹。
-             </div>
-          </div>
-        </div>
-        
-        <!-- Artists View -->
-        <div id="section-artists" class="section" style="display:none;">
-           <h2>歌手列表</h2>
-           <div id="artists-container" class="grid-container">
-              <!-- Artists List -->
-           </div>
-        </div>
-        
-        <!-- Settings View -->
-        <div id="section-settings" class="section" style="display:none;">
-           <div class="section-header">
-             <h2>音乐目录</h2>
-             <button class="secondary" onclick="rescanAll()"><i class="layui-icon layui-icon-refresh-3"></i> 重新扫描</button>
-           </div>
-           <p style="color:#888; margin-bottom: 20px;">添加包含音乐文件的文件夹，系统将自动扫描。</p>
-           
-           <div id="dir-list-container">
-              <!-- Directory List -->
-           </div>
-           
-           <div class="settings-actions">
-             <div class="input-group">
-                <input type="text" id="manual-dir-input" placeholder="输入目录路径 (例如 /media/Music)">
-                <button class="secondary" onclick="openDirBrowser()"><i class="layui-icon layui-icon-folder-open"></i> 浏览目录</button>
-             </div>
-             <button class="primary-action" onclick="addManualDir()"><i class="layui-icon layui-icon-add-circle"></i> 添加到媒体目录</button>
-           </div>
-        </div>
-        <!-- Lyrics Panel -->
-      <div id="lyrics-panel">
-         <div class="lyrics-bg" id="lyrics-bg"></div>
-         <div class="lyrics-mask"></div>
-         <div class="lyrics-content" id="large-lyrics">
-             <div class="current-line">音符自成诗行，邀您沉浸聆听</div>
-             <div class="next-line"></div>
-         </div>
-         <canvas id="visualizer" width="800" height="100"></canvas>
-      </div>
-      
-    </div>
-  </div>
-    
-    <!-- Player Bar -->
-    <div id="player-bar">
-       <div id="now-playing-info">
-         <img id="cover-art" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Cover">
-         <div class="track-details">
-            <div id="track-name">No Music</div>
-            <div id="track-artist"></div>
-         </div>
-       </div>
+   <div id="app">
+      <div class="layout-body">
+         <div id="sidebar">
+            <div class="brand">Waves</div>
+            <div class="menu-item active" onclick="showSection('library')">
+               <i class="layui-icon layui-icon-headset"></i> 我的音乐库
+            </div>
+            <div class="menu-item" onclick="showSection('artists')">
+               <i class="layui-icon layui-icon-user"></i> 歌手列表
+            </div>
+            <div class="menu-item" onclick="showSection('playlists')">
+               <i class="layui-icon layui-icon-tabs"></i> 我的歌单
+            </div>
+            <div class="menu-item" onclick="showSection('settings')">
+               <i class="layui-icon layui-icon-set"></i> 管理目录
+            </div>
 
-       <div class="controls">
-          <button class="control-btn" onclick="playPrev()"><i class="layui-icon layui-icon-prev"></i></button>
-          <button class="control-btn" id="btn-play-pause" onclick="togglePlay()"><i class="layui-icon layui-icon-play"></i></button>
-          <button class="control-btn" onclick="playNext()"><i class="layui-icon layui-icon-next"></i></button>
-       </div>
-       
-       <div class="progress-container">
-          <span id="time-current">0:00</span>
-          <input type="range" id="seek-bar" min="0" value="0" step="1">
-          <span id="time-total">0:00</span>
-       </div>
-       
-       <div class="controls">
-          <button class="control-btn" onclick="toggleLoop()" id="btn-loop" title="循环模式"><i class="layui-icon layui-icon-refresh-1"></i></button>
-          <div class="volume-control">
-            <i class="layui-icon layui-icon-speaker"></i>
-            <input type="range" id="volume-bar" min="0" max="1" step="0.1" value="1">
-          </div>
-       </div>
-    </div>
-  </div>
-  
-  <!-- Dir Browser Modal -->
-  <div id="modal-browser" class="modal" style="display:none;">
-     <div class="modal-content">
-        <div class="modal-header">
-           <span>选择目录</span>
-           <span style="cursor:pointer;" onclick="closeModal()">✕</span>
-        </div>
-        <div class="modal-body" id="browser-list">
-           <!-- Files -->
-        </div>
-        <div class="modal-footer">
-           <button class="secondary" onclick="closeModal()">关闭</button>
-        </div>
-     </div>
-  </div>
+         </div>
 
-  <audio id="audio-player"></audio>
-  <script src="script.js?v=5"></script>
+         <div id="main">
+            <!-- Library View -->
+            <div id="section-library" class="section">
+               <div class="toolbar" style="display: flex; align-items: center; gap: 10px;">
+                  <button onclick="playAll()"><i class="layui-icon layui-icon-play"></i> 播放全部</button>
+                  <button class="secondary" onclick="shufflePlay()"><i class="layui-icon layui-icon-refresh"></i>
+                     随机播放</button>
+                  <input type="text" id="search-input" placeholder="搜索音乐..." oninput="onSearchInput(this.value)"
+                     style="flex: 1; max-width: 200px; padding: 6px 10px; border-radius: 4px; border: 1px solid #3e3e42; background-color: #252526; color: #cccccc; outline: none;">
+                  <span id="library-status" style="margin-left: 10px; color: #888;"></span>
+               </div>
+
+               <div class="playlist-header">
+                  <div class="col-name">歌曲标题</div>
+                  <div class="col-artist">演唱者</div>
+                  <div class="col-album">专辑</div>
+                  <div class="col-size">大小</div>
+                  <div class="col-duration">时长</div>
+               </div>
+
+               <div id="playlist-container">
+                  <!-- List of songs -->
+                  <div style="text-align:center; margin-top: 50px; color: #666;">
+                     暂无音乐，请去“管理目录”添加文件夹。
+                  </div>
+               </div>
+            </div>
+
+            <!-- Artists View -->
+            <div id="section-artists" class="section" style="display:none;">
+               <h2>歌手列表</h2>
+               <div id="artists-container" class="grid-container">
+                  <!-- Artists List -->
+               </div>
+            </div>
+
+            <!-- Settings View -->
+            <div id="section-settings" class="section" style="display:none;">
+               <div class="section-header">
+                  <h2>音乐目录</h2>
+                  <button class="secondary" onclick="rescanAll()"><i class="layui-icon layui-icon-refresh-3"></i>
+                     重新扫描</button>
+               </div>
+               <p style="color:#888; margin-bottom: 20px;">添加包含音乐文件的文件夹，系统将自动扫描。</p>
+
+               <div id="dir-list-container">
+                  <!-- Directory List -->
+               </div>
+
+               <div class="settings-actions">
+                  <div class="input-group">
+                     <input type="text" id="manual-dir-input" placeholder="输入目录路径 (例如 /media/Music)">
+                     <button class="secondary" onclick="openDirBrowser()"><i
+                           class="layui-icon layui-icon-folder-open"></i> 浏览目录</button>
+                  </div>
+                  <button class="primary-action" onclick="addManualDir()"><i
+                        class="layui-icon layui-icon-add-circle"></i> 添加到媒体目录</button>
+               </div>
+            </div>
+
+            <!-- Playlists View -->
+            <div id="section-playlists" class="section" style="display:none;">
+            <div id="playlist-main-toolbar" class="toolbar" style="display: flex; align-items: center; gap: 10px;">
+               <button onclick="openCreatePlaylistModal()"><i class="layui-icon layui-icon-add-1"></i> 新建歌单</button>
+               <span id="playlist-status" style="margin-left: 10px; color: #888;"></span>
+            </div>
+
+               <div class="grid-container" id="playlist-list-container">
+                  <!-- List of saved playlists -->
+               </div>
+
+               <div id="selected-playlist-view" style="display:none; width: 100%; flex-direction: column;">
+                  <h2 id="current-playlist-name" style="margin-bottom: 15px; color: #fff;">歌单名称</h2>
+                  <div class="toolbar" style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                     <button class="secondary" onclick="backToPlaylistList()"><i class="layui-icon layui-icon-left"></i>
+                        返回列表</button>
+                     <button style="margin-left:auto;" onclick="playCurrentPlaylist()"><i
+                           class="layui-icon layui-icon-play"></i> 播放全部</button>
+                     <button class="secondary" onclick="deletePlaylistPrompt()"><i
+                           class="layui-icon layui-icon-delete"></i> 删除歌单</button>
+                  </div>
+                  <div class="playlist-header">
+                     <div class="col-name">歌曲标题</div>
+                     <div class="col-artist">演唱者</div>
+                     <div class="col-album">专辑</div>
+                     <div class="col-size">大小</div>
+                     <div class="col-duration">时长</div>
+                  </div>
+                  <div id="playlist-songs-container"></div>
+               </div>
+            </div>
+
+            <!-- Lyrics Panel -->
+            <div id="lyrics-panel">
+               <div class="lyrics-bg" id="lyrics-bg"></div>
+               <div class="lyrics-mask"></div>
+               <div class="lyrics-content" id="large-lyrics">
+                  <div class="current-line">音符自成诗行，邀您沉浸聆听</div>
+                  <div class="next-line"></div>
+               </div>
+               <canvas id="visualizer" width="800" height="100"></canvas>
+            </div>
+
+         </div>
+      </div>
+
+      <!-- Player Bar -->
+      <div id="player-bar">
+         <div id="now-playing-info">
+            <img id="cover-art" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+               alt="Cover">
+            <div class="track-details">
+               <div id="track-name">No Music</div>
+               <div id="track-artist"></div>
+            </div>
+         </div>
+
+         <div class="controls">
+            <button class="control-btn" onclick="playPrev()"><i class="layui-icon layui-icon-prev"></i></button>
+            <button class="control-btn" id="btn-play-pause" onclick="togglePlay()"><i
+                  class="layui-icon layui-icon-play"></i></button>
+            <button class="control-btn" onclick="playNext()"><i class="layui-icon layui-icon-next"></i></button>
+         </div>
+
+         <div class="progress-container">
+            <span id="time-current">0:00</span>
+            <input type="range" id="seek-bar" min="0" value="0" step="1">
+            <span id="time-total">0:00</span>
+         </div>
+
+         <div class="controls">
+            <button class="control-btn" onclick="toggleLoop()" id="btn-loop" title="循环模式"><i
+                  class="layui-icon layui-icon-refresh-1"></i></button>
+            <div class="volume-control">
+               <i class="layui-icon layui-icon-speaker"></i>
+               <input type="range" id="volume-bar" min="0" max="1" step="0.1" value="1">
+            </div>
+         </div>
+      </div>
+   </div>
+
+   </div>
+
+   <!-- Dir Browser Modal -->
+   <div id="modal-browser" class="modal" style="display:none;">
+      <div class="modal-content">
+         <div class="modal-header">
+            <span>选择目录</span>
+            <span style="cursor:pointer;" onclick="closeModal('modal-browser')">✕</span>
+         </div>
+         <div class="modal-body" id="browser-list">
+            <!-- Files -->
+         </div>
+         <div class="modal-footer">
+            <button class="secondary" onclick="closeModal('modal-browser')">关闭</button>
+         </div>
+      </div>
+   </div>
+
+   <!-- Create Playlist Modal -->
+   <div id="modal-create-playlist" class="modal" style="display:none;">
+      <div class="modal-content">
+         <div class="modal-header">
+            <span>新建歌单</span>
+            <span style="cursor:pointer;" onclick="closeModal('modal-create-playlist')">✕</span>
+         </div>
+         <div class="modal-body">
+            <div id="playlist-input-step">
+               <p style="margin-bottom: 10px; color: #888;">粘贴歌曲列表，每行一个歌名：</p>
+               <textarea id="playlist-raw-input" placeholder="例如：
+周杰伦 - 七里香
+告白气球
+Taylor Swift - Love Story"
+                  style="width: 100%; height: 200px; background: #000000; color: #eee; border-radius: 4px; resize: none;"></textarea>
+            </div>
+            <div id="playlist-match-step" style="display:none;">
+               <div>
+                  <table class="layui-table" lay-skin="nob" style="background: transparent; color: #eee;">
+                     <thead>
+                        <tr>
+                           <th>原始名称</th>
+                           <th>匹配结果</th>
+                           <th width="120">操作</th>
+                        </tr>
+                     </thead>
+                     <tbody id="match-results-body"></tbody>
+                  </table>
+               </div>
+            </div>
+         </div>
+         <div class="modal-footer">
+            <button class="secondary" onclick="closeModal('modal-create-playlist')">取消</button>
+            <button class="secondary" id="btn-next-step" onclick="processPlaylistInput()">下一步：匹配音乐</button>
+            <button class="secondary" id="btn-save-playlist" style="display:none;"
+               onclick="promptPlaylistName()">完成并保存</button>
+         </div>
+      </div>
+   </div>
+
+   <!-- Song Picker Modal -->
+   <div id="modal-song-picker" class="modal" style="display:none; z-index: 2000;">
+      <div class="modal-content" style="max-width: 600px;">
+         <div class="modal-header">
+            <span>选择匹配音乐</span>
+            <span style="cursor:pointer;" onclick="closeModal('modal-song-picker')">✕</span>
+         </div>
+         <div class="modal-body">
+            <input type="text" id="song-picker-search" placeholder="输入关键词搜索..."
+               style="width: 100%; padding: 8px; margin-bottom: 10px; background: #252526; color: #eee; border: 1px solid #3e3e42; border-radius: 4px;">
+            <div id="song-picker-list">
+               <!-- Search results -->
+            </div>
+         </div>
+         <div class="modal-footer">
+            <button class="secondary" onclick="closeModal('modal-song-picker')">关闭</button>
+         </div>
+      </div>
+   </div>
+
+   <audio id="audio-player"></audio>
+   <script src="script.js?v=5"></script>
 </body>
+
 </html>

@@ -9,6 +9,15 @@
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# Persistent path detection for FnOS
+PERSISTENT_BASE="/var/apps/waves"
+if [ -d "$PERSISTENT_BASE" ]; then
+    CONFIG_DIR="$PERSISTENT_BASE/home"
+else
+    # Fallback to app-local config directory
+    CONFIG_DIR="$APP_ROOT/home"
+fi
+CONFIG_FILE="$CONFIG_DIR/config.json"
 BASE_PATH="$APP_ROOT/www"
 BACKEND_SCRIPT="$APP_ROOT/server/sites_backend.sh"
 
@@ -37,9 +46,15 @@ if [ -z "$REL_PATH" ] || [ "$REL_PATH" = "/" ]; then
   REL_PATH="/index.html"
 fi
 
-# Capture POST Data (Standard Input) for API calls
-INPUT_TMP=$(mktemp)
-cat > "$INPUT_TMP"
+# Prepare Temporary Input File
+INPUT_TMP=$(mktemp 2>/dev/null || mktemp -t waves.XXXXXX 2>/dev/null || echo "/tmp/waves_input_$RANDOM")
+touch "$INPUT_TMP"
+
+# Only capture standard input for POST/PUT requests to prevent blocking on GET
+if [ "$REQUEST_METHOD" = "POST" ] || [ "$REQUEST_METHOD" = "PUT" ]; then
+    # Use dd or cat with timeout if needed, but simple cat is usually fine IF method is POST
+    cat > "$INPUT_TMP"
+fi
 
 # ============================================================================
 # API Routing
@@ -378,6 +393,96 @@ elif [ "$REL_PATH" = "/api/music/lyrics" ]; then
         echo "Content-Type: application/json"
         echo ""
         echo '{"error":"Internal script error"}'
+    fi
+    rm -f "$TMP_OUTPUT"
+    rm -f "$INPUT_TMP"
+    exit 0
+fi
+
+if [ "$REL_PATH" = "/api/music/playlist/list" ]; then
+    TMP_OUTPUT=$(mktemp)
+    if bash "$BACKEND_SCRIPT" "list-playlists" >"$TMP_OUTPUT" 2>/dev/null; then
+        echo "Status: 200 OK"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        cat "$TMP_OUTPUT"
+    else
+        echo "Status: 500 Internal Server Error"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        echo '{"ok":false,"error":"Failed to list playlists"}'
+    fi
+    rm -f "$TMP_OUTPUT"
+    rm -f "$INPUT_TMP"
+    exit 0
+
+elif [ "$REL_PATH" = "/api/music/playlist/save" ]; then
+    TMP_OUTPUT=$(mktemp)
+    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "save-playlist" >"$TMP_OUTPUT" 2>/dev/null; then
+        echo "Status: 200 OK"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        cat "$TMP_OUTPUT"
+    else
+        echo "Status: 500 Internal Server Error"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        echo '{"ok":false,"error":"Failed to save playlist"}'
+    fi
+    rm -f "$TMP_OUTPUT"
+    rm -f "$INPUT_TMP"
+    exit 0
+
+elif [ "$REL_PATH" = "/api/music/playlist/get" ]; then
+    # Parse name from query string
+    PL_NAME=""
+    if command -v python3 >/dev/null 2>&1; then
+         PL_NAME=$(python3 -c "import sys, urllib.parse; q=urllib.parse.parse_qs(sys.argv[1]); print(q.get('name', [''])[0])" "$QUERY_STRING")
+    else
+         PL_NAME=$(echo "$QUERY_STRING" | grep -o "name=[^&]*" | cut -d= -f2-)
+         PL_NAME=$(echo "$PL_NAME" | sed -e 's/%/\\x/g' -e 's/+/ /g')
+         PL_NAME=$(echo -e "$PL_NAME")
+    fi
+    
+    echo -n "$PL_NAME" > "$INPUT_TMP"
+    TMP_OUTPUT=$(mktemp)
+    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "get-playlist" >"$TMP_OUTPUT" 2>/dev/null; then
+        echo "Status: 200 OK"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        cat "$TMP_OUTPUT"
+    else
+        echo "Status: 500 Internal Server Error"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        echo '{"ok":false,"error":"Failed to get playlist"}'
+    fi
+    rm -f "$TMP_OUTPUT"
+    rm -f "$INPUT_TMP"
+    exit 0
+
+elif [ "$REL_PATH" = "/api/music/playlist/delete" ]; then
+    PL_NAME=""
+    if command -v python3 >/dev/null 2>&1; then
+         PL_NAME=$(python3 -c "import sys, urllib.parse; q=urllib.parse.parse_qs(sys.argv[1]); print(q.get('name', [''])[0])" "$QUERY_STRING")
+    else
+         PL_NAME=$(echo "$QUERY_STRING" | grep -o "name=[^&]*" | cut -d= -f2-)
+         PL_NAME=$(echo "$PL_NAME" | sed -e 's/%/\\x/g' -e 's/+/ /g')
+         PL_NAME=$(echo -e "$PL_NAME")
+    fi
+
+    echo -n "$PL_NAME" > "$INPUT_TMP"
+    TMP_OUTPUT=$(mktemp)
+    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "delete-playlist" >"$TMP_OUTPUT" 2>/dev/null; then
+        echo "Status: 200 OK"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        cat "$TMP_OUTPUT"
+    else
+        echo "Status: 500 Internal Server Error"
+        echo "Content-Type: application/json; charset=utf-8"
+        echo ""
+        echo '{"ok":false,"error":"Failed to delete playlist"}'
     fi
     rm -f "$TMP_OUTPUT"
     rm -f "$INPUT_TMP"
