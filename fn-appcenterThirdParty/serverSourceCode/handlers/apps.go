@@ -178,27 +178,62 @@ func GetApps(c *gin.Context) {
 	// 按分类过滤
 	if category != "" {
 		filtered := make([]models.App, 0)
-		for _, app := range allApps {
-			match := false
-			if category == "installed" {
-				if app.IsInstalled {
-					match = true
-				}
-			} else if category == "latest" {
-				match = true
-			} else {
-				for _, cat := range app.Labels {
-					if strings.EqualFold(cat, category) {
-						match = true
-						break
+
+		// 对于 installed 分类，需要实时查询应用状态
+		if category == "installed" {
+			// 获取已安装应用列表
+			cliPath := getAppCenterCliPath()
+			cmd := exec.Command(cliPath, "list")
+			output, err := cmd.CombinedOutput()
+
+			var installedApps map[string]bool
+			if err == nil {
+				installedApps = make(map[string]bool)
+				lines := strings.Split(string(output), "\n")
+				for _, line := range lines {
+					line = strings.TrimSpace(line)
+					if line == "" || strings.HasPrefix(line, "┌") || strings.HasPrefix(line, "├") || strings.HasPrefix(line, "└") {
+						continue
+					}
+					if strings.HasPrefix(line, "│") {
+						fields := strings.Split(line, "│")
+						if len(fields) >= 5 {
+							appName := strings.TrimSpace(fields[1])
+							if appName != "APP NAME" && appName != "" {
+								installedApps[appName] = true
+							}
+						}
 					}
 				}
 			}
 
-			if match {
-				filtered = append(filtered, app)
+			for _, app := range allApps {
+				// 检查应用是否在已安装列表中
+				if installedApps != nil && (installedApps[app.AppName] || installedApps[app.ID]) {
+					filtered = append(filtered, app)
+				}
+			}
+		} else {
+			for _, app := range allApps {
+				match := false
+				switch category {
+				case "latest":
+					match = true
+				default:
+					for _, cat := range app.Labels {
+						if strings.EqualFold(cat, category) {
+							match = true
+							break
+						}
+					}
+				}
+
+				if match {
+					filtered = append(filtered, app)
+				}
 			}
 		}
+
 		allApps = filtered
 	}
 
@@ -346,7 +381,7 @@ func InstallApp(c *gin.Context) {
 		tempEnvDir := filepath.Join(config.PkgVar, "temp_env")
 		os.MkdirAll(tempEnvDir, 0755)
 		tempEnvPath = filepath.Join(tempEnvDir, fmt.Sprintf("%s_%d.env", appID, os.Getpid()))
-		
+
 		content := ""
 		for k, v := range req.Env {
 			content += fmt.Sprintf("%s=%s\n", k, v)
@@ -456,15 +491,39 @@ func downloadFPKFile(url string, destPath string) error {
 		defer out.Close()
 
 		_, err = io.Copy(out, resp.Body)
-		return err
+		if err != nil {
+			return err
+		}
+	} else {
+		srcPath := url
+		if !filepath.IsAbs(srcPath) {
+			srcPath = filepath.Join(services.GetUsersAppStoreDir(), url)
+		}
+
+		if err := copyFile(srcPath, destPath); err != nil {
+			return err
+		}
 	}
 
-	srcPath := url
-	if !filepath.IsAbs(srcPath) {
-		srcPath = filepath.Join(services.GetUsersAppStoreDir(), url)
-	}
+	// 下载完成后记录下载计数
+	appID := strings.TrimSuffix(filepath.Base(destPath), ".fpk")
+	go func() {
+		sources := services.LoadSources()
+		services.DiscoverLocalSources(&sources)
+		for _, source := range sources {
+			if source.Enabled {
+				apps := services.LoadAppsFromSource(&source)
+				for _, app := range apps {
+					if app.ID == appID {
+						services.IncrementDownloadCount(source.ID, appID)
+						break
+					}
+				}
+			}
+		}
+	}()
 
-	return copyFile(srcPath, destPath)
+	return nil
 }
 
 func copyFile(src, dst string) error {
@@ -649,10 +708,8 @@ func GetAppStatus(c *gin.Context) {
 	appID := c.Param("id")
 	realAppName := resolveAppName(appID)
 
-	cliPath := getAppCenterCliPath()
-	cmd := exec.Command(cliPath, "status", realAppName)
-	output, err := cmd.CombinedOutput()
-
+	// 使用状态缓存服务获取应用状态
+	status, err := services.GetAppStatus(realAppName)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"code": 0,
@@ -664,26 +721,29 @@ func GetAppStatus(c *gin.Context) {
 		return
 	}
 
-	outputStr := strings.ToLower(string(output))
-	
-	running := false
-	status := "stopped"
-
-	if strings.Contains(outputStr, "noinstall") || strings.Contains(outputStr, "not installed") {
-		status = "not_installed"
-	} else if strings.Contains(outputStr, "running") {
-		status = "running"
-		running = true
-	} else if strings.Contains(outputStr, "stopped") {
-		status = "stopped"
-	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0,
 		"data": gin.H{
-			"status":  status,
-			"running": running,
+			"status":  status.Status,
+			"running": status.Running,
 		},
+	})
+}
+
+// RefreshAllStatus 刷新所有应用状态
+func RefreshAllStatus(c *gin.Context) {
+	err := services.RefreshAllStatus()
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    1,
+			"message": "刷新状态失败: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "状态刷新成功",
 	})
 }
 
@@ -919,5 +979,55 @@ func GetVolumes(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0,
 		"data": volumes,
+	})
+}
+
+// RecordAppDownload 记录应用下载
+func RecordAppDownload(c *gin.Context) {
+	appID := c.Param("id")
+
+	// 加载源列表
+	sources := services.LoadSources()
+	services.DiscoverLocalSources(&sources)
+
+	// 查找包含该应用的源
+	var targetSource *models.Source
+
+	for i := range sources {
+		if !sources[i].Enabled {
+			continue
+		}
+		apps := services.LoadAppsFromSource(&sources[i])
+		for j := range apps {
+			if apps[j].ID == appID {
+				targetSource = &sources[i]
+				break
+			}
+		}
+		if targetSource != nil {
+			break
+		}
+	}
+
+	if targetSource == nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"code":    404,
+			"message": "Application not found",
+		})
+		return
+	}
+
+	// 更新下载计数
+	if err := services.IncrementDownloadCount(targetSource.ID, appID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "Failed to update download count",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "Download recorded successfully",
 	})
 }

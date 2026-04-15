@@ -248,6 +248,7 @@ func ScanFPKDir(baseDir string, sourceID string, forceRescan bool) []models.App 
 			continue
 		}
 		app.SourceID = sourceID
+		app.DownloadCount = 0
 		allApps = append(allApps, app)
 		newFingerprints[appID] = currentFingerprints[appID]
 	}
@@ -327,4 +328,43 @@ func SyncSourceData(source *models.Source) (int, int, int) {
 	source.AppCount = len(newApps)
 
 	return added, updated, removed
+}
+
+// IncrementDownloadCount 递增应用下载计数
+func IncrementDownloadCount(sourceID string, appID string) error {
+	cachePath := filepath.Join(cacheDir, sourceID+".json")
+
+	// 加载缓存
+	data, err := ioutil.ReadFile(cachePath)
+	if err != nil {
+		return err
+	}
+
+	// 解析缓存数据
+	var cachedData models.FPKCacheData
+	if err := json.Unmarshal(data, &cachedData); err != nil {
+		return err
+	}
+
+	// 查找并更新应用
+	found := false
+	for i := range cachedData.Apps {
+		if cachedData.Apps[i].ID == appID {
+			cachedData.Apps[i].DownloadCount++
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("app not found in cache")
+	}
+
+	// 保存更新后的缓存
+	newData, err := json.MarshalIndent(cachedData, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(cachePath, newData, 0644)
 }

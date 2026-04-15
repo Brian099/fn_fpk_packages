@@ -11,6 +11,76 @@ function getCgiUrl() {
     return p + 'index.cgi';
 }
 
+// 状态缓存管理
+const statusCache = {
+    get: (appId) => {
+        const cache = localStorage.getItem('appStatusCache');
+        if (cache) {
+            const data = JSON.parse(cache);
+            const status = data[appId];
+            if (status && (Date.now() - new Date(status.lastUpdated).getTime() < 5 * 60 * 1000)) {
+                return status;
+            }
+        }
+        return null;
+    },
+    set: (appId, status) => {
+        const cache = JSON.parse(localStorage.getItem('appStatusCache') || '{}');
+        cache[appId] = {
+            ...status,
+            lastUpdated: new Date().toISOString()
+        };
+        localStorage.setItem('appStatusCache', JSON.stringify(cache));
+    },
+    clear: () => {
+        localStorage.removeItem('appStatusCache');
+    }
+};
+
+// 刷新所有应用状态
+async function refreshAllStatus() {
+    try {
+        const response = await apiRequest('/api/apps/status/refresh', {
+            method: 'POST'
+        });
+        if (response.code === 0) {
+            // console.log('应用状态刷新成功');
+            // 清除本地缓存
+            statusCache.clear();
+            return true;
+        } else {
+            console.warn('应用状态刷新失败:', response.message);
+            return false;
+        }
+    } catch (error) {
+        console.error('刷新状态失败:', error);
+        return false;
+    }
+}
+
+// 获取应用状态（带缓存）
+async function getAppStatus(appId) {
+    // 尝试从缓存获取
+    const cachedStatus = statusCache.get(appId);
+    if (cachedStatus) {
+        return cachedStatus;
+    }
+    
+    // 缓存不存在或过期，调用 API
+    try {
+        const statusData = await apiRequest(`/api/apps/${appId}/status`);
+        if (statusData.code === 0) {
+            const status = statusData.data;
+            statusCache.set(appId, status);
+            return status;
+        }
+    } catch (error) {
+        console.error('获取应用状态失败:', error);
+    }
+    
+    return { status: 'unknown', running: false };
+}
+
 // 增强的API服务类
 class ApiService {
     constructor() {
@@ -210,6 +280,10 @@ let currentTab = 'all';
 
 function init() {
     switchView('appGrid');
+    // 异步刷新状态，不阻塞主流程
+    refreshAllStatus().catch(error => {
+        console.warn('后台刷新状态失败:', error);
+    });
     loadApps();
     setupEventListeners();
 }
@@ -297,7 +371,7 @@ async function loadApps() {
         const data = await apiRequest(endpoint);
 
         if (data.code === 0) {
-            renderAppGrid(data.data.apps);
+            await renderAppGrid(data.data.apps);
         } else {
             appGrid.innerHTML = `<div class="empty-state"><p>加载应用失败: ${data.message || '未知错误'}</p></div>`;
         }
@@ -310,7 +384,7 @@ async function loadApps() {
     }
 }
 
-function renderAppGrid(apps, grouped = true, mini = false) {
+async function renderAppGrid(apps, grouped = true, mini = false) {
     const appGrid = document.getElementById('appGrid');
 
     // 设置管理模式样式
@@ -330,9 +404,10 @@ function renderAppGrid(apps, grouped = true, mini = false) {
         // 扁平展示：只展示网格，不展示分类标题
         const grid = document.createElement('div');
         grid.className = 'app-grid';
-        apps.forEach(app => {
-            grid.appendChild(createAppCard(app));
-        });
+        for (const app of apps) {
+            const card = await createAppCard(app);
+            grid.appendChild(card);
+        }
         appGrid.appendChild(grid);
         return;
     }
@@ -353,7 +428,7 @@ function renderAppGrid(apps, grouped = true, mini = false) {
         return a.localeCompare(b);
     });
 
-    sortedCategories.forEach(cat => {
+    for (const cat of sortedCategories) {
         const groupApps = groups[cat];
 
         // 分类容器
@@ -372,17 +447,18 @@ function renderAppGrid(apps, grouped = true, mini = false) {
         const grid = document.createElement('div');
         grid.className = 'app-grid';
 
-        groupApps.forEach(app => {
-            grid.appendChild(createAppCard(app));
-        });
+        for (const app of groupApps) {
+            const card = await createAppCard(app);
+            grid.appendChild(card);
+        }
 
         section.appendChild(header);
         section.appendChild(grid);
         appGrid.appendChild(section);
-    });
+    }
 }
 
-function createAppCard(app) {
+async function createAppCard(app) {
     const card = document.createElement('div');
     card.className = 'app-card';
     card.dataset.appId = app.id;
@@ -397,8 +473,14 @@ function createAppCard(app) {
     // 显示所有标签，不再过滤“已安装”，不再只显示第一个
     const displayCategory = allLabels.length > 0 ? allLabels.join(', ') : '其他';
 
-    // 是否已安装：根据属性或标签判断
-    const isInstalled = app.is_installed || allLabels.includes('已安装');
+    // 是否已安装：通过状态接口获取
+    let isInstalled = false;
+    try {
+        const status = await getAppStatus(app.id);
+        isInstalled = status.status !== 'not_installed';
+    } catch (error) {
+        console.log('获取应用状态失败:', error);
+    }
 
     // 状态检测逻辑
     let btnText = '安装';
@@ -534,15 +616,19 @@ function renderAppDetail(app) {
                     <div class="info-value">${escapeHtml(app.version)}</div>
                 </div>
                 <div class="info-item">
-                    <div class="info-label">分类</div>
-                    <div class="info-value">${escapeHtml(displayLabels)}</div>
+                <div class="info-label">分类</div>
+                <div class="info-value">${escapeHtml(displayLabels)}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">下载次数</div>
+                <div class="info-value">${app.download_count || 0}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">运行状态</div>
+                <div class="info-value">
+                    <span class="status-badge status-${status.status}">${getStatusText(status.status)}</span>
                 </div>
-                <div class="info-item">
-                    <div class="info-label">运行状态</div>
-                    <div class="info-value">
-                        <span class="status-badge status-${status.status}">${getStatusText(status.status)}</span>
-                    </div>
-                </div>
+            </div>
             </div>
 
             <div class="detail-section">
@@ -589,6 +675,14 @@ async function installApp(app, envFilePath = null) {
     }
 
     try {
+        // 记录下载次数
+        try {
+            await apiRequest(`/api/apps/${app.id}/download`, { method: 'POST' });
+        } catch (error) {
+            console.log('记录下载次数失败:', error);
+            // 下载计数失败不影响安装流程
+        }
+
         showLoading('正在准备安装向导...');
         
         // 1. 获取向导配置和储存池列表
@@ -951,7 +1045,7 @@ async function showMyAppsManager() {
         }
 
         // 统一展示布局：使用 renderAppGrid (不分组，开启管理模式)
-        renderAppGrid(apps, false, true);
+        await renderAppGrid(apps, false, true);
     } catch (error) {
         console.error('加载我的应用失败:', error);
         appGrid.innerHTML = `<div class="empty-state"><p>加载失败: ${error.message}</p></div>`;

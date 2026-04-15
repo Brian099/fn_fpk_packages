@@ -6,23 +6,23 @@ appcenter-cli 是飞牛 fnOS 系统预装的应用中心管理工具，它让您
 
 // App 应用信息结构体
 type App struct {
-	ID          string   `json:"id"`
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Version     string   `json:"version"`
-	Platform    string   `json:"platform"`
-	Categories  []string `json:"categories"`
-	Labels      []string `json:"labels"`
-	Author      string   `json:"author"`
-	Publisher   string   `json:"publisher"`
-	Size        string   `json:"size"`
-	Icon        string   `json:"icon"`
-	Screenshots []string `json:"screenshots"`
-	AppName     string   `json:"appname"`
-	DownloadURL string   `json:"download_url"`
-	Changelog   string   `json:"changelog"`
-	SourceID    string   `json:"source_id"`
-	IsInstalled bool     `json:"is_installed"`
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	Description   string   `json:"description"`
+	Version       string   `json:"version"`
+	Platform      string   `json:"platform"`
+	Categories    []string `json:"categories"`
+	Labels        []string `json:"labels"`
+	Author        string   `json:"author"`
+	Publisher     string   `json:"publisher"`
+	Size          string   `json:"size"`
+	Icon          string   `json:"icon"`
+	Screenshots   []string `json:"screenshots"`
+	AppName       string   `json:"appname"`
+	DownloadURL   string   `json:"download_url"`
+	Changelog     string   `json:"changelog"`
+	SourceID      string   `json:"source_id"`
+	DownloadCount int      `json:"download_count"`
 }
 
 // FnpackData 应用数据映射

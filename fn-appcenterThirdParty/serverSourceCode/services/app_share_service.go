@@ -34,7 +34,7 @@ func initMuxHandlers() {
 		path := req.URL.Path
 
 		if strings.HasPrefix(path, "/download/") {
-			handleDownload(w, req, localCacheDir)
+			handleDownload(w, req)
 			return
 		}
 
@@ -96,7 +96,7 @@ func initMuxHandlers() {
 	})
 }
 
-func handleDownload(w http.ResponseWriter, req *http.Request, cacheDir string) {
+func handleDownload(w http.ResponseWriter, req *http.Request) {
 	sources := LoadSources()
 
 	var localSource *models.Source

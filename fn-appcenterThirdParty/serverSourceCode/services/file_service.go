@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -166,21 +165,6 @@ func ParseFPKFile(fpkPath string, baseDir string) (models.App, error) {
 		app.Labels = []string{"其他"}
 	}
 	app.Categories = app.Labels
-
-	// 判定安装状态（必须使用真正的 AppName）
-	isInstalled := false
-	cmd := exec.Command("appcenter-cli", "list")
-	output, err := cmd.Output()
-	if err == nil {
-		lines := strings.Split(string(output), "\n")
-		for _, line := range lines {
-			if strings.Contains(line, app.AppName) {
-				isInstalled = true
-				break
-			}
-		}
-	}
-	app.IsInstalled = isInstalled
 
 	return app, nil
 }
