@@ -35,8 +35,8 @@ jobs:
           curl -sSL https://static2.fnnas.com/fnpack/fnpack-1.0.4-linux-amd64 -o fnpack
           sudo chmod +x fnpack
 
-          echo "| 应用名称 | 版本 | 平台 | 描述 |" > apps-list.md
-          echo "|----------|------|------|------|" >> apps-list.md
+          echo "| 图标 | 应用名称 | 版本 | 平台 | 大小 | 描述 |" > apps-list.md
+          echo "| :---: | :--- | :--- | :--- | :--- | :--- |" >> apps-list.md
 
           APPS=()
           for APP in fn-*; do
@@ -47,12 +47,10 @@ jobs:
             # ./fnpack create ${APP} --without-ui true  # 如果不需要 UI, 可以启用此行
             ./fnpack build --directory ${APP}
 
-            APPNAME=$(grep '^appname' "$APP/manifest" | awk -F= '{print $2}' | xargs)
-            VERSION=$(grep '^version' "$APP/manifest" | awk -F= '{print $2}' | xargs)
-            DESC=$(grep '^desc' "$APP/manifest" | awk -F= '{print $2}' | xargs)
-            PLATFORM=$(grep '^platform' "$APP/manifest" | awk -F= '{print $2}' | xargs)
+            ICON_URL="https://github.com/${REPO}/raw/main/${APP}/ICON.PNG"
+            SIZE=$(stat -c%s "${APPNAME}_v${VERSION}.fpk" 2>/dev/null | awk '{printf "%.2f MB",$1/1024/1024}')
 
-            echo "| ${APPNAME} | v${VERSION} | ${PLATFORM} | ${DESC} |" >> apps-list.md
+            echo "| <img src=\"${ICON_URL}\" width=\"48\" height=\"48\"> | ${APPNAME} | v${VERSION} | ${PLATFORM} | ${SIZE} | ${DESC} |" >> apps-list.md
 
             mv -f "${APPNAME}.fpk" "${APPNAME}_v${VERSION}.fpk"
 
@@ -70,16 +68,34 @@ jobs:
           fi
           echo {$(IFS=,; echo "${APPS[*]}")} | jq . >fnpack.json
 
+          # Update README.md
+          python3 -c "
+import os
+if os.path.exists('README.md') and os.path.exists('apps-list.md'):
+    with open('README.md', 'r', encoding='utf-8') as f:
+        readme = f.read()
+    with open('apps-list.md', 'r', encoding='utf-8') as f:
+        apps_list = f.read()
+    start_marker = '<!-- APPS_LIST_START -->'
+    end_marker = '<!-- APPS_LIST_END -->'
+    if start_marker in readme and end_marker in readme:
+        parts_start = readme.split(start_marker)
+        parts_end = parts_start[1].split(end_marker)
+        new_readme = parts_start[0] + start_marker + '\n' + apps_list + '\n' + end_marker + parts_end[1]
+        with open('README.md', 'w', encoding='utf-8') as f:
+            f.write(new_readme)
+"
+
       - name: Check and Push
         if: success()
         run: |
           echo "Git push ..."
           # git checkout main
           git pull
-          status=$(git status -s | grep -E "fnpack.json" | awk '{printf " %s", $2}')
+          status=$(git status -s | grep -E "fnpack.json|README.md" | awk '{printf " %s", $2}')
           if [ -n "${status}" ]; then
             git add ${status}
-            git commit -m "update $(date +%Y-%m-%d" "%H:%M:%S)"
+            git commit -m "update $(date '+%Y-%m-%d %H:%M:%S')"
             git push -f
           fi
 
@@ -139,17 +155,62 @@ jobs:
 
               echo "Copied $BASENAME.fpk to $APPNAME/$APPNAME.fpk"
 
-              # 同步更新根目录 fnpack.json 中对应应用版本
-              if [ -n "$VERSION" ]; then
-                if jq -e --arg app "$APPNAME" 'has($app)' fnpack.json >/dev/null; then
-                  jq --arg app "$APPNAME" --arg version "V${VERSION}" '.[$app].version = $version' fnpack.json > fnpack.json.tmp && mv fnpack.json.tmp fnpack.json
-                  echo "Updated fnpack.json version for $APPNAME to V${VERSION}"
-                else
-                  echo "Warning: app key '$APPNAME' not found in fnpack.json, skipping version update"
-                fi
-              else
-                echo "Warning: could not parse version from $BASENAME.fpk, skipping fnpack.json update"
-              fi
+                  # 寻找源目录以获取更多信息
+                  SOURCE_DIR="../fn-$APPNAME"
+                  if [ ! -d "$SOURCE_DIR" ]; then
+                    for DIR in ../fn-*; do
+                      if [ -f "$DIR/manifest" ] && grep -q "^appname.*=.*$APPNAME" "$DIR/manifest"; then
+                        SOURCE_DIR="$DIR"
+                        break
+                      fi
+                    done
+                  fi
+
+                  # 提取元数据
+                  MANIFEST="$SOURCE_DIR/manifest"
+                  DISPLAY_NAME=$(grep '^display_name' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  DESC=$(grep '^desc' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  MAINTAINER=$(grep '^maintainer' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  MAINTAINER_URL=$(grep '^maintainer_url' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  DISTRIBUTOR=$(grep '^distributor' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  DISTRIBUTOR_URL=$(grep '^distributor_url' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  RAW_TYPE=$(grep '^install_type' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  PLATFORM=$(grep '^platform' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  [ -z "$PLATFORM" ] && PLATFORM="x86"
+                  
+                  if [ "$RAW_TYPE" = "root" ]; then
+                      INSTALL_TYPE="系统空间"
+                  else
+                      INSTALL_TYPE="用户空间"
+                  fi
+                  
+                  SIZE=$(stat -c%s "$FPK_FILE" | awk '{printf "%.2f",$1/1024/1024}')
+
+                  # 同步图标
+                  if [ -f "$SOURCE_DIR/ICON.PNG" ]; then
+                    cp "$SOURCE_DIR/ICON.PNG" "$APPNAME/ICON.PNG"
+                    echo "Copied ICON.PNG for $APPNAME"
+                  fi
+
+                  # 同步更新根目录 fnpack.json 中多个字段
+                  if jq -e --arg app "$APPNAME" 'has($app)' fnpack.json >/dev/null; then
+                    jq --arg app "$APPNAME" \
+                       --arg name "$DISPLAY_NAME" \
+                       --arg ver "V${VERSION}" \
+                       --arg desc "$DESC" \
+                       --arg type "$INSTALL_TYPE" \
+                       --arg size "$SIZE" \
+                       --arg author "$MAINTAINER" \
+                       --arg author_url "$MAINTAINER_URL" \
+                       --arg dist "$DISTRIBUTOR" \
+                       --arg dist_url "$DISTRIBUTOR_URL" \
+                       --arg plat "$PLATFORM" \
+                       '.[$app].display_name = $name | .[$app].version = $ver | .[$app].desc = $desc | .[$app].install_type = $type | .[$app].size = $size | .[$app].author = $author | .[$app].author_url = $author_url | .[$app].distributor = $dist | .[$app].distributor_url = $dist_url | .[$app].platform = $plat' \
+                       fnpack.json > fnpack.json.tmp && mv fnpack.json.tmp fnpack.json
+                    echo "Updated fnpack.json metadata for $APPNAME"
+                  else
+                    echo "Warning: app key '$APPNAME' not found in fnpack.json, skipping metadata update"
+                  fi
             fi
           done
 
