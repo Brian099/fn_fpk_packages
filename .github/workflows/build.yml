@@ -70,21 +70,21 @@ jobs:
 
           # Update README.md
           python3 - << 'EOF'
-import os
-if os.path.exists('README.md') and os.path.exists('apps-list.md'):
-    with open('README.md', 'r', encoding='utf-8') as f:
-        readme = f.read()
-    with open('apps-list.md', 'r', encoding='utf-8') as f:
-        apps_list = f.read()
-    start_marker = '<!-- APPS_LIST_START -->'
-    end_marker = '<!-- APPS_LIST_END -->'
-    if start_marker in readme and end_marker in readme:
-        parts_start = readme.split(start_marker)
-        parts_end = parts_start[1].split(end_marker)
-        new_readme = parts_start[0] + start_marker + '\n' + apps_list + '\n' + end_marker + parts_end[1]
-        with open('README.md', 'w', encoding='utf-8') as f:
-            f.write(new_readme)
-EOF
+          import os
+          if os.path.exists('README.md') and os.path.exists('apps-list.md'):
+              with open('README.md', 'r', encoding='utf-8') as f:
+                  readme = f.read()
+              with open('apps-list.md', 'r', encoding='utf-8') as f:
+                  apps_list = f.read()
+              start_marker = '<!-- APPS_LIST_START -->'
+              end_marker = '<!-- APPS_LIST_END -->'
+              if start_marker in readme and end_marker in readme:
+                  parts_start = readme.split(start_marker)
+                  parts_end = parts_start[1].split(end_marker)
+                  new_readme = parts_start[0] + start_marker + '\n' + apps_list + '\n' + end_marker + parts_end[1]
+                  with open('README.md', 'w', encoding='utf-8') as f:
+                      f.write(new_readme)
+          EOF
 
       - name: Check and Push
         if: success()
