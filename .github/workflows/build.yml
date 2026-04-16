@@ -69,7 +69,7 @@ jobs:
           echo {$(IFS=,; echo "${APPS[*]}")} | jq . >fnpack.json
 
           # Update README.md
-          python3 -c "
+          python3 - << 'EOF'
 import os
 if os.path.exists('README.md') and os.path.exists('apps-list.md'):
     with open('README.md', 'r', encoding='utf-8') as f:
@@ -84,7 +84,7 @@ if os.path.exists('README.md') and os.path.exists('apps-list.md'):
         new_readme = parts_start[0] + start_marker + '\n' + apps_list + '\n' + end_marker + parts_end[1]
         with open('README.md', 'w', encoding='utf-8') as f:
             f.write(new_readme)
-"
+EOF
 
       - name: Check and Push
         if: success()
