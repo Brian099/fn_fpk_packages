@@ -505,10 +505,15 @@ func InstallApp(c *gin.Context) {
 
 	// 如果设置了自动启动，则执行启动命令 (使用真实的 realAppName)
 	if req.AutoStart {
+		log.Printf("Waiting 2s for system to settle before auto-starting %s...", realAppName)
+		time.Sleep(2 * time.Second)
+
 		log.Printf("Auto-starting app %s after successful installation...", realAppName)
 		startCmd := exec.Command(cliPath, "start", realAppName)
 		if startOutput, startErr := startCmd.CombinedOutput(); startErr != nil {
-			log.Printf("Auto-start failed for %s: %v, output: %s", realAppName, startErr, string(startOutput))
+			log.Printf("Auto-start failed for %s using appname: %v, output: %s", realAppName, startErr, string(startOutput))
+		} else {
+			log.Printf("Auto-start successful for %s using appname", realAppName)
 		}
 	}
 

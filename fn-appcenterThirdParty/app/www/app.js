@@ -940,16 +940,19 @@ function showInstallationWizard(app, wizardData, volumes, defaultVolumeId) {
                     hideInstallProgress();
 
                     if (res.code === 0) {
+                        hideLoading();
                         showNotification('提交成功，开始安装', 'success');
                         hideAppDetail();
                         setTimeout(() => loadApps(), 1000);
                         startAppStatusPolling(app.id);
                     } else {
+                        hideLoading();
                         showNotification('安装请求失败: ' + res.message, 'error');
                     }
                 } catch (e) {
                     if (progressPoller) clearInterval(progressPoller);
                     hideInstallProgress();
+                    hideLoading();
                     showNotification('安装失败: ' + (e.message || '网络错误'), 'error');
                 }
             }
@@ -1836,6 +1839,9 @@ function showLoading(message = '加载中...') {
             <div class="loading-message">${message}</div>
         `;
         document.body.appendChild(loading);
+    } else {
+        const msgEl = loading.querySelector('.loading-message');
+        if (msgEl) msgEl.textContent = message;
     }
     loading.style.display = 'flex';
 }
