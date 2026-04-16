@@ -24,6 +24,7 @@ type App struct {
 	SourceID      string   `json:"source_id"`
 	DownloadCount int      `json:"download_count"`
 	Recommended   bool     `json:"recommended"`
+	OtherVersions []*App   `json:"other_versions,omitempty"`
 }
 
 // FnpackData 应用数据映射

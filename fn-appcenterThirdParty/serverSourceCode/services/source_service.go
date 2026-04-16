@@ -69,16 +69,12 @@ func parseAndCacheSource(sourceID string) []models.App {
 		return apps
 	}
 
-	url := strings.TrimSpace(targetSource.URL)
+	url := NormalizeURL(targetSource.URL)
 
-	if strings.Contains(url, "gitee.com") && strings.Contains(url, "/blob/") {
-		url = strings.Replace(url, "/blob/", "/raw/", 1)
-	}
-
-	if !strings.HasSuffix(url, "/fnpack.json") {
-		url = strings.TrimRight(url, "/") + "/fnpack.json"
-	}
-	resp, err := http.Get(url)
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("User-Agent", "FnAppCenter/1.0")
+	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("Failed to fetch fnpack.json from %s: %v", url, err)
 		return []models.App{}
@@ -315,8 +311,7 @@ func AsyncCheckSources() {
 		go func(i int) {
 			defer wg.Done()
 			s := &sources[i]
-			url := strings.TrimSpace(s.URL)
-
+			url := NormalizeURL(s.URL)
 			// 只要 URL 能联通（状态码为 200）即视为有效
 			if !strings.HasSuffix(url, "/fnpack.json") {
 				url = strings.TrimRight(url, "/") + "/fnpack.json"
@@ -355,4 +350,27 @@ func AsyncCheckSources() {
 	if changed {
 		SaveSources(sources)
 	}
+}
+
+// NormalizeURL 规范化第三方平台的链接（如 Gitee, GitHub）为原始文件链接
+func NormalizeURL(url string) string {
+	url = strings.TrimSpace(url)
+
+	// Gitee 处理
+	if strings.Contains(url, "gitee.com") && strings.Contains(url, "/blob/") {
+		url = strings.Replace(url, "/blob/", "/raw/", 1)
+	}
+
+	// GitHub 处理
+	if strings.Contains(url, "github.com") {
+		if strings.Contains(url, "/blob/") {
+			url = strings.Replace(url, "github.com", "raw.githubusercontent.com", 1)
+			url = strings.Replace(url, "/blob/", "/", 1)
+		} else if strings.Contains(url, "/raw/") {
+			url = strings.Replace(url, "github.com", "raw.githubusercontent.com", 1)
+			url = strings.Replace(url, "/raw/", "/", 1)
+		}
+	}
+
+	return url
 }

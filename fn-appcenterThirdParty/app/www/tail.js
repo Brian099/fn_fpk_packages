@@ -1,10 +1,10 @@
 ﻿        } else {
-            alert('启动失败: ' + (data.message || '未知错误'));
-        }
+    alert('启动失败: ' + (data.message || '未知错误'));
+}
     } catch (error) {
-        console.error('启动失败:', error);
-        alert('网络错误，请重试');
-    }
+    console.error('启动失败:', error);
+    alert('网络错误，请重试');
+}
 }
 
 async function stopApp(appId) {
@@ -87,7 +87,7 @@ async function executeUninstall(appId, appName, keepData, overlay) {
             hideAppDetail();
             // 重新加载应用列表以刷新状态
             setTimeout(() => loadApps(), 500);
-            
+
             // 停止该应用的状态轮询
             if (window.appPollers && window.appPollers[appId]) {
                 clearInterval(window.appPollers[appId]);
@@ -320,7 +320,7 @@ function renderSettingsManager(settings, sources, containerId = 'settingsView', 
                     </div>
                     <div class="settings-card-content">
                         <div class="settings-card-title">分享我的应用</div>
-                        <div class="settings-card-description">开启后，其他用户可通过指定端口访问本地的应用列表数据。</div>
+                        <div class="settings-card-description">开启后，可分享本机应用给其他用户。</div>
                     </div>
                     <div class="settings-card-actions">
                         <div class="toggle-switch" style="margin-right: 16px;">
@@ -883,9 +883,9 @@ function updateInstallProgress(percentage, stage = '正在下载安装包...') {
     const bar = document.getElementById('install-progress-bar');
     const text = document.getElementById('install-progress-text');
     const stageLabel = document.getElementById('install-stage-label');
-    
+
     if (stageLabel) stageLabel.textContent = stage;
-    
+
     if (percentage >= 0) {
         if (bar) bar.style.width = percentage + '%';
         if (text) text.textContent = percentage + '%';

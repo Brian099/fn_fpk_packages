@@ -272,6 +272,24 @@ func GetApps(c *gin.Context) {
 		allApps = filtered
 	}
 
+	// 按 AppName 分组，每个应用只保留最高版本
+	groups := make(map[string]models.App)
+	for _, app := range allApps {
+		key := app.AppName
+		if key == "" {
+			key = app.ID
+		}
+		if existing, ok := groups[key]; !ok || CompareVersions(app.Version, existing.Version) > 0 {
+			groups[key] = app
+		}
+	}
+
+	// 转换回切片
+	allApps = make([]models.App, 0, len(groups))
+	for _, app := range groups {
+		allApps = append(allApps, app)
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0,
 		"data": gin.H{
@@ -290,20 +308,54 @@ func GetAppDetail(c *gin.Context) {
 	sources := services.LoadSources()
 	services.DiscoverLocalSources(&sources)
 
+	var foundApp *models.App
+	allAvailableApps := make([]models.App, 0)
+
 	for i := range sources {
 		if !sources[i].Enabled {
 			continue
 		}
 		apps := services.LoadAppsFromSource(&sources[i])
-		for _, app := range apps {
-			if app.ID == appID {
-				c.JSON(http.StatusOK, gin.H{
-					"code": 0,
-					"data": app,
-				})
-				return
+		for j := range apps {
+			allAvailableApps = append(allAvailableApps, apps[j])
+			if apps[j].ID == appID {
+				foundApp = &apps[j]
 			}
 		}
+	}
+
+	if foundApp != nil {
+		// 查找相同 AppName 的其他版本/源
+		targetAppName := foundApp.AppName
+		if targetAppName == "" {
+			targetAppName = foundApp.ID
+		}
+
+		otherVersions := make([]*models.App, 0)
+		for i := range allAvailableApps {
+			app := allAvailableApps[i]
+			appName := app.AppName
+			if appName == "" {
+				appName = app.ID
+			}
+
+			if appName == targetAppName && app.ID != foundApp.ID {
+				otherVersions = append(otherVersions, &allAvailableApps[i])
+			}
+		}
+
+		// 按版本降序排序
+		sort.Slice(otherVersions, func(i, j int) bool {
+			return CompareVersions(otherVersions[i].Version, otherVersions[j].Version) > 0
+		})
+
+		foundApp.OtherVersions = otherVersions
+
+		c.JSON(http.StatusOK, gin.H{
+			"code": 0,
+			"data": foundApp,
+		})
+		return
 	}
 
 	c.JSON(http.StatusNotFound, gin.H{
@@ -521,6 +573,7 @@ func downloadFPKFile(appID string, url string, destPath string) error {
 	defer installProgressMap.Delete(appID) // 任务结束后（无论是 defer 还是手动）删除进度记录
 
 	if strings.HasPrefix(url, "http") {
+		url = services.NormalizeURL(url)
 		// 配置跳过 SSL 验证的 Transport
 		tr := &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -1127,4 +1180,34 @@ func RecordAppDownload(c *gin.Context) {
 		"code":    0,
 		"message": "Download recorded successfully",
 	})
+}
+
+// CompareVersions 比较两个版本号字符串
+// 返回 1: v1 > v2, 0: v1 == v2, -1: v1 < v2
+func CompareVersions(v1, v2 string) int {
+	v1 = strings.TrimPrefix(v1, "v")
+	v2 = strings.TrimPrefix(v2, "v")
+	v1Parts := strings.Split(v1, ".")
+	v2Parts := strings.Split(v2, ".")
+	length := len(v1Parts)
+	if len(v2Parts) > length {
+		length = len(v2Parts)
+	}
+
+	for i := 0; i < length; i++ {
+		var p1, p2 int
+		if i < len(v1Parts) {
+			fmt.Sscanf(v1Parts[i], "%d", &p1)
+		}
+		if i < len(v2Parts) {
+			fmt.Sscanf(v2Parts[i], "%d", &p2)
+		}
+		if p1 > p2 {
+			return 1
+		}
+		if p1 < p2 {
+			return -1
+		}
+	}
+	return 0
 }

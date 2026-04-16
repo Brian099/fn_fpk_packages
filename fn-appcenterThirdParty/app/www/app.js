@@ -553,7 +553,7 @@ function renderAppDetail(app) {
 
     let actionButtons = '';
     const status = app.status || { status: 'unknown', running: false };
-    
+
     // 检查是否有新版本
     const hasUpdate = (status.version && compareVersions(app.version, status.version) > 0);
 
@@ -635,8 +635,21 @@ function renderAppDetail(app) {
                 <h3>应用介绍</h3>
                 <p>${escapeHtml(app.description || '暂无应用介绍')}</p>
             </div>
-        </div>
 
+            ${app.other_versions && app.other_versions.length > 0 ? `
+            <div class="detail-section">
+                <h3>更多版本 & 来源</h3>
+                <div class="other-versions-list" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;">
+                    ${app.other_versions.map(v => `
+                        <button class="semi-button semi-button-secondary" style="height: auto; padding: 8px 12px; flex-direction: column; align-items: flex-start;" onclick="showAppDetail('${v.id}')">
+                            <div style="font-weight: 600; font-size: 13px;">版本: ${escapeHtml(v.version)}</div>
+                            <div style="font-size: 11px; opacity: 0.7; margin-top: 2px;">ID: ${escapeHtml(v.id)}</div>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+            ` : ''}
+        </div>
     `;
 }
 
@@ -686,7 +699,7 @@ async function installApp(app, envFilePath = null) {
         // 1. 初始显示准备状态，并按需展示下载进度
         showLoading('正在准备安装向导...');
         let hasShownProgress = false;
-        
+
         const progressPoller = setInterval(async () => {
             try {
                 const res = await apiRequest(`/api/apps/${encodeURIComponent(app.id)}/install/progress`);
@@ -738,7 +751,7 @@ function showInstallationWizard(app, wizardData, volumes, defaultVolumeId) {
         let currentStep = 0;
         const totalSteps = (wizardData.license ? 1 : 0) + (wizardData.steps ? wizardData.steps.length : 0) + 1; // +1 for Volume Select
         const collectedEnv = {};
-        
+
         // 初始选中默认卷
         let selectedVolumeId = defaultVolumeId || (volumes.length > 0 ? volumes[0].id : null);
 
@@ -845,7 +858,7 @@ function showInstallationWizard(app, wizardData, volumes, defaultVolumeId) {
 
         window.selectWizardVolume = (id) => {
             selectedVolumeId = id;
-            
+
             // 增量式更新 DOM，避免整体重绘导致的“跳动”
             const container = wizardOverlay.querySelector('.volume-selection-container');
             if (container) {
@@ -887,7 +900,7 @@ function showInstallationWizard(app, wizardData, volumes, defaultVolumeId) {
         window.closeWizard = async (confirmed) => {
             if (confirmed) {
                 const autoStart = document.getElementById('auto-start-check')?.checked || false;
-                
+
                 // 立即更新状态为安装中 (Optimistic UI)
                 if (window.appsCache && window.appsCache[app.id]) {
                     window.appsCache[app.id].status = 'installing';
@@ -954,7 +967,7 @@ function renderWizardItem(item, collectedEnv) {
     }
 
     const value = collectedEnv[item.field] || item.initValue || '';
-    
+
     return `
         <div class="wizard-form-item">
             <label class="wizard-form-label">${item.label || item.field}</label>
@@ -1075,7 +1088,7 @@ async function executeUninstall(appId, appName, keepData, overlay) {
             hideAppDetail();
             // 重新加载应用列表以刷新状态
             setTimeout(() => loadApps(), 500);
-            
+
             // 停止该应用的状态轮询
             if (window.appPollers && window.appPollers[appId]) {
                 clearInterval(window.appPollers[appId]);
@@ -1308,7 +1321,7 @@ function renderSettingsManager(settings, sources, containerId = 'settingsView', 
                     </div>
                     <div class="settings-card-content">
                         <div class="settings-card-title">分享我的应用</div>
-                        <div class="settings-card-description">开启后，其他用户可通过指定端口访问本地的应用列表数据。</div>
+                        <div class="settings-card-description">开启后，可分享本机应用给其他用户。</div>
                     </div>
                     <div class="settings-card-actions">
                         <div class="toggle-switch" style="margin-right: 16px;">
@@ -1871,9 +1884,9 @@ function updateInstallProgress(percentage, stage = '正在下载安装包...') {
     const bar = document.getElementById('install-progress-bar');
     const text = document.getElementById('install-progress-text');
     const stageLabel = document.getElementById('install-stage-label');
-    
+
     if (stageLabel) stageLabel.textContent = stage;
-    
+
     if (percentage >= 0) {
         if (bar) bar.style.width = percentage + '%';
         if (text) text.textContent = percentage + '%';
