@@ -226,6 +226,13 @@ func ScanFPKDir(baseDir string, sourceID string, forceRescan bool) []models.App 
 			continue
 		}
 		app.SourceID = sourceID
+		// 继承缓存中的元数据
+		app.Recommended = cachedApp.Recommended
+		app.DownloadCount = cachedApp.DownloadCount
+		if len(cachedApp.Labels) > 0 {
+			app.Labels = cachedApp.Labels
+			app.Categories = cachedApp.Labels
+		}
 		allApps = append(allApps, app)
 	}
 

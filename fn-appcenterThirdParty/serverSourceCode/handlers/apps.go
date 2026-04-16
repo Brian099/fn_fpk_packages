@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,7 +11,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"appcenter/config"
 	"appcenter/models"
@@ -18,6 +22,29 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// 全局安装进度 Map: AppID -> percentage (int)
+var installProgressMap sync.Map
+
+// ProgressWriter 用于追踪下载进度
+type ProgressWriter struct {
+	Total      int64
+	Written    int64
+	OnProgress func(percentage int)
+}
+
+func (pw *ProgressWriter) Write(p []byte) (int, error) {
+	n := len(p)
+	pw.Written += int64(n)
+	if pw.Total > 0 {
+		percentage := int(float64(pw.Written) / float64(pw.Total) * 100)
+		if percentage > 100 {
+			percentage = 100
+		}
+		pw.OnProgress(percentage)
+	}
+	return n, nil
+}
 
 // resolveAppName 根据 appID 获取其内部真实的 AppName
 func resolveAppName(appID string) string {
@@ -139,6 +166,9 @@ func GetCacheApps(c *gin.Context) {
 
 // GetApps 获取所有应用
 func GetApps(c *gin.Context) {
+	// 后台异步检查并清理失效源 (无感维护)
+	go services.AsyncCheckSources()
+
 	category := c.Query("category")
 	keyword := strings.ToLower(c.Query("keyword"))
 
@@ -175,49 +205,41 @@ func GetApps(c *gin.Context) {
 		allApps = append(allApps, apps...)
 	}
 
+	// 获取所有已安装应用的实时状态映射
+	installedMap, _ := services.GetInstalledAppsMap()
+
 	// 按分类过滤
 	if category != "" {
 		filtered := make([]models.App, 0)
 
-		// 对于 installed 分类，需要实时查询应用状态
 		if category == "installed" {
-			// 获取已安装应用列表
-			cliPath := getAppCenterCliPath()
-			cmd := exec.Command(cliPath, "list")
-			output, err := cmd.CombinedOutput()
-
-			var installedApps map[string]bool
-			if err == nil {
-				installedApps = make(map[string]bool)
-				lines := strings.Split(string(output), "\n")
-				for _, line := range lines {
-					line = strings.TrimSpace(line)
-					if line == "" || strings.HasPrefix(line, "┌") || strings.HasPrefix(line, "├") || strings.HasPrefix(line, "└") {
-						continue
-					}
-					if strings.HasPrefix(line, "│") {
-						fields := strings.Split(line, "│")
-						if len(fields) >= 5 {
-							appName := strings.TrimSpace(fields[1])
-							if appName != "APP NAME" && appName != "" {
-								installedApps[appName] = true
-							}
-						}
-					}
-				}
-			}
-
 			for _, app := range allApps {
-				// 检查应用是否在已安装列表中
-				if installedApps != nil && (installedApps[app.AppName] || installedApps[app.ID]) {
+				// 使用内部 appname 或 id 进行比对 (必须匹配 list 中的 APP NAME)
+				if installedMap != nil && (installedMap[app.AppName] != nil || installedMap[app.ID] != nil) {
 					filtered = append(filtered, app)
 				}
 			}
+		} else if category == "推荐应用" {
+			for _, app := range allApps {
+				if app.Recommended {
+					filtered = append(filtered, app)
+				}
+			}
+		} else if category == "trending" {
+			// 热门应用：按下载量排序并取前 25
+			sort.Slice(allApps, func(i, j int) bool {
+				return allApps[i].DownloadCount > allApps[j].DownloadCount
+			})
+			if len(allApps) > 25 {
+				allApps = allApps[:25]
+			}
+			filtered = allApps
 		} else {
 			for _, app := range allApps {
 				match := false
 				switch category {
-				case "latest":
+				case "trending":
+					// 已经在上面处理了特例，这里设为 true 只是为了逻辑严密
 					match = true
 				default:
 					for _, cat := range app.Labels {
@@ -253,9 +275,10 @@ func GetApps(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0,
 		"data": gin.H{
-			"apps":    allApps,
-			"total":   len(allApps),
-			"sources": len(sources),
+			"apps":      allApps,
+			"total":     len(allApps),
+			"sources":   len(sources),
+			"installed": installedMap, // 将已安装映射返回给前端，用于快速渲染角标
 		},
 	})
 }
@@ -356,7 +379,7 @@ func InstallApp(c *gin.Context) {
 			return
 		}
 
-		if err := downloadFPKFile(downloadURL, fpkPath); err != nil {
+		if err := downloadFPKFile(appID, downloadURL, fpkPath); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"code":    500,
 				"message": fmt.Sprintf("Failed to download FPK: %v", err),
@@ -444,6 +467,26 @@ func InstallApp(c *gin.Context) {
 	})
 }
 
+// GetInstallProgress 获取安装/下载进度
+func GetInstallProgress(c *gin.Context) {
+	appID := c.Param("id")
+	if percentage, ok := installProgressMap.Load(appID); ok {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 0,
+			"data": gin.H{
+				"percentage": percentage,
+			},
+		})
+	} else {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 0,
+			"data": gin.H{
+				"percentage": -1, // -1 表示任务不存在或已结束
+			},
+		})
+	}
+}
+
 func findAppDownloadURL(appID string, sourceID string) string {
 	sources := services.LoadSources()
 	services.DiscoverLocalSources(&sources)
@@ -472,9 +515,28 @@ func findAppDownloadURL(appID string, sourceID string) string {
 	return ""
 }
 
-func downloadFPKFile(url string, destPath string) error {
+func downloadFPKFile(appID string, url string, destPath string) error {
+	// 任务开始前初始化进度为 0
+	installProgressMap.Store(appID, 0)
+	defer installProgressMap.Delete(appID) // 任务结束后（无论是 defer 还是手动）删除进度记录
+
 	if strings.HasPrefix(url, "http") {
-		resp, err := http.Get(url)
+		// 配置跳过 SSL 验证的 Transport
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		client := &http.Client{
+			Transport: tr,
+			Timeout:   600 * time.Second, // 10 分钟超时
+		}
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("User-Agent", "FnAppCenter/1.0")
+
+		resp, err := client.Do(req)
 		if err != nil {
 			return err
 		}
@@ -484,16 +546,33 @@ func downloadFPKFile(url string, destPath string) error {
 			return fmt.Errorf("HTTP %d", resp.StatusCode)
 		}
 
+		contentLength := resp.ContentLength
+
 		out, err := os.Create(destPath)
 		if err != nil {
 			return err
 		}
 		defer out.Close()
 
-		_, err = io.Copy(out, resp.Body)
+		// 创建进度包装器
+		pw := &ProgressWriter{
+			Total: contentLength,
+			OnProgress: func(p int) {
+				installProgressMap.Store(appID, p)
+			},
+		}
+
+		// 执行流式拷贝并计算进度
+		written, err := io.Copy(out, io.TeeReader(resp.Body, pw))
 		if err != nil {
 			return err
 		}
+
+		// 简单完整性校验
+		if contentLength > 0 && written < contentLength {
+			return fmt.Errorf("download incomplete: got %d, want %d", written, contentLength)
+		}
+
 	} else {
 		srcPath := url
 		if !filepath.IsAbs(srcPath) {
@@ -503,10 +582,12 @@ func downloadFPKFile(url string, destPath string) error {
 		if err := copyFile(srcPath, destPath); err != nil {
 			return err
 		}
+		// 本地拷贝瞬时完成，直接设为 100
+		installProgressMap.Store(appID, 100)
 	}
 
 	// 下载完成后记录下载计数
-	appID := strings.TrimSuffix(filepath.Base(destPath), ".fpk")
+	// appID 已由参数提供
 	go func() {
 		sources := services.LoadSources()
 		services.DiscoverLocalSources(&sources)
@@ -609,11 +690,19 @@ func UninstallApp(c *gin.Context) {
 	// 1. 尝试停止应用 (使用真实应用名)
 	exec.Command(cliPath, "stop", realAppName).Run()
 
-	// 2. 删除向导卸载配置
-	wizardUninstallPath := filepath.Join("/var/apps", appID, "wizard/uninstall")
-	if _, err := os.Stat(wizardUninstallPath); err == nil {
-		log.Printf("Deleting wizard uninstall config: %s", wizardUninstallPath)
-		os.Remove(wizardUninstallPath)
+	// 2. 删除向导卸载配置 (必须在执行标准卸载前清理)
+	// 优先根据真实的实应用名去定位安装目录，同时兼容 ID 路径
+	wizardPaths := []string{
+		filepath.Join("/var/apps", realAppName, "wizard/uninstall"),
+		filepath.Join("/var/apps", appID, "wizard/uninstall"),
+	}
+
+	for _, p := range wizardPaths {
+		if _, err := os.Stat(p); err == nil {
+			log.Printf("Deleting wizard uninstall script before CLI uninstall: %s", p)
+			os.Remove(p)
+			break
+		}
 	}
 
 	// 3. 执行标准卸载 (使用真实应用名)
@@ -629,24 +718,30 @@ func UninstallApp(c *gin.Context) {
 		return
 	}
 
-	// 4. 如果不保留数据，则清理所有储存池下的 @app 目录 (使用真实应用名)
+	// 4. 如果不保留数据，则执行深度清理 (使用真实应用名精确匹配)
 	if !keepData {
-		log.Printf("Nuke mode: Cleaning up data for realAppName: %s", realAppName)
+		log.Printf("[Nuke] Starting deep cleanup for realAppName: %s", realAppName)
+
+		// A. 清理 /usr/local/apps 下的 5 个特定目录
+		localAppBase := "/usr/local/apps"
+		localDirs := []string{"@apptemp", "@apphome", "@appdata", "@appconf", "@appcenter"}
+		for _, d := range localDirs {
+			target := filepath.Join(localAppBase, d, realAppName)
+			if _, err := os.Stat(target); err == nil {
+				log.Printf("[Nuke] Deleting local app data: %s", target)
+				os.RemoveAll(target)
+			}
+		}
+
+		// B. 遍历所有存储卷 (vol*) 查找并清理 7 个特定目录
+		volDirs := []string{"@apptemp", "@appshare", "@appmeta", "@apphome", "@appdata", "@appconf", "@appcenter"}
 		volumes := services.ScanVolumes()
 		for _, vol := range volumes {
-			// 先找根目录下的所有以 @app 开头的目录
-			volPath := vol.Path
-			files, err := ioutil.ReadDir(volPath)
-			if err == nil {
-				for _, f := range files {
-					if f.IsDir() && strings.HasPrefix(f.Name(), "@app") {
-						// 注意：有些应用在 @app 下的目录名也是真实应用名
-						appDataPath := filepath.Join(volPath, f.Name(), realAppName)
-						if _, err := os.Stat(appDataPath); err == nil {
-							log.Printf("Deleting application data: %s", appDataPath)
-							os.RemoveAll(appDataPath)
-						}
-					}
+			for _, d := range volDirs {
+				target := filepath.Join(vol.Path, d, realAppName)
+				if _, err := os.Stat(target); err == nil {
+					log.Printf("[Nuke] Deleting volume app data: %s", target)
+					os.RemoveAll(target)
 				}
 			}
 		}
@@ -714,8 +809,9 @@ func GetAppStatus(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"code": 0,
 			"data": gin.H{
-				"status":  "not_installed",
-				"running": false,
+				"status":    "noinstall",
+				"running":   false,
+				"installed": false,
 			},
 		})
 		return
@@ -724,8 +820,9 @@ func GetAppStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0,
 		"data": gin.H{
-			"status":  status.Status,
-			"running": status.Running,
+			"status":    status.Status,
+			"running":   status.Running,
+			"installed": status.Installed,
 		},
 	})
 }
@@ -951,7 +1048,7 @@ func GetAppWizard(c *gin.Context) {
 			downloadURL = findAppDownloadURL(appID, sourceID)
 		}
 		if downloadURL != "" {
-			if err := downloadFPKFile(downloadURL, fpkPath); err != nil {
+			if err := downloadFPKFile(appID, downloadURL, fpkPath); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "Failed to download FPK for wizard: " + err.Error()})
 				return
 			}

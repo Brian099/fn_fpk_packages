@@ -9,7 +9,8 @@ type Source struct {
 	AutoUpdate bool   `json:"auto_update"`
 	LastSync   string `json:"last_sync"`
 	AppCount   int    `json:"app_count"`
-	Local      bool   `json:"local"`
+	Local       bool   `json:"local"`
+	LastChecked int64  `json:"last_checked"`
 }
 
 // FPKFingerprint 文件指纹结构体

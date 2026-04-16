@@ -9,6 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
+
 
 	"appcenter/models"
 )
@@ -115,8 +118,28 @@ func parseAndCacheSource(sourceID string) []models.App {
 
 	if len(apps) > 0 {
 		os.MkdirAll(cacheDir, 0755)
+		cachePath := filepath.Join(cacheDir, sourceID+".json")
+
+		// 尝试合并旧的元数据（推荐状态、标签、下载量）
+		if oldData, err := ioutil.ReadFile(cachePath); err == nil {
+			var oldApps []models.App
+			if err := json.Unmarshal(oldData, &oldApps); err == nil {
+				oldMap := make(map[string]models.App)
+				for _, oa := range oldApps {
+					oldMap[oa.ID] = oa
+				}
+				for i := range apps {
+					if oa, ok := oldMap[apps[i].ID]; ok {
+						// 对于远程源，本地仅保留下载量计数
+						// 推荐状态和标签应遵循源端的设定
+						apps[i].DownloadCount = oa.DownloadCount
+					}
+				}
+			}
+		}
+
 		cacheData, _ := json.MarshalIndent(apps, "", "  ")
-		ioutil.WriteFile(filepath.Join(cacheDir, sourceID+".json"), cacheData, 0644)
+		ioutil.WriteFile(cachePath, cacheData, 0644)
 	}
 
 	return apps
@@ -240,7 +263,7 @@ func convertToApp(appName string, fnpackApp models.FnpackApp, sourceID string) m
 
 	return models.App{
 		ID:          appName,
-		AppName:     appName, // 远程源通常 ID 和 AppName 是一致的
+		AppName:     appName,
 		Name:        fnpackApp.DisplayName,
 		Description: desc,
 		Version:     version,
@@ -254,5 +277,82 @@ func convertToApp(appName string, fnpackApp models.FnpackApp, sourceID string) m
 		DownloadURL: downloadURL,
 		Changelog:   changelog,
 		SourceID:    sourceID,
+	}
+}
+
+// AsyncCheckSources 后台异步检测所有启用的远程源
+func AsyncCheckSources() {
+	sources := LoadSources()
+	now := time.Now().Unix()
+	var wg sync.WaitGroup
+	changed := false
+	var mu sync.Mutex
+
+	// 记录需要检测的源索引
+	var toCheck []int
+	for i := range sources {
+		s := &sources[i]
+		if s.Local || !s.Enabled {
+			continue
+		}
+		// 10 分钟冷却期
+		if now-s.LastChecked < 600 {
+			continue
+		}
+		toCheck = append(toCheck, i)
+	}
+
+	if len(toCheck) == 0 {
+		return
+	}
+
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+
+	for _, idx := range toCheck {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			s := &sources[i]
+			url := strings.TrimSpace(s.URL)
+
+			// 只要 URL 能联通（状态码为 200）即视为有效
+			if !strings.HasSuffix(url, "/fnpack.json") {
+				url = strings.TrimRight(url, "/") + "/fnpack.json"
+			}
+
+			valid := false
+			resp, err := client.Get(url)
+			if err == nil {
+				if resp.StatusCode == http.StatusOK {
+					valid = true
+				}
+				resp.Body.Close()
+			}
+
+			mu.Lock()
+			defer mu.Unlock()
+
+			if valid {
+				sources[i].LastChecked = now
+				changed = true
+			} else {
+				log.Printf("[Cleanup] Source %s (%s) is inaccessible (Status: %v). Disabling and cleaning cache.", s.Name, s.URL, err)
+				sources[i].Enabled = false
+				// 清理缓存
+				cachePath := filepath.Join(cacheDir, s.ID+".json")
+				if err := os.Remove(cachePath); err != nil && !os.IsNotExist(err) {
+					log.Printf("[Cleanup] Failed to remove cache file %s: %v", cachePath, err)
+				}
+				changed = true
+			}
+		}(idx)
+	}
+
+	wg.Wait()
+
+	if changed {
+		SaveSources(sources)
 	}
 }

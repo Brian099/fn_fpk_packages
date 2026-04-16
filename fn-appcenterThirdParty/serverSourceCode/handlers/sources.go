@@ -230,8 +230,9 @@ func ResetSourceCache(c *gin.Context) {
 }
 
 type UpdateAppLabelsRequest struct {
-	AppID  string   `json:"app_id"`
-	Labels []string `json:"labels"`
+	AppID       string   `json:"app_id"`
+	Labels      []string `json:"labels"`
+	Recommended *bool    `json:"recommended"`
 }
 
 func UpdateAppLabels(c *gin.Context) {
@@ -259,7 +260,7 @@ func UpdateAppLabels(c *gin.Context) {
 	}
 
 	if !targetSource.Local {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "Only local source supported"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "仅支持为本地应用（FPK）设置分类或推荐"})
 		return
 	}
 
@@ -279,8 +280,27 @@ func UpdateAppLabels(c *gin.Context) {
 	found := false
 	for i := range cacheData.Apps {
 		if cacheData.Apps[i].ID == appID {
-			cacheData.Apps[i].Labels = req.Labels
-			cacheData.Apps[i].Categories = req.Labels
+			if req.Labels != nil {
+				cacheData.Apps[i].Labels = req.Labels
+				cacheData.Apps[i].Categories = req.Labels
+			}
+			if req.Recommended != nil {
+				// 检查推荐限制 (每源最多2个)
+				if *req.Recommended {
+					recommendedCount := 0
+					for _, app := range cacheData.Apps {
+						if app.Recommended {
+							recommendedCount++
+						}
+					}
+					// 如果当前还没推荐或者是尝试增加推荐
+					if !cacheData.Apps[i].Recommended && recommendedCount >= 2 {
+						c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "每个应用源最多只能推荐2个应用"})
+						return
+					}
+				}
+				cacheData.Apps[i].Recommended = *req.Recommended
+			}
 			found = true
 			break
 		}

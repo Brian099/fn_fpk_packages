@@ -252,6 +252,76 @@
     --semi-border-radius-s: 8px;
 }
 
+/* Critical UI: Volume Selection (Prioritized Parsing) */
+.volume-selection-container {
+    padding: 4px !important;
+    display: block !important;
+}
+
+.vol-card-btn {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 16px 20px !important;
+    background-color: #f2f3f4 !important;
+    border: 2px solid rgba(28, 31, 35, 0.16) !important;
+    border-radius: 12px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    user-select: none !important;
+    margin-bottom: 8px !important;
+    text-align: left !important;
+}
+
+.vol-card-btn.active {
+    border-color: #0066ff !important;
+    background-color: #e6f4ff !important;
+    box-shadow: 0 0 0 1px #0066ff, 0 4px 12px rgba(0, 102, 255, 0.15) !important;
+}
+
+.vol-card-btn:active {
+    transform: scale(0.98) !important;
+}
+
+.vol-card-btn .card-info {
+    flex: 1 !important;
+}
+
+.vol-card-btn .card-title {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: #1c1f23 !important;
+    margin-bottom: 4px !important;
+    display: block !important;
+}
+
+.vol-card-btn .card-desc {
+    font-size: 12px !important;
+    color: #444648 !important;
+    display: block !important;
+}
+
+.vol-card-btn .card-radio {
+    width: 20px !important;
+    height: 20px !important;
+    border: 2px solid rgba(28, 31, 35, 0.16) !important;
+    border-radius: 50% !important;
+    margin-left: 12px !important;
+    background: #ffffff !important;
+    position: relative !important;
+}
+
+.vol-card-btn.active .card-radio::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 3px !important;
+    left: 3px !important;
+    width: 10px !important;
+    height: 10px !important;
+    background: #0066ff !important;
+    border-radius: 50% !important;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -640,8 +710,8 @@ textarea {
     /* 增加分类行与按钮行的间距 */
 }
 
-/* My Apps 模式下的特殊样式：隐藏安装按钮，但保持分类和标签按钮可见 */
-.view-manage .semi-button:not(.app-card-tag-btn) {
+/* My Apps 模式下的特殊样式：隐藏安装按钮，但保持分类和推荐按钮可见 */
+.view-manage .semi-button:not(.app-card-tag-btn):not(.app-card-recommend-btn) {
     display: none !important;
 }
 
@@ -1307,7 +1377,7 @@ textarea {
     color: #f57c00;
 }
 
-.status-not_installed {
+.status-noinstall {
     background-color: #f5f5f5;
     color: #757575;
 }
@@ -2402,7 +2472,8 @@ textarea {
     font-size: 14px;
     color: var(--semi-color-text-1);
 }
-    font-size: 13px;/* Wizard Dialog */
+
+/* Wizard Dialog */
 .wizard-overlay {
     position: fixed;
     top: 0;
@@ -2542,21 +2613,7 @@ textarea {
     border-color: var(--semi-color-primary);
     background-color: var(--semi-color-primary-light-default);
 }
-
-.volume-item-id {
-    font-weight: 600;
-    font-size: 16px;
-    width: 40px;
-}
-
-.volume-item-info {
-    flex: 1;
-}
-
-.volume-item-path {
-    font-size: 14px;
-    color: var(--semi-color-text-1);
-}/* Status Badge for Details */
+/* Status Badge for Details */
 .status-badge {
     padding: 2px 8px;
     border-radius: 4px;
@@ -2574,7 +2631,7 @@ textarea {
     color: var(--semi-grey-5);
 }
 
-.status-badge.status-not_installed {
+.status-badge.status-noinstall {
     background-color: var(--semi-amber-0);
     color: var(--semi-amber-5);
 }
@@ -2590,4 +2647,13 @@ textarea {
     50% { opacity: 0.6; }
     100% { opacity: 1; }
 }
+
+.manual-volume-section select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 40px;
 }

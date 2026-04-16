@@ -22,6 +22,7 @@ func SetupRouter(appDest, pkgVar string, appConfig config.Config) *gin.Engine {
 		api.GET("/apps/:id", handlers.GetAppDetail)
 		api.GET("/apps/:id/icon", handlers.GetAppIcon)
 		api.POST("/apps/:id/install", handlers.InstallApp)
+		api.GET("/apps/:id/install/progress", handlers.GetInstallProgress)
 		api.POST("/apps/:id/start", handlers.StartApp)
 		api.POST("/apps/:id/stop", handlers.StopApp)
 		api.DELETE("/apps/:id", handlers.UninstallApp)
@@ -32,8 +33,8 @@ func SetupRouter(appDest, pkgVar string, appConfig config.Config) *gin.Engine {
 		api.POST("/apps/:id/download", handlers.RecordAppDownload)
 		// 新增应用管理API
 		api.GET("/apps/installed", handlers.GetInstalledApps)
-		api.GET("/volume/default", handlers.GetDefaultVolume)
-		api.POST("/volume/default/:id", handlers.SetDefaultVolume)
+		api.GET("/system/default-volume", handlers.GetDefaultVolume)
+		api.POST("/system/default-volume/:id", handlers.SetDefaultVolume)
 		api.GET("/system/volumes", handlers.GetVolumes)
 		api.GET("/manual-install", handlers.GetManualInstallStatus)
 		api.POST("/manual-install/:action", handlers.SetManualInstall)

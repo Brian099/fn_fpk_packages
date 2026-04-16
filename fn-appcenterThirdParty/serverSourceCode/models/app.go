@@ -23,6 +23,7 @@ type App struct {
 	Changelog     string   `json:"changelog"`
 	SourceID      string   `json:"source_id"`
 	DownloadCount int      `json:"download_count"`
+	Recommended   bool     `json:"recommended"`
 }
 
 // FnpackData 应用数据映射

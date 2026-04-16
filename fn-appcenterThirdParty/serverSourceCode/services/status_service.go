@@ -1,12 +1,11 @@
 package services
 
 import (
-	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
-	"os/exec"
 
 	"appcenter/config"
 )
@@ -15,18 +14,9 @@ import (
 type AppStatus struct {
 	Status      string    `json:"status"`
 	Running     bool      `json:"running"`
+	Installed   bool      `json:"installed"`
+	Version     string    `json:"version"` // 已安装版本
 	LastChecked time.Time `json:"last_checked"`
-}
-
-// StatusCache 状态缓存结构体
-type StatusCache struct {
-	LastUpdated time.Time         `json:"last_updated"`
-	Apps        map[string]AppStatus `json:"apps"`
-}
-
-// getStatusCachePath 获取状态缓存文件路径
-func getStatusCachePath() string {
-	return filepath.Join(cacheDir, "appstatus.json")
 }
 
 // getAppCenterCliPath 获取appcenter-cli的路径
@@ -43,157 +33,80 @@ func getAppCenterCliPath() string {
 	return "appcenter-cli"
 }
 
-// LoadStatusCache 加载状态缓存
-func LoadStatusCache() (StatusCache, error) {
-	cachePath := getStatusCachePath()
-
-	// 如果缓存文件不存在，返回空缓存
-	if _, err := os.Stat(cachePath); os.IsNotExist(err) {
-		return StatusCache{
-			LastUpdated: time.Now(),
-			Apps:        make(map[string]AppStatus),
-		}, nil
-	}
-
-	// 读取缓存文件
-	data, err := os.ReadFile(cachePath)
-	if err != nil {
-		return StatusCache{
-			LastUpdated: time.Now(),
-			Apps:        make(map[string]AppStatus),
-		}, err
-	}
-
-	// 解析缓存数据
-	var cache StatusCache
-	if err := json.Unmarshal(data, &cache); err != nil {
-		return StatusCache{
-			LastUpdated: time.Now(),
-			Apps:        make(map[string]AppStatus),
-		}, err
-	}
-
-	return cache, nil
-}
-
-// SaveStatusCache 保存状态缓存
-func SaveStatusCache(cache StatusCache) error {
-	cachePath := getStatusCachePath()
-
-	// 确保缓存目录存在
-	if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
-		return err
-	}
-
-	// 序列化缓存数据
-	data, err := json.MarshalIndent(cache, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	// 写入缓存文件
-	return os.WriteFile(cachePath, data, 0644)
-}
-
-// GetAppStatus 获取应用状态
+// GetAppStatus 获取应用状态（改用 list 批量匹配逻辑，确保一致性）
 func GetAppStatus(appName string) (AppStatus, error) {
-	// 加载缓存
-	cache, err := LoadStatusCache()
-	if err != nil {
-		return AppStatus{}, err
-	}
-
-	// 检查缓存是否存在且未过期（5分钟内）
-	if status, exists := cache.Apps[appName]; exists {
-		if time.Since(status.LastChecked) < 5*time.Minute {
-			return status, nil
-		}
-	}
-
-	// 缓存不存在或已过期，调用 appcenter-cli 获取状态
-	cliPath := getAppCenterCliPath()
-	cmd := exec.Command(cliPath, "status", appName)
-	output, err := cmd.CombinedOutput()
-
 	status := AppStatus{
 		LastChecked: time.Now(),
 	}
 
-	if err != nil {
-		status.Status = "not_installed"
-		status.Running = false
-	} else {
-		outputStr := strings.ToLower(string(output))
-
-		if strings.Contains(outputStr, "noinstall") || strings.Contains(outputStr, "not installed") {
-			status.Status = "not_installed"
-			status.Running = false
-		} else if strings.Contains(outputStr, "running") {
-			status.Status = "running"
-			status.Running = true
-		} else if strings.Contains(outputStr, "stopped") {
-			status.Status = "stopped"
-			status.Running = false
-		} else if strings.Contains(outputStr, "nostart") {
-			status.Status = "nostart"
-			status.Running = false
-		} else {
-			status.Status = "unknown"
-			status.Running = false
-		}
+	if appName == "" {
+		status.Status = "noinstall"
+		return status, nil
 	}
 
-	// 更新缓存
-	cache.Apps[appName] = status
-	cache.LastUpdated = time.Now()
-	SaveStatusCache(cache)
+	installedMap, err := GetInstalledAppsMap()
+	if err != nil {
+		status.Status = "noinstall"
+		return status, nil
+	}
+
+	if info, ok := installedMap[appName]; ok {
+		status.Status = info["status"]
+		status.Version = info["version"]
+		status.Installed = true
+		status.Running = (status.Status == "running")
+	} else {
+		status.Status = "noinstall"
+		status.Running = false
+		status.Installed = false
+	}
 
 	return status, nil
 }
 
-// RefreshAllStatus 刷新所有应用状态
-func RefreshAllStatus() error {
-	// 获取所有已安装的应用
+// GetInstalledAppsMap 返回所有已安装应用的映射 (AppName -> {status, version})
+func GetInstalledAppsMap() (map[string]map[string]string, error) {
 	cliPath := getAppCenterCliPath()
 	cmd := exec.Command(cliPath, "list")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// 解析应用列表
+	installedMap := make(map[string]map[string]string)
 	lines := strings.Split(string(output), "\n")
-	appNames := make([]string, 0)
 
 	for _, line := range lines {
-		// 跳过表头和分隔线
-		if strings.Contains(line, "APP NAME") || strings.Contains(line, "┌") || strings.Contains(line, "├") || strings.Contains(line, "└") {
-			continue
-		}
+		line = strings.TrimSpace(line)
+		// 识别表格行 (以 │ 开头)
+		if strings.HasPrefix(line, "│") {
+			fields := strings.Split(line, "│")
+			if len(fields) >= 5 {
+				appName := strings.TrimSpace(fields[1])
+				version := strings.TrimSpace(fields[3])
+				rawStatus := strings.ToLower(strings.TrimSpace(fields[4]))
 
-		// 提取应用名称
-		parts := strings.Fields(line)
-		if len(parts) > 0 {
-			appName := parts[0]
-			appNames = append(appNames, appName)
+				// 映射状态：nostart -> running, start -> start (未启动), stopped -> stopped
+				status := rawStatus
+				if rawStatus == "nostart" {
+					status = "running"
+				}
+
+				// 排除表头
+				if appName != "" && appName != "APP NAME" {
+					installedMap[appName] = map[string]string{
+						"status":  status,
+						"version": version,
+					}
+				}
+			}
 		}
 	}
 
-	// 加载当前缓存
-	cache, err := LoadStatusCache()
-	if err != nil {
-		return err
-	}
+	return installedMap, nil
+}
 
-	// 刷新每个应用的状态
-	for _, appName := range appNames {
-		status, err := GetAppStatus(appName)
-		if err == nil {
-			cache.Apps[appName] = status
-		}
-	}
-
-	// 更新缓存
-	cache.LastUpdated = time.Now()
-	return SaveStatusCache(cache)
+// RefreshAllStatus 为了保持兼容性保留函数名，但逻辑改为直接返回成功（因为现在是实时的）
+func RefreshAllStatus() error {
+	return nil
 }
