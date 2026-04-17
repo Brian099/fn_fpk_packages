@@ -236,6 +236,9 @@ type UpdateAppLabelsRequest struct {
 }
 
 func UpdateAppLabels(c *gin.Context) {
+	services.CacheMutex.Lock()
+	defer services.CacheMutex.Unlock()
+
 	sourceID := c.Param("id")
 	appID := c.Param("appId")
 
@@ -294,8 +297,8 @@ func UpdateAppLabels(c *gin.Context) {
 						}
 					}
 					// 如果当前还没推荐或者是尝试增加推荐
-					if !cacheData.Apps[i].Recommended && recommendedCount >= 2 {
-						c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "每个应用源最多只能推荐2个应用"})
+					if !cacheData.Apps[i].Recommended && recommendedCount >= 20 {
+						c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "每个应用源最多只能推荐20个应用"})
 						return
 					}
 				}

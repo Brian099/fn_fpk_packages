@@ -47,6 +47,7 @@ type FnpackApp struct {
 	Changelog      string              `json:"changelog"`
 	Distributor    string              `json:"distributor"`
 	DistributorURL string              `json:"distributor_url"`
+	Recommended    bool                `json:"recommended"`
 	ArchDiff       map[string]ArchDiff `json:"arch_diff"`
 }
 

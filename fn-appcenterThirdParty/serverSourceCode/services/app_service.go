@@ -11,6 +11,7 @@ import (
 
 	"appcenter/config"
 	"appcenter/models"
+	"sync"
 )
 
 var (
@@ -18,24 +19,9 @@ var (
 	cacheDir      string
 	appStoreDir   string
 	downloadDir   string
+	CacheMutex    sync.Mutex // 全局缓存文件访问锁
+	SourcesMutex  sync.Mutex // 全局源配置访问锁
 )
-
-var defaultSources = []models.Source{
-	{
-		ID:         "laokhome",
-		Name:       "Laok源",
-		URL:        "http://nas.laokhome.cn:5668",
-		Enabled:    true,
-		AutoUpdate: true,
-	},
-	{
-		ID:         "ljs",
-		Name:       "有搞头源",
-		URL:        "https://ljs.fun:5668",
-		Enabled:    true,
-		AutoUpdate: true,
-	},
-}
 
 func init() {
 	// Set default values if environment variables are not set
@@ -56,11 +42,9 @@ func init() {
 
 // LoadSources 加载源列表
 func LoadSources() []models.Source {
-	// 如果源配置文件不存在，则初始化为默认源
+	// 如果源配置文件不存在，则直接返回空列表
 	if _, err := os.Stat(sourcesConfig); os.IsNotExist(err) {
-		log.Printf("Sources config not found, initializing with default sources...")
-		SaveSources(defaultSources)
-		return defaultSources
+		return []models.Source{}
 	}
 
 	data, err := ioutil.ReadFile(sourcesConfig)
@@ -78,16 +62,26 @@ func LoadSources() []models.Source {
 
 // SaveSources 保存源列表
 func SaveSources(sources []models.Source) {
+	SourcesMutex.Lock()
+	defer SourcesMutex.Unlock()
+	saveSources(sources)
+}
+
+func saveSources(sources []models.Source) {
 	os.MkdirAll(filepath.Dir(sourcesConfig), 0755)
 	data, _ := json.MarshalIndent(sources, "", "  ")
 	ioutil.WriteFile(sourcesConfig, data, 0644)
 }
 
-// DiscoverLocalSources 发现本地源
+// DiscoverLocalSources 发现本地源并持久化
 func DiscoverLocalSources(sources *[]models.Source) {
 	userAppStoreDir := GetUsersAppStoreDir()
 	if userAppStoreDir != "" {
+		countBefore := len(*sources)
 		scanFPKFiles(sources, userAppStoreDir)
+		if len(*sources) > countBefore {
+			SaveSources(*sources)
+		}
 	}
 }
 
@@ -155,7 +149,10 @@ func LoadAppsFromSource(source *models.Source) []models.App {
 		return parseAndCacheSource(source.ID)
 	}
 
+	CacheMutex.Lock()
 	data, err := ioutil.ReadFile(cachePath)
+	CacheMutex.Unlock()
+
 	if err != nil {
 		return []models.App{}
 	}
@@ -169,6 +166,9 @@ func LoadAppsFromSource(source *models.Source) []models.App {
 
 // ScanFPKDir 扫描指定目录下的 FPK 文件（递归子目录，支持指纹缓存）
 func ScanFPKDir(baseDir string, sourceID string, forceRescan bool) []models.App {
+	CacheMutex.Lock()
+	defer CacheMutex.Unlock()
+
 	if baseDir == "" {
 		return []models.App{}
 	}
@@ -363,6 +363,9 @@ func SyncSourceData(source *models.Source) (int, int, int) {
 
 // IncrementDownloadCount 递增应用下载计数
 func IncrementDownloadCount(sourceID string, appID string) error {
+	CacheMutex.Lock()
+	defer CacheMutex.Unlock()
+
 	cachePath := filepath.Join(cacheDir, sourceID+".json")
 
 	// 加载缓存

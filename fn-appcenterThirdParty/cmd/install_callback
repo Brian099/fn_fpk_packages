@@ -36,21 +36,38 @@ fi
 # Initialize sources.json if it doesn't exist
 SOURCES_FILE="${TRIM_PKGVAR}/sources.json"
 if [ ! -f "${SOURCES_FILE}" ]; then
-    cat >"${SOURCES_FILE}" <<'EOF'
+    TS=$(date +%s)
+    ID1="source_$((TS + 1))"
+    ID1_TS=$((TS + 1))
+    ID2="source_$((TS + 2))"
+    
+    cat >"${SOURCES_FILE}" <<EOF
 [
   {
-    "id": "local",
-    "name": "本地源",
-    "url": "local",
+    "id": "${ID1}",
+    "name": "Laok源(预设)",
+    "url": "http://nas.laokhome.cn:5668",
     "enabled": true,
     "auto_update": true,
-    "last_sync": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+    "last_sync": "",
     "app_count": 0,
-    "local": true
+    "local": false,
+    "last_checked": ${ID1_TS}
+  },
+  {
+    "id": "${ID2}",
+    "name": "有搞头源(预设)",
+    "url": "https://ljs.fun:5668",
+    "enabled": false,
+    "auto_update": true,
+    "last_sync": "",
+    "app_count": 0,
+    "local": false,
+    "last_checked": 0
   }
 ]
 EOF
-    echo "Default sources config created: ${SOURCES_FILE}"
+    echo "Default sources config created with preset sources: ${SOURCES_FILE}"
 fi
 
 echo "安装回调完成！"

@@ -24,15 +24,26 @@ func scanFPKFiles(sources *[]models.Source, baseDir string) {
 		return
 	}
 
-	exists := false
-	for _, source := range *sources {
-		if source.Local && source.URL == baseDir {
-			exists = true
+	// 查找是否已存在本地源
+	localSourceIdx := -1
+	for i, source := range *sources {
+		if source.Local {
+			localSourceIdx = i
 			break
 		}
 	}
 
-	if !exists {
+	if localSourceIdx != -1 {
+		// 如果本地源路径发生了变化，更新它
+		if (*sources)[localSourceIdx].URL != baseDir {
+			log.Printf("Updating local FPK source from %s to %s", (*sources)[localSourceIdx].URL, baseDir)
+			(*sources)[localSourceIdx].URL = baseDir
+			(*sources)[localSourceIdx].ID = "local_" + filepath.Base(baseDir)
+			(*sources)[localSourceIdx].AppCount = len(fpkFiles)
+			// 此处外部 DiscoverLocalSources 会调用 SaveSources
+		}
+	} else {
+		// 不存在则添加唯一的本地源
 		localSource := models.Source{
 			ID:         "local_" + filepath.Base(baseDir),
 			Name:       "本地 FPK 文件",
@@ -50,6 +61,9 @@ func scanFPKFiles(sources *[]models.Source, baseDir string) {
 
 // parseAndCacheSource 解析并缓存源
 func parseAndCacheSource(sourceID string) []models.App {
+	CacheMutex.Lock()
+	defer CacheMutex.Unlock()
+
 	sources := LoadSources()
 	var targetSource *models.Source
 	for i := range sources {
@@ -126,9 +140,17 @@ func parseAndCacheSource(sourceID string) []models.App {
 				}
 				for i := range apps {
 					if oa, ok := oldMap[apps[i].ID]; ok {
-						// 对于远程源，本地仅保留下载量计数
-						// 推荐状态和标签应遵循源端的设定
+						// 继承下载量
 						apps[i].DownloadCount = oa.DownloadCount
+						// 继承本地设定的推荐状态（自荐模式：源端如果是 Recommended，本地也接受；本地如果是 Recommended，更新后也保留）
+						if oa.Recommended {
+							apps[i].Recommended = true
+						}
+						// 继承分类标签
+						if len(oa.Labels) > 0 {
+							apps[i].Labels = oa.Labels
+							apps[i].Categories = oa.Labels
+						}
 					}
 				}
 			}
@@ -273,6 +295,7 @@ func convertToApp(appName string, fnpackApp models.FnpackApp, sourceID string) m
 		DownloadURL: downloadURL,
 		Changelog:   changelog,
 		SourceID:    sourceID,
+		Recommended: fnpackApp.Recommended,
 	}
 }
 

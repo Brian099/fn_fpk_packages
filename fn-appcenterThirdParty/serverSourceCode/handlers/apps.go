@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -100,65 +99,31 @@ func GetCacheApps(c *gin.Context) {
 		pkgVar = "/var/apps/fn-appcenterThirdParty/var"
 	}
 
-	cacheDir := filepath.Join(pkgVar, "cache")
 
 	sources := services.LoadSources()
+	services.DiscoverLocalSources(&sources)
 
-	var localSourceID string
+	allRecommendedApps := []models.App{}
+	localSourcesCount := 0
+
 	for _, source := range sources {
-		if source.Local {
-			localSourceID = source.ID
-			break
+		if source.Local && source.Enabled {
+			localSourcesCount++
+			apps := services.LoadAppsFromSource(&source)
+			for _, app := range apps {
+				if app.Recommended {
+					allRecommendedApps = append(allRecommendedApps, app)
+				}
+			}
 		}
-	}
-
-	if localSourceID == "" {
-		c.JSON(http.StatusOK, gin.H{
-			"code": 0,
-			"data": gin.H{
-				"apps":    []models.App{},
-				"total":   0,
-				"sources": 0,
-			},
-		})
-		return
-	}
-
-	cachePath := filepath.Join(cacheDir, localSourceID+".json")
-	data, err := ioutil.ReadFile(cachePath)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"code": 0,
-			"data": gin.H{
-				"apps":    []models.App{},
-				"total":   0,
-				"sources": 1,
-			},
-		})
-		return
-	}
-
-	var cacheData struct {
-		Apps []models.App `json:"apps"`
-	}
-	if err := json.Unmarshal(data, &cacheData); err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"code": 0,
-			"data": gin.H{
-				"apps":    []models.App{},
-				"total":   0,
-				"sources": 1,
-			},
-		})
-		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0,
 		"data": gin.H{
-			"apps":    cacheData.Apps,
-			"total":   len(cacheData.Apps),
-			"sources": 1,
+			"apps":    allRecommendedApps,
+			"total":   len(allRecommendedApps),
+			"sources": localSourcesCount,
 		},
 	})
 }
@@ -175,26 +140,6 @@ func GetApps(c *gin.Context) {
 
 	sources := services.LoadSources()
 	services.DiscoverLocalSources(&sources)
-
-	hasLocalSource := false
-	for _, s := range sources {
-		if s.Local {
-			hasLocalSource = true
-			break
-		}
-	}
-	if !hasLocalSource {
-		userDir := services.GetUsersAppStoreDir()
-		if userDir != "" {
-			sources = append(sources, models.Source{
-				ID:      "local_" + filepath.Base(userDir),
-				Name:    "本地 FPK 文件",
-				URL:     userDir,
-				Enabled: true,
-				Local:   true,
-			})
-		}
-	}
 
 	for i := range sources {
 		if !sources[i].Enabled {

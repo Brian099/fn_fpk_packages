@@ -1107,16 +1107,21 @@ async function showMyAppsManager() {
     switchView('appGrid');
 
     try {
-        const sourcesData = await apiRequest('/api/sources');
-        const localSource = sourcesData.data.sources.find(s => s.local);
+        const [sourcesRes, appsRes] = await Promise.all([
+            apiRequest('/api/sources'),
+            apiRequest('/api/apps')
+        ]);
 
-        if (!localSource) {
+        const sources = sourcesRes.data.sources || [];
+        const localSourceIds = sources.filter(s => s.local).map(s => s.id);
+
+        if (localSourceIds.length === 0) {
             appGrid.innerHTML = '<div class="empty-state"><p>暂无本地应用源</p></div>';
             return;
         }
 
-        const appsData = await apiRequest(`/api/apps?source=${encodeURIComponent(localSource.id)}`);
-        const apps = appsData.data.apps || [];
+        // 过滤出所有来自本地源的应用
+        const apps = (appsRes.data.apps || []).filter(app => localSourceIds.includes(app.source_id));
 
         if (apps.length === 0) {
             appGrid.innerHTML = '<div class="empty-state"><p>暂无本地应用</p></div>';
