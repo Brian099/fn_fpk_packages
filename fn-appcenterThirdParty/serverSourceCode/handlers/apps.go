@@ -76,7 +76,6 @@ func resolveAppName(appID string) string {
 
 	// 3. 最后手段：查已安装目录探测
 	realName := getInstalledAppName(appID)
-	log.Printf("[Resolve] Fallback to name '%s' for ID: %s", realName, appID)
 	return realName
 }
 
@@ -403,7 +402,7 @@ func InstallApp(c *gin.Context) {
 
 	var req InstallAppRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		req = InstallAppRequest{}
+		log.Printf("Warning: Failed to bind InstallApp JSON for app %s: %v", appID, err)
 	}
 
 	userAppStoreDir := services.GetUsersAppStoreDir()
@@ -749,18 +748,12 @@ func UninstallApp(c *gin.Context) {
 	exec.Command(cliPath, "stop", realAppName).Run()
 
 	// 2. 删除向导卸载配置 (必须在执行标准卸载前清理)
-	// 优先根据真实的实应用名去定位安装目录，同时兼容 ID 路径
-	wizardPaths := []string{
-		filepath.Join("/var/apps", realAppName, "wizard/uninstall"),
-		filepath.Join("/var/apps", appID, "wizard/uninstall"),
-	}
+	// 严格基于实应用名去定位安装目录，不再回退/兼容 ID 路径
+	uninstallWizardPath := filepath.Join("/var/apps", realAppName, "wizard/uninstall")
 
-	for _, p := range wizardPaths {
-		if _, err := os.Stat(p); err == nil {
-			log.Printf("Deleting wizard uninstall script before CLI uninstall: %s", p)
-			os.Remove(p)
-			break
-		}
+	if _, err := os.Stat(uninstallWizardPath); err == nil {
+		log.Printf("Deleting wizard uninstall script before CLI uninstall: %s", uninstallWizardPath)
+		os.Remove(uninstallWizardPath)
 	}
 
 	// 3. 执行标准卸载 (使用真实应用名)
@@ -817,7 +810,7 @@ func getInstalledAppName(appID string) string {
 	manifestPath := filepath.Join("/var/apps", appID, "manifest")
 	data, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
-		return appID // 回退到 ID
+		return ""
 	}
 
 	content := string(data)
@@ -834,7 +827,7 @@ func getInstalledAppName(appID string) string {
 			}
 		}
 	}
-	return appID
+	return ""
 }
 
 // CheckApp 检查应用是否已安装

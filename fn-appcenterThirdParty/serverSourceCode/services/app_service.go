@@ -20,6 +20,23 @@ var (
 	downloadDir   string
 )
 
+var defaultSources = []models.Source{
+	{
+		ID:         "laokhome",
+		Name:       "Laok源",
+		URL:        "http://nas.laokhome.cn:5668",
+		Enabled:    true,
+		AutoUpdate: true,
+	},
+	{
+		ID:         "ljs",
+		Name:       "有搞头源",
+		URL:        "https://ljs.fun:5668",
+		Enabled:    true,
+		AutoUpdate: true,
+	},
+}
+
 func init() {
 	// Set default values if environment variables are not set
 	appDest := config.AppDest
@@ -39,6 +56,13 @@ func init() {
 
 // LoadSources 加载源列表
 func LoadSources() []models.Source {
+	// 如果源配置文件不存在，则初始化为默认源
+	if _, err := os.Stat(sourcesConfig); os.IsNotExist(err) {
+		log.Printf("Sources config not found, initializing with default sources...")
+		SaveSources(defaultSources)
+		return defaultSources
+	}
+
 	data, err := ioutil.ReadFile(sourcesConfig)
 	if err != nil {
 		return []models.Source{}

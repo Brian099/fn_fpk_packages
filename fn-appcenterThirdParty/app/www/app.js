@@ -93,8 +93,8 @@ class ApiService {
     }
 
     // 专用DELETE方法
-    async delete(endpoint) {
-        return this.request(endpoint, { method: 'DELETE' });
+    async delete(endpoint, options = {}) {
+        return this.request(endpoint, { method: 'DELETE', ...options });
     }
 
     // === 新增功能API ===
@@ -171,17 +171,17 @@ class ApiService {
 
     // 启动应用
     async startApp(appId) {
-        return this.post(`/api/apps/${appId}/start`);
+        return this.post(`/api/apps/${appId}/start`, {}, { timeout: 0 });
     }
 
     // 停止应用
     async stopApp(appId) {
-        return this.post(`/api/apps/${appId}/stop`);
+        return this.post(`/api/apps/${appId}/stop`, {}, { timeout: 0 });
     }
 
     // 卸载应用
-    async uninstallApp(appId) {
-        return this.delete(`/api/apps/${appId}`);
+    async uninstallApp(appId, keepData = true) {
+        return this.delete(`/api/apps/${appId}?keep_data=${keepData}`, { timeout: 0 });
     }
 
     // 获取应用状态
@@ -930,7 +930,7 @@ function showInstallationWizard(app, wizardData, volumes, defaultVolumeId) {
 
                     const res = await apiService.installApp(app.id, {
                         env: collectedEnv,
-                        volume_id: selectedVolumeId,
+                        volume_id: parseInt(selectedVolumeId),
                         download_url: app.download_url,
                         source_id: app.source_id,
                         auto_start: autoStart
@@ -941,7 +941,7 @@ function showInstallationWizard(app, wizardData, volumes, defaultVolumeId) {
 
                     if (res.code === 0) {
                         hideLoading();
-                        showNotification('提交成功，开始安装', 'success');
+                        showNotification('安装已完成', 'success');
                         hideAppDetail();
                         setTimeout(() => loadApps(), 1000);
                         startAppStatusPolling(app.id);
@@ -994,9 +994,7 @@ function renderWizardItem(item, collectedEnv) {
 
 async function startApp(appId) {
     try {
-        const data = await apiRequest(`/api/apps/${appId}/start`, {
-            method: 'POST'
-        });
+        const data = await apiService.startApp(appId);
 
         if (data.code === 0) {
             alert('启动成功！');
@@ -1017,9 +1015,7 @@ async function stopApp(appId) {
     }
 
     try {
-        const data = await apiRequest(`/api/apps/${appId}/stop`, {
-            method: 'POST'
-        });
+        const data = await apiService.stopApp(appId);
 
         if (data.code === 0) {
             alert('停止成功！');
@@ -1081,9 +1077,7 @@ async function executeUninstall(appId, appName, keepData, overlay) {
     if (overlay) overlay.remove();
     showLoading('正在卸载...');
     try {
-        const data = await apiRequest(`/api/apps/${appId}?keep_data=${keepData}`, {
-            method: 'DELETE'
-        });
+        const data = await apiService.uninstallApp(appId, keepData);
         hideLoading();
 
         if (data.code === 0) {
