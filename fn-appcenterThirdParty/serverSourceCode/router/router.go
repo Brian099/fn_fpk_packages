@@ -19,6 +19,7 @@ func SetupRouter(appDest, pkgVar string, appConfig config.Config) *gin.Engine {
 	api := r.Group("/api")
 	{
 		api.GET("/apps", handlers.GetApps)
+		api.GET("/apps/local", handlers.GetLocalApps)
 		api.GET("/apps/:id", handlers.GetAppDetail)
 		api.GET("/apps/:id/icon", handlers.GetAppIcon)
 		api.POST("/apps/:id/install", handlers.InstallApp)

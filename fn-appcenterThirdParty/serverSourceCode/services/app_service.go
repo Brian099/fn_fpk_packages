@@ -161,6 +161,12 @@ func LoadAppsFromSource(source *models.Source) []models.App {
 	if err := json.Unmarshal(data, &apps); err != nil {
 		return []models.App{}
 	}
+
+	// 注入源名称
+	for i := range apps {
+		apps[i].SourceName = source.Name
+	}
+
 	return apps
 }
 

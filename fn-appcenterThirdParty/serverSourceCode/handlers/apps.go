@@ -99,7 +99,6 @@ func GetCacheApps(c *gin.Context) {
 		pkgVar = "/var/apps/fn-appcenterThirdParty/var"
 	}
 
-
 	sources := services.LoadSources()
 	services.DiscoverLocalSources(&sources)
 
@@ -244,6 +243,36 @@ func GetApps(c *gin.Context) {
 		},
 	})
 }
+
+// GetLocalApps 获取所有本地源的应用（不进行名称/版本聚合，显示原始物理文件列表）
+func GetLocalApps(c *gin.Context) {
+	allApps := make([]models.App, 0)
+
+	sources := services.LoadSources()
+	services.DiscoverLocalSources(&sources)
+
+	for i := range sources {
+		// 仅显示本地且启用的源
+		if !sources[i].Local || !sources[i].Enabled {
+			continue
+		}
+		apps := services.LoadAppsFromSource(&sources[i])
+		allApps = append(allApps, apps...)
+	}
+
+	// 获取已安装状态映射供前端渲染
+	installedMap, _ := services.GetInstalledAppsMap()
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"apps":      allApps,
+			"total":     len(allApps),
+			"installed": installedMap,
+		},
+	})
+}
+
 
 // GetAppDetail 获取应用详情
 func GetAppDetail(c *gin.Context) {
@@ -429,6 +458,10 @@ func InstallApp(c *gin.Context) {
 	} else {
 		log.Printf("Extracted real application name from manifest: %s", realAppName)
 	}
+
+	// 在安装/更新前，先尝试停止旧版本应用（如果有的话）
+	log.Printf("Ensuring app %s is stopped before (re)installation...", realAppName)
+	exec.Command(cliPath, "stop", realAppName).Run()
 
 	cmd := exec.Command(cliPath, args...)
 	output, err := cmd.CombinedOutput()

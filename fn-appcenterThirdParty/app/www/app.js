@@ -439,9 +439,11 @@ function createAppCard(app, mini = false) {
         <div class="app-card-info">
             <div class="app-card-name-row">
                 <div class="app-card-name">${escapeHtml(app.name)}</div>
+                <div class="app-card-version">v${escapeHtml(app.version)}</div>
                 ${isInstalled ? `<span class="app-installed-badge">${isUpdate ? '有更新' : '已安装'}</span>` : ''}
             </div>
             <div class="app-card-category">${escapeHtml(displayCategory)}</div>
+            <div class="app-card-source">${escapeHtml(app.source_name || '本地')}</div>
             <div class="app-card-meta">
                 <div class="app-card-actions">
                     ${mini ? `<button class="semi-button ${isRecommended ? 'semi-button-primary' : 'semi-button-secondary'} app-card-recommend-btn" title="推荐">${isRecommended ? '★' : '☆'} 推荐</button>` : ''}
@@ -633,7 +635,7 @@ function renderAppDetail(app) {
 
             <div class="detail-section">
                 <h3>应用介绍</h3>
-                <p>${escapeHtml(app.description || '暂无应用介绍')}</p>
+                <p>${app.description || '暂无应用介绍'}</p>
             </div>
 
             ${app.other_versions && app.other_versions.length > 0 ? `
@@ -1107,21 +1109,11 @@ async function showMyAppsManager() {
     switchView('appGrid');
 
     try {
-        const [sourcesRes, appsRes] = await Promise.all([
-            apiRequest('/api/sources'),
-            apiRequest('/api/apps')
+        const [appsRes] = await Promise.all([
+            apiRequest('/api/apps/local')
         ]);
 
-        const sources = sourcesRes.data.sources || [];
-        const localSourceIds = sources.filter(s => s.local).map(s => s.id);
-
-        if (localSourceIds.length === 0) {
-            appGrid.innerHTML = '<div class="empty-state"><p>暂无本地应用源</p></div>';
-            return;
-        }
-
-        // 过滤出所有来自本地源的应用
-        const apps = (appsRes.data.apps || []).filter(app => localSourceIds.includes(app.source_id));
+        const apps = appsRes.data.apps || [];
 
         if (apps.length === 0) {
             appGrid.innerHTML = '<div class="empty-state"><p>暂无本地应用</p></div>';

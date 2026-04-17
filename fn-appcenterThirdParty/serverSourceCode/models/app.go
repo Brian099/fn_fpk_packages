@@ -22,6 +22,7 @@ type App struct {
 	DownloadURL   string   `json:"download_url"`
 	Changelog     string   `json:"changelog"`
 	SourceID      string   `json:"source_id"`
+	SourceName    string   `json:"source_name"`
 	DownloadCount int      `json:"download_count"`
 	Recommended   bool     `json:"recommended"`
 	OtherVersions []*App   `json:"other_versions,omitempty"`
