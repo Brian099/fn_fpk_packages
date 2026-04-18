@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"appcenter/config"
@@ -326,4 +327,82 @@ func UpdateAppLabels(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "Labels updated successfully"})
+}
+
+// SyncPresetSources 从远程获取官方预设源并合并
+func SyncPresetSources(c *gin.Context) {
+	url := "https://gitee.com/laoknas/fn_fpk_packages/raw/master/AppStoreList.txt"
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取远程推荐源失败: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": fmt.Sprintf("获取远程推荐源失败: HTTP %d", resp.StatusCode)})
+		return
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "读取推荐源数据失败"})
+		return
+	}
+
+	lines := strings.Split(string(body), "\n")
+	sources := services.LoadSources()
+	added := 0
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || !strings.Contains(line, ",http") {
+			continue
+		}
+		parts := strings.SplitN(line, ",", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		name := strings.TrimSpace(parts[0])
+		sourceURL := strings.TrimSpace(parts[1])
+
+		// 检查是否已存在（按URL匹配）
+		exists := false
+		for _, s := range sources {
+			if s.URL == sourceURL {
+				exists = true
+				break
+			}
+		}
+
+		if !exists {
+			newSource := models.Source{
+				ID:         fmt.Sprintf("source_%d", time.Now().UnixNano()),
+				Name:       name + "(推荐源)",
+				URL:        sourceURL,
+				Enabled:    false, // 新发现的源默认不开启，让用户自己选择
+				AutoUpdate: true,
+				LastSync:   "",
+				AppCount:   0,
+				Local:      false,
+			}
+			sources = append(sources, newSource)
+			added++
+			time.Sleep(1 * time.Millisecond) // 防止 ID 冲突
+		}
+	}
+
+	if added > 0 {
+		services.SaveSources(sources)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": fmt.Sprintf("成功发现了 %d 个新的推荐源", added),
+		"data": gin.H{
+			"added": added,
+		},
+	})
 }

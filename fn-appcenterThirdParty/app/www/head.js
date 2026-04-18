@@ -53,6 +53,12 @@ class ApiService {
                 throw new Error('解析响应失败');
             }
 
+            // 优化前端提示：拦截特定业务错误码 40001
+            if (data && data.code === 40001) {
+                alert('请先在设置中配置 AppStore 存储目录');
+                throw new Error(data.message || '需要配置存储目录');
+            }
+
             if (!response.ok) {
                 throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
             }

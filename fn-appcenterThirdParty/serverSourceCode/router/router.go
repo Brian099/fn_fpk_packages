@@ -41,6 +41,7 @@ func SetupRouter(appDest, pkgVar string, appConfig config.Config) *gin.Engine {
 		api.POST("/manual-install/:action", handlers.SetManualInstall)
 		api.GET("/sources", handlers.GetSources)
 		api.POST("/sources", handlers.AddSource)
+		api.POST("/sources/preset/sync", handlers.SyncPresetSources)
 		api.DELETE("/sources/:id", handlers.DeleteSource)
 		api.POST("/sources/:id/toggle", handlers.ToggleSource)
 		api.POST("/sources/:id/sync", handlers.SyncSource)

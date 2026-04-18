@@ -1,4 +1,4 @@
-﻿        } else {
+        } else {
     alert('启动失败: ' + (data.message || '未知错误'));
 }
     } catch (error) {
@@ -353,6 +353,18 @@ function renderSettingsManager(settings, sources, containerId = 'settingsView', 
                         <button class="semi-button semi-button-primary" style="height: 36px; padding: 0 20px;" onclick="addSource()">添加源</button>
                     </div>
                 </div>
+                <div class="settings-card" style="background-color: var(--semi-color-fill-0); border-style: dashed; margin-top: 16px;">
+                    <div class="settings-card-icon" style="background-color: var(--semi-color-tertiary); color: white;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    </div>
+                    <div class="settings-card-content">
+                        <div class="settings-card-title">推荐源</div>
+                        <div class="settings-card-description">点击获取并合并官方最新推荐的应用源。新发现的源默认不开启。</div>
+                    </div>
+                    <div class="settings-card-actions">
+                        <button class="semi-button semi-button-secondary" style="height: 36px; padding: 0 20px;" onclick="syncPresetSources()">获取推荐源</button>
+                    </div>
+                </div>
                 <div id="sourceListContainer">
                     ${renderSourceList(safeSources)}
                 </div>
@@ -684,6 +696,32 @@ async function addSource() {
         }
     } catch (error) {
         console.error('添加源失败:', error);
+        showNotification(error.message || '网络错误，请重试', 'error');
+    }
+}
+
+async function syncPresetSources() {
+    showLoading('正在获取官方推荐源...');
+    try {
+        const data = await apiRequest('/api/sources/preset/sync', {
+            method: 'POST'
+        });
+
+        hideLoading();
+        if (data.code === 0) {
+            if (data.data && data.data.added > 0) {
+                showNotification(data.message || '获取推荐源成功', 'success');
+            } else {
+                showNotification('当前已经是最新，没有发现新的推荐源', 'info');
+            }
+            showSettingsManager(true, 'sources');
+            loadApps();
+        } else {
+            showNotification(data.message || '获取推荐源失败', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        console.error('获取推荐源失败:', error);
         showNotification(error.message || '网络错误，请重试', 'error');
     }
 }

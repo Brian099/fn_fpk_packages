@@ -37,37 +37,45 @@ fi
 SOURCES_FILE="${TRIM_PKGVAR}/sources.json"
 if [ ! -f "${SOURCES_FILE}" ]; then
     TS=$(date +%s)
-    ID1="source_$((TS + 1))"
-    ID1_TS=$((TS + 1))
-    ID2="source_$((TS + 2))"
     
-    cat >"${SOURCES_FILE}" <<EOF
-[
+    # 尝试从远程列表获取源信息 (注意将 blob 替换为 raw 获取纯文本)
+    REMOTE_LIST_URL="https://gitee.com/laoknas/fn_fpk_packages/raw/master/AppStoreList.txt"
+    RAW_LIST=$(curl -s -L --connect-timeout 10 "${REMOTE_LIST_URL}" | tr -d '\r' | grep -v '^$' || true)
+    
+    if [ -n "$RAW_LIST" ] && echo "$RAW_LIST" | grep -q ",http"; then
+        JSON_ARRAY="["
+        INDEX=1
+        while IFS=',' read -r NAME URL; do
+            if [ -n "$NAME" ] && [ -n "$URL" ]; then
+                ID="source_$((TS + INDEX))"
+                ENABLED="false"
+                # 默认启用第一个源
+                [ $INDEX -eq 1 ] && ENABLED="true"
+                
+                [ $INDEX -gt 1 ] && JSON_ARRAY="${JSON_ARRAY},"
+                
+                JSON_ARRAY="${JSON_ARRAY}
   {
-    "id": "${ID1}",
-    "name": "Laok源(预设)",
-    "url": "http://nas.laokhome.cn:5668",
-    "enabled": true,
-    "auto_update": true,
-    "last_sync": "",
-    "app_count": 0,
-    "local": false,
-    "last_checked": ${ID1_TS}
-  },
-  {
-    "id": "${ID2}",
-    "name": "有搞头源(预设)",
-    "url": "https://ljs.fun:5668",
-    "enabled": false,
-    "auto_update": true,
-    "last_sync": "",
-    "app_count": 0,
-    "local": false,
-    "last_checked": 0
-  }
-]
-EOF
-    echo "Default sources config created with preset sources: ${SOURCES_FILE}"
+    \"id\": \"${ID}\",
+    \"name\": \"${NAME}(预设)\",
+    \"url\": \"${URL}\",
+    \"enabled\": ${ENABLED},
+    \"auto_update\": true,
+    \"last_sync\": \"\",
+    \"app_count\": 0,
+    \"local\": false,
+    \"last_checked\": 0
+  }"
+                INDEX=$((INDEX + 1))
+            fi
+        done <<< "$RAW_LIST"
+        JSON_ARRAY="${JSON_ARRAY}
+]"
+        echo "$JSON_ARRAY" > "${SOURCES_FILE}"
+        echo "Default sources config created with preset sources: ${SOURCES_FILE}"
+    else
+        echo "Failed to fetch remote source list or list is empty. Skipping preset sources initialization."
+    fi
 fi
 
 echo "安装回调完成！"

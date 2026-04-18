@@ -380,12 +380,19 @@ func InstallApp(c *gin.Context) {
 	}
 
 	userAppStoreDir := services.GetUsersAppStoreDir()
+	isTempFallback := false
 	if userAppStoreDir == "" {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "AppStore directory not configured",
-		})
-		return
+		// 解耦下载缓存与持久化存储：降级使用系统默认的临时目录暂存
+		userAppStoreDir = filepath.Join(os.TempDir(), "fn_appcenter_cache")
+		if err := os.MkdirAll(userAppStoreDir, 0755); err != nil {
+			// 优化后端错误返回：如果强制要求或连临时目录都无法创建，返回 40001 特定业务错误码
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":    40001,
+				"message": "AppStore directory not configured",
+			})
+			return
+		}
+		isTempFallback = true
 	}
 
 	fpkPath := filepath.Join(userAppStoreDir, appID+".fpk")
@@ -411,6 +418,9 @@ func InstallApp(c *gin.Context) {
 			})
 			return
 		}
+		defer os.Remove(fpkPath)
+	} else if isTempFallback {
+		// 如果本地已有且是临时目录，安装完成后也进行清理
 		defer os.Remove(fpkPath)
 	}
 
@@ -1065,8 +1075,12 @@ func GetAppWizard(c *gin.Context) {
 
 	userAppStoreDir := services.GetUsersAppStoreDir()
 	if userAppStoreDir == "" {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "AppStore directory not configured"})
-		return
+		// 降级使用临时目录
+		userAppStoreDir = filepath.Join(os.TempDir(), "fn_appcenter_cache")
+		if err := os.MkdirAll(userAppStoreDir, 0755); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 40001, "message": "AppStore directory not configured"})
+			return
+		}
 	}
 
 	fpkPath := filepath.Join(userAppStoreDir, appID+".fpk")
