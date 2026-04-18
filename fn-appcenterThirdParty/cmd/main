@@ -4,10 +4,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 ARCH=$(uname -m)
 
-LOG_FILE="${TRIM_PKGVAR:-/var/apps/fn-appcenterThirdParty/var}/info.log"
-PID_FILE="${TRIM_PKGVAR:-/var/apps/fn-appcenterThirdParty/var}/app.pid"
-SOCKET_FILE="${TRIM_PKGVAR:-/var/apps/fn-appcenterThirdParty/var}/appcenter.sock"
-BINARY="${TRIM_APPDEST:-/var/apps/fn-appcenterThirdParty/target}/server/appcenter_${ARCH}"
+LOG_FILE="${TRIM_PKGVAR:-/var/apps/appcenterThirdParty/var}/info.log"
+PID_FILE="${TRIM_PKGVAR:-/var/apps/appcenterThirdParty/var}/app.pid"
+SOCKET_FILE="${TRIM_PKGVAR:-/var/apps/appcenterThirdParty/var}/appcenter.sock"
+BINARY="${TRIM_APPDEST:-/var/apps/appcenterThirdParty/target}/server/appcenter_${ARCH}"
 
 log_msg() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >>"${LOG_FILE}"

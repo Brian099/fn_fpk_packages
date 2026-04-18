@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"crypto/tls"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -47,16 +48,16 @@ func (pw *ProgressWriter) Write(p []byte) (int, error) {
 
 // resolveAppName 根据 appID 获取其内部真实的 AppName
 func resolveAppName(appID string) string {
-	// 1. 尝试从缓存中查找（仅在 AppName 字段有效时返回）
-	sources := services.LoadSources()
+	// 1. 尝试从内存中查找（仅在 AppName 字段有效时返回）
+	sources := services.GlobalStore.GetSources()
 	for i := range sources {
 		if !sources[i].Enabled {
 			continue
 		}
-		apps := services.LoadAppsFromSource(&sources[i])
+		apps := services.GlobalStore.GetAppsBySource(sources[i].ID)
 		for _, app := range apps {
 			if app.ID == appID && app.AppName != "" {
-				log.Printf("[Resolve] Found AppName '%s' from CACHE for ID: %s", app.AppName, appID)
+				log.Printf("[Resolve] Found AppName '%s' from MEMORY for ID: %s", app.AppName, appID)
 				return app.AppName
 			}
 		}
@@ -92,14 +93,85 @@ func getAppCenterCliPath() string {
 	return "appcenter-cli"
 }
 
+// GetAppIcon 处理图标分发代理
+func GetAppIcon(c *gin.Context) {
+	sourceID := c.Param("sourceId")
+	appID := c.Param("appId")
+
+	// 1. 优先尝试从物理缓存目录读取
+	cacheDir := filepath.Join(config.PkgVar, "cache")
+	iconPath := filepath.Join(cacheDir, "icons", appID+".png")
+	if _, err := os.Stat(iconPath); err == nil {
+		c.Header("Cache-Control", "public, max-age=86400")
+		c.File(iconPath)
+		return
+	}
+
+	// 2. 备选：从内存 Store 获取并解码（处理尚未提取或动态更新的情况）
+	apps := services.GlobalStore.GetAppsBySource(sourceID)
+	var iconData string
+	for _, app := range apps {
+		if app.ID == appID {
+			iconData = app.Icon
+			break
+		}
+	}
+
+	if iconData == "" {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	// 如果是 Base64 格式则解码输出
+	if strings.HasPrefix(iconData, "data:") {
+		parts := strings.Split(iconData, ",")
+		if len(parts) == 2 {
+			mime := "image/png"
+			if strings.Contains(parts[0], "jpeg") {
+				mime = "image/jpeg"
+			} else if strings.Contains(parts[0], "svg") {
+				mime = "image/svg+xml"
+			}
+
+			data, err := base64.StdEncoding.DecodeString(parts[1])
+			if err == nil {
+				c.Header("Cache-Control", "public, max-age=86400") // 缓存 24 小时
+				c.Data(http.StatusOK, mime, data)
+				return
+			}
+		}
+	}
+
+	// 如果本来就是 URL 或解析失败，直接 301 重定向
+	if strings.HasPrefix(iconData, "http") {
+		c.Redirect(http.StatusMovedPermanently, iconData)
+		return
+	}
+
+	c.AbortWithStatus(http.StatusNotFound)
+}
+
+// transformAppIcons 将应用列表中的 Base64 图标转换为代理 URL
+func transformAppIcons(sourceID string, apps []models.App) []models.App {
+	res := make([]models.App, len(apps))
+	for i := range apps {
+		res[i] = apps[i] // 浅拷贝
+		// 如果图标是长 Base64 字符串，则替换为代理 URL（前端会通过 resolveIconUrl 自动补全 CGI 路径）
+		if len(res[i].Icon) > 500 && strings.HasPrefix(res[i].Icon, "data:") {
+			res[i].Icon = fmt.Sprintf("/api/apps/icon/%s/%s", sourceID, res[i].ID)
+		}
+	}
+	return res
+}
+
 // GetCacheApps 直接返回本地缓存的应用数据（用于 5668 端口）
 func GetCacheApps(c *gin.Context) {
 	pkgVar := config.PkgVar
 	if pkgVar == "" {
-		pkgVar = "/var/apps/fn-appcenterThirdParty/var"
+		pkgVar = "/var/apps/appcenterThirdParty/var"
 	}
 
-	sources := services.LoadSources()
+	sources := services.GlobalStore.GetSources()
 	services.DiscoverLocalSources(&sources)
 
 	allRecommendedApps := []models.App{}
@@ -108,7 +180,7 @@ func GetCacheApps(c *gin.Context) {
 	for _, source := range sources {
 		if source.Local && source.Enabled {
 			localSourcesCount++
-			apps := services.LoadAppsFromSource(&source)
+			apps := transformAppIcons(source.ID, services.GlobalStore.GetAppsBySource(source.ID))
 			for _, app := range apps {
 				if app.Recommended {
 					allRecommendedApps = append(allRecommendedApps, app)
@@ -137,14 +209,14 @@ func GetApps(c *gin.Context) {
 
 	allApps := make([]models.App, 0)
 
-	sources := services.LoadSources()
-	services.DiscoverLocalSources(&sources)
+	services.GlobalStore.RefreshDiscovery()
+	sources := services.GlobalStore.GetSources()
 
 	for i := range sources {
 		if !sources[i].Enabled {
 			continue
 		}
-		apps := services.LoadAppsFromSource(&sources[i])
+		apps := transformAppIcons(sources[i].ID, services.GlobalStore.GetAppsBySource(sources[i].ID))
 		allApps = append(allApps, apps...)
 	}
 
@@ -248,7 +320,7 @@ func GetApps(c *gin.Context) {
 func GetLocalApps(c *gin.Context) {
 	allApps := make([]models.App, 0)
 
-	sources := services.LoadSources()
+	sources := services.GlobalStore.GetSources()
 	services.DiscoverLocalSources(&sources)
 
 	for i := range sources {
@@ -256,7 +328,7 @@ func GetLocalApps(c *gin.Context) {
 		if !sources[i].Local || !sources[i].Enabled {
 			continue
 		}
-		apps := services.LoadAppsFromSource(&sources[i])
+		apps := transformAppIcons(sources[i].ID, services.GlobalStore.GetAppsBySource(sources[i].ID))
 		allApps = append(allApps, apps...)
 	}
 
@@ -273,12 +345,11 @@ func GetLocalApps(c *gin.Context) {
 	})
 }
 
-
 // GetAppDetail 获取应用详情
 func GetAppDetail(c *gin.Context) {
 	appID := c.Param("id")
 
-	sources := services.LoadSources()
+	sources := services.GlobalStore.GetSources()
 	services.DiscoverLocalSources(&sources)
 
 	var foundApp *models.App
@@ -288,7 +359,7 @@ func GetAppDetail(c *gin.Context) {
 		if !sources[i].Enabled {
 			continue
 		}
-		apps := services.LoadAppsFromSource(&sources[i])
+		apps := transformAppIcons(sources[i].ID, services.GlobalStore.GetAppsBySource(sources[i].ID))
 		for j := range apps {
 			allAvailableApps = append(allAvailableApps, apps[j])
 			if apps[j].ID == appID {
@@ -335,29 +406,6 @@ func GetAppDetail(c *gin.Context) {
 		"code":    404,
 		"message": "Application not found",
 	})
-}
-
-// GetAppIcon 获取应用图标
-func GetAppIcon(c *gin.Context) {
-	appID := c.Param("id")
-
-	// First try to get icon from cache
-	cacheDir := filepath.Join(config.PkgVar, "cache")
-	iconCachePath := filepath.Join(cacheDir, "icons", appID+".png")
-	if _, err := os.Stat(iconCachePath); err == nil {
-		c.File(iconCachePath)
-		return
-	}
-
-	// Fallback to app store directory
-	appStoreDir := filepath.Join(config.AppDest, "AppStore")
-	iconPath := filepath.Join(appStoreDir, appID, "ICON.PNG")
-	if _, err := os.Stat(iconPath); os.IsNotExist(err) {
-		c.String(http.StatusNotFound, "Icon not found")
-		return
-	}
-
-	c.File(iconPath)
 }
 
 // InstallAppRequest 安装应用请求结构体
@@ -631,20 +679,15 @@ func downloadFPKFile(appID string, url string, destPath string) error {
 		installProgressMap.Store(appID, 100)
 	}
 
-	// 下载完成后记录下载计数
-	// appID 已由参数提供
+	// 下载完成后记录下载计数 (内存更新)
 	go func() {
-		sources := services.LoadSources()
-		services.DiscoverLocalSources(&sources)
+		sources := services.GlobalStore.GetSources()
 		for _, source := range sources {
 			if source.Enabled {
-				apps := services.LoadAppsFromSource(&source)
-				for _, app := range apps {
-					if app.ID == appID {
-						services.IncrementDownloadCount(source.ID, appID)
-						break
-					}
-				}
+				// 使用 Store 提供的原子更新方法
+				services.GlobalStore.UpdateAppMetadata(source.ID, appID, func(app *models.App) {
+					app.DownloadCount++
+				})
 			}
 		}
 	}()

@@ -28,7 +28,7 @@ type Config struct {
 // LoadConfig 加载配置文件
 func LoadConfig() Config {
 	if PkgVar == "" {
-		PkgVar = "/var/apps/fn-appcenterThirdParty/var"
+		PkgVar = "/var/apps/appcenterThirdParty/var"
 	}
 
 	configPath := filepath.Join(PkgVar, "config.json")
@@ -67,7 +67,7 @@ func LoadConfig() Config {
 // SaveConfig 保存配置文件
 func SaveConfig(config Config) error {
 	if PkgVar == "" {
-		PkgVar = "/var/apps/fn-appcenterThirdParty/var"
+		PkgVar = "/var/apps/appcenterThirdParty/var"
 	}
 
 	configPath := filepath.Join(PkgVar, "config.json")

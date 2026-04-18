@@ -6,7 +6,7 @@
 echo "第三方应用中心卸载回调处理中..."
 
 # 数据目录路径 (根据系统环境变量)
-DATA_DIR="${TRIM_PKGVAR:-/var/apps/fn-appcenterThirdParty/var}"
+DATA_DIR="${TRIM_PKGVAR:-/var/apps/appcenterThirdParty/var}"
 
 # 获取向导中的数据处理选项 (FNOS 会将其转为小写环境变量)
 # 注意：向导中的 field 是 wizard_data_action

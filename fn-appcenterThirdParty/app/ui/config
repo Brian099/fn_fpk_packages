@@ -1,10 +1,10 @@
 {
     ".url": {
-        "fn-appcenterThirdParty.Application": {
+        "appcenterThirdParty.Application": {
             "title": "应用精选",
             "icon": "images/icon_{0}.png",
             "type": "iframe",
-            "url": "/cgi/ThirdParty/fn-appcenterThirdParty/index.cgi/",
+            "url": "/cgi/ThirdParty/appcenterThirdParty/index.cgi/",
             "allUsers": true,
             "control": {
                 "accessPerm": "readonly",

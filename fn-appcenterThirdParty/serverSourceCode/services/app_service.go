@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -73,6 +74,47 @@ func saveSources(sources []models.Source) {
 	ioutil.WriteFile(sourcesConfig, data, 0644)
 }
 
+func saveAppsToCache(sourceID string, apps []models.App, fingerprints map[string]models.FPKFingerprint) {
+	// 物理提取图标到 cache/icons 目录
+	extractIcons(apps)
+
+	cachePath := filepath.Join(cacheDir, sourceID+".json")
+	cacheData := models.FPKCacheData{
+		Apps:         apps,
+		Fingerprints: fingerprints,
+	}
+	os.MkdirAll(filepath.Dir(cachePath), 0755)
+	data, _ := json.MarshalIndent(cacheData, "", "  ")
+	ioutil.WriteFile(cachePath, data, 0644)
+}
+
+// extractIcons 将 Base64 图标提取为物理文件
+func extractIcons(apps []models.App) {
+	iconsDir := filepath.Join(cacheDir, "icons")
+	if _, err := os.Stat(iconsDir); os.IsNotExist(err) {
+		os.MkdirAll(iconsDir, 0755)
+	}
+
+	for i := range apps {
+		app := &apps[i]
+		if strings.HasPrefix(app.Icon, "data:image") && strings.Contains(app.Icon, "base64,") {
+			parts := strings.Split(app.Icon, ",")
+			if len(parts) == 2 {
+				data, err := base64.StdEncoding.DecodeString(parts[1])
+				if err == nil {
+					iconPath := filepath.Join(iconsDir, app.ID+".png")
+					// 仅在文件不存在时写入，或者可以根据指纹判断是否更新
+					if err := ioutil.WriteFile(iconPath, data, 0644); err == nil {
+						log.Printf("[Icon] Extracted physical icon for app: %s -> %s", app.ID, iconPath)
+						// 优化：提取后可以将内存中的 Icon 替换为标识符，减少内存占用
+						// 但为了兼容性，目前先保持原样或标记已提取
+					}
+				}
+			}
+		}
+	}
+}
+
 // DiscoverLocalSources 发现本地源并持久化
 func DiscoverLocalSources(sources *[]models.Source) {
 	userAppStoreDir := GetUsersAppStoreDir()
@@ -81,6 +123,10 @@ func DiscoverLocalSources(sources *[]models.Source) {
 		scanFPKFiles(sources, userAppStoreDir)
 		if len(*sources) > countBefore {
 			SaveSources(*sources)
+			// 如果内存存储已初始化，则同步更新内存，防止数据不一致
+			if GlobalStore != nil {
+				GlobalStore.UpdateSources(*sources)
+			}
 		}
 	}
 }

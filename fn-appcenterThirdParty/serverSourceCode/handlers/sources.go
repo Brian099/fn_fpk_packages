@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -19,7 +18,7 @@ import (
 
 // GetSources 获取所有源
 func GetSources(c *gin.Context) {
-	sources := services.LoadSources()
+	sources := services.GlobalStore.GetSources()
 
 	services.DiscoverLocalSources(&sources)
 
@@ -46,7 +45,7 @@ func AddSource(c *gin.Context) {
 		return
 	}
 
-	sources := services.LoadSources()
+	// sources := services.GlobalStore.GetSources() // 此处不需要读取源列表，AddOrUpdateSource 内部会处理
 
 	newSource := models.Source{
 		ID:         fmt.Sprintf("source_%d", time.Now().UnixNano()),
@@ -59,9 +58,7 @@ func AddSource(c *gin.Context) {
 		Local:      false,
 	}
 
-	sources = append(sources, newSource)
-
-	services.SaveSources(sources)
+	services.GlobalStore.AddOrUpdateSource(newSource, []models.App{})
 
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0,
@@ -73,16 +70,7 @@ func AddSource(c *gin.Context) {
 func DeleteSource(c *gin.Context) {
 	sourceID := c.Param("id")
 
-	sources := services.LoadSources()
-	var newSources []models.Source
-
-	for _, source := range sources {
-		if source.ID != sourceID {
-			newSources = append(newSources, source)
-		}
-	}
-
-	services.SaveSources(newSources)
+	services.GlobalStore.RemoveSource(sourceID)
 
 	cachePath := filepath.Join(config.PkgVar, "cache", sourceID+".json")
 
@@ -104,7 +92,7 @@ func DeleteSource(c *gin.Context) {
 func SyncSource(c *gin.Context) {
 	sourceID := c.Param("id")
 
-	sources := services.LoadSources()
+	sources := services.GlobalStore.GetSources()
 	services.DiscoverLocalSources(&sources)
 	var targetSource *models.Source
 	for i := range sources {
@@ -125,7 +113,10 @@ func SyncSource(c *gin.Context) {
 	added, updated, removed := services.SyncSourceData(targetSource)
 
 	targetSource.LastSync = time.Now().Format(time.RFC3339)
-	services.SaveSources(sources)
+	
+	// 同步完后更新内存中的应用列表
+	newApps := services.LoadAppsFromSource(targetSource)
+	services.GlobalStore.AddOrUpdateSource(*targetSource, newApps)
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
@@ -162,7 +153,7 @@ func ToggleSource(c *gin.Context) {
 		return
 	}
 
-	sources := services.LoadSources()
+	sources := services.GlobalStore.GetSources()
 	var found bool
 
 	for i := range sources {
@@ -181,7 +172,7 @@ func ToggleSource(c *gin.Context) {
 		return
 	}
 
-	services.SaveSources(sources)
+	services.GlobalStore.UpdateSources(sources)
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
@@ -237,9 +228,6 @@ type UpdateAppLabelsRequest struct {
 }
 
 func UpdateAppLabels(c *gin.Context) {
-	services.CacheMutex.Lock()
-	defer services.CacheMutex.Unlock()
-
 	sourceID := c.Param("id")
 	appID := c.Param("appId")
 
@@ -249,80 +237,19 @@ func UpdateAppLabels(c *gin.Context) {
 		return
 	}
 
-	sources := services.LoadSources()
-	var targetSource *models.Source
-	for i := range sources {
-		if sources[i].ID == sourceID {
-			targetSource = &sources[i]
-			break
+	// 直接更新内存中的元数据
+	found := services.GlobalStore.UpdateAppMetadata(sourceID, appID, func(app *models.App) {
+		if req.Labels != nil {
+			app.Labels = req.Labels
+			app.Categories = req.Labels
 		}
-	}
-
-	if targetSource == nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "Source not found"})
-		return
-	}
-
-	if !targetSource.Local {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "仅支持为本地应用（FPK）设置分类或推荐"})
-		return
-	}
-
-	cachePath := filepath.Join(config.PkgVar, "cache", sourceID+".json")
-	data, err := ioutil.ReadFile(cachePath)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "Cache file not found"})
-		return
-	}
-
-	var cacheData models.FPKCacheData
-	if err := json.Unmarshal(data, &cacheData); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "Invalid cache format"})
-		return
-	}
-
-	found := false
-	for i := range cacheData.Apps {
-		if cacheData.Apps[i].ID == appID {
-			if req.Labels != nil {
-				cacheData.Apps[i].Labels = req.Labels
-				cacheData.Apps[i].Categories = req.Labels
-			}
-			if req.Recommended != nil {
-				// 检查推荐限制 (每源最多2个)
-				if *req.Recommended {
-					recommendedCount := 0
-					for _, app := range cacheData.Apps {
-						if app.Recommended {
-							recommendedCount++
-						}
-					}
-					// 如果当前还没推荐或者是尝试增加推荐
-					if !cacheData.Apps[i].Recommended && recommendedCount >= 2 {
-						c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "每个应用源最多只能推荐2个应用"})
-						return
-					}
-				}
-				cacheData.Apps[i].Recommended = *req.Recommended
-			}
-			found = true
-			break
+		if req.Recommended != nil {
+			app.Recommended = *req.Recommended
 		}
-	}
+	})
 
 	if !found {
 		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "App not found in cache"})
-		return
-	}
-
-	newData, err := json.MarshalIndent(cacheData, "", "  ")
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "Failed to save"})
-		return
-	}
-
-	if err := ioutil.WriteFile(cachePath, newData, 0644); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "Failed to write cache"})
 		return
 	}
 

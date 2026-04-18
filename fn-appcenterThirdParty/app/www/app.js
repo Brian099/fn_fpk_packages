@@ -199,9 +199,26 @@ class ApiService {
 // 创建全局API服务实例
 const apiService = new ApiService();
 
-// 保持向后兼容的apiRequest函数
 function apiRequest(endpoint, options = {}) {
     return apiService.request(endpoint, options);
+}
+
+// 自动解析图标URL，处理 CGI 路径补全
+function resolveIconUrl(url) {
+    if (!url) return '';
+    // 如果是 Base64 或完整的 http 链接，直接返回
+    if (url.startsWith('data:') || url.startsWith('http')) {
+        return url;
+    }
+    // 如果是相对 API 路径，补全 CGI 基础路径
+    const baseUrl = getCgiUrl();
+    if (url.startsWith('api/')) {
+        return baseUrl + '/' + url;
+    }
+    if (url.startsWith('/api/')) {
+        return baseUrl + url;
+    }
+    return url;
 }
 
 function switchView(viewId) {
@@ -405,7 +422,7 @@ function createAppCard(app, mini = false) {
     card.className = 'app-card';
     card.dataset.appId = app.id;
 
-    const iconUrl = app.icon || '/static/app/icons/trim.app-center/icon.png';
+    let iconUrl = resolveIconUrl(app.icon) || '/static/app/icons/trim.app-center/icon.png';
     // 规范化标签为数组
     let allLabels = app.labels || app.categories || [];
     if (typeof allLabels === 'string') {
@@ -555,8 +572,9 @@ function renderAppDetail(app) {
 
     const labels = app.labels?.length > 0 ? app.labels : (app.categories || []);
     const displayLabels = Array.isArray(labels) ? labels.join(', ') : '';
-    const iconHtml = app.icon
-        ? `<img src="${app.icon}" alt="${app.name}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 12px;">`
+    const finalIconUrl = resolveIconUrl(app.icon);
+    const iconHtml = finalIconUrl
+        ? `<img src="${finalIconUrl}" alt="${app.name}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 12px;">`
         : `<div style="width: 64px; height: 64px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center;"><span style="color: white; font-size: 32px;">${app.name.charAt(0).toUpperCase()}</span></div>`;
 
     let actionButtons = '';
@@ -1328,8 +1346,8 @@ function renderSettingsManager(settings, sources, containerId = 'settingsView', 
                             <input type="checkbox" id="enableAppShareToggle" ${safeSettings.enableAppShare ? 'checked' : ''} onchange="toggleAppShare(this.checked)">
                             <label for="enableAppShareToggle" class="toggle-label"></label>
                         </div>
-                        <input type="number" id="sharePortInput" class="semi-input" value="${safeSettings.sharePort || 5668}" placeholder="端口" style="width: 80px;" ${safeSettings.enableAppShare ? '' : 'disabled'}>
-                        <span style="color: var(--semi-color-text-3); font-size: 12px; margin-left: 8px;">${safeSettings.enableAppShare ? '服务已开启' : '服务已关闭'}</span>
+                        <input type="number" id="sharePortInput" class="semi-input" value="${safeSettings.sharePort || 5668}" placeholder="端口" style="width: 80px;" ${safeSettings.enableAppShare ? 'disabled' : ''}>
+                        <span style="color: var(--semi-color-text-3); font-size: 12px; margin-left: 8px;">${safeSettings.enableAppShare ? '服务已开启 (锁定端口)' : '服务已关闭'}</span>
                         <div id="shareUrlContainer" style="margin-left: 16px; display: ${safeSettings.enableAppShare ? 'flex' : 'none'}; align-items: center; gap: 8px;">
                             <span id="shareUrlText" style="color: var(--semi-color-text-2); font-size: 12px; font-family: monospace;"></span>
                             <button id="copyShareUrlBtn" onclick="copyShareUrl()" style="background: none; border: none; cursor: pointer; padding: 4px; color: var(--semi-color-text-3);" title="复制地址">
@@ -1493,8 +1511,8 @@ async function toggleAppShare(enabled) {
 
             if (saveResult.code === 0) {
                 showNotification('服务已开启', 'success');
-                portInput.removeAttribute('disabled');
-                if (statusText) statusText.textContent = '服务已开启';
+                portInput.setAttribute('disabled', 'disabled');
+                if (statusText) statusText.textContent = '服务已开启 (锁定端口)';
                 updateShareUrlDisplay();
             } else {
                 showNotification(saveResult.message || '开启服务失败', 'error');
@@ -1528,7 +1546,7 @@ async function toggleAppShare(enabled) {
             console.error('关闭服务失败:', error);
             showNotification(error.message || '网络错误', 'error');
         }
-        portInput.setAttribute('disabled', 'disabled');
+        portInput.removeAttribute('disabled');
         if (statusText) statusText.textContent = '服务已关闭';
         document.getElementById('shareUrlContainer').style.display = 'none';
     }

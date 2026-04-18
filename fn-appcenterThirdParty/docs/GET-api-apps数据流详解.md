@@ -150,7 +150,7 @@ Host: localhost:5668
     "data": {
         "apps": [
             {
-                "id": "fn-appcenterThirdParty",
+                "id": "appcenterThirdParty",
                 "name": "应用中心第三方",
                 "description": "<p>应用精选，用于管理和安装第三方飞牛应用。</p>...",
                 "version": "1.0.0",
@@ -160,7 +160,7 @@ Host: localhost:5668
                 "publisher": "社区",
                 "size": "2.35",
                 "icon": "data:image/png;base64,iVBORw0KGgoAAAANS...",
-                "download_url": "fn-appcenterThirdParty.fpk",
+                "download_url": "appcenterThirdParty.fpk",
                 "changelog": "",
                 "source_id": "local_AppStore"
             }
@@ -235,7 +235,7 @@ type App struct {
 ```
 # FPK 应用包的 manifest 文件格式（INI 风格）
 
-appname=fn-appcenterThirdParty
+appname=appcenterThirdParty
 display_name=应用中心第三方
 version=1.0.0
 platform=x86
@@ -290,8 +290,8 @@ labels=工具,系统
 ```
 
 示例：
-- 本地源：`/var/apps/fn-appcenterThirdParty/var/cache/local_AppStore.json`
-- 远程源：`/var/apps/fn-appcenterThirdParty/var/cache/source_1.json`
+- 本地源：`/var/apps/appcenterThirdParty/var/cache/local_AppStore.json`
+- 远程源：`/var/apps/appcenterThirdParty/var/cache/source_1.json`
 
 ### 本地源缓存结构
 

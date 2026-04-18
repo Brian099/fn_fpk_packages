@@ -20,6 +20,8 @@ import (
 	"appcenter/router"
 	"appcenter/services"
 	"appcenter/utils"
+	"os/signal"
+	"syscall"
 )
 
 var (
@@ -39,6 +41,19 @@ func main() {
 	}
 
 	appConfig := config.LoadConfig()
+
+	// 初始化内存存储中心
+	services.InitStore()
+
+	// 处理优雅退出信号
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		log.Println("Shutting down gracefully...")
+		services.GlobalStore.Stop()
+		os.Exit(0)
+	}()
 
 	r := router.SetupRouter(appDest, pkgVar, appConfig)
 

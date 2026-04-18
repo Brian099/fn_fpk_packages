@@ -753,17 +753,17 @@ type FPKFingerprint struct {
 ### 环境变量
 | 变量名 | 说明 | 默认值 |
 |--------|------|--------|
-| TRIM_APPDEST | 应用目标目录 | /var/apps/fn-appcenterThirdParty/target |
-| TRIM_PKGVAR | 变量目录 | /var/apps/fn-appcenterThirdParty/var |
+| TRIM_APPDEST | 应用目标目录 | /var/apps/appcenterThirdParty/target |
+| TRIM_PKGVAR | 变量目录 | /var/apps/appcenterThirdParty/var |
 | TRIM_APPCENTER_CLI_PATH | appcenter-cli路径 | 自动检测 |
 
 ### 默认路径
 | 路径 | 说明 |
 |------|------|
-| /var/apps/fn-appcenterThirdParty/target | 应用目标目录 |
-| /var/apps/fn-appcenterThirdParty/var | 变量目录 |
+| /var/apps/appcenterThirdParty/target | 应用目标目录 |
+| /var/apps/appcenterThirdParty/var | 变量目录 |
 | {PkgVar}/cache | 缓存目录 |
-| /var/apps/fn-appcenterThirdParty/var/appcenter.sock | Unix Socket |
+| /var/apps/appcenterThirdParty/var/appcenter.sock | Unix Socket |
 
 ---
 
