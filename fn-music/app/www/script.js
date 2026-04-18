@@ -1,5 +1,5 @@
 // State
-let allTracks = []; // Store all scanned tracks
+let allTracks = []; // Store current page's tracks for view
 let playlist = []; // Currently displayed/playing list
 let directories = [];
 let currentIndex = -1;
@@ -16,6 +16,13 @@ let savedPlaylists = [];
 let currentPlaylist = null; // Currently viewed playlist metadata
 let matchingResults = []; // Temporary storage for playlist matching process
 let activeMatchingIndex = -1; // For manual song picker
+
+let totalTracks = 0;
+let totalPages = 0;
+let currentSearch = "";
+let searchTimeout = null;
+let currentArtist = null;
+let currentAlbum = null;
 
 // API Base Path (Matches installation path)
 const apiBase = "/cgi/ThirdParty/waves/index.cgi";
@@ -144,27 +151,13 @@ async function loadSettings() {
             }
         }
         
-        // Auto scan if not direct play mode
         const urlParams = new URLSearchParams(window.location.search);
         if (!urlParams.get('file') && !urlParams.get('path')) {
              if (directories.length > 0) {
-                 try {
-                     const libRes = await fetch(`${apiBase}?api_route=/api/music/library/get`);
-                     const libData = await libRes.json();
-                     if (libData && libData.ok && libData.tracks) {
-                         allTracks = libData.tracks;
-                         playlist = [...allTracks];
-                         document.getElementById('library-status').innerText = `共 ${playlist.length} 首歌曲`;
-                         renderPlaylist();
-                         
-                         // Silent background sync to detect new/deleted files
-                         rescanAll(true);
-                     } else {
-                         rescanAll();
-                     }
-                 } catch (e) {
-                     rescanAll();
-                 }
+                 await fetchLibraryPage(1);
+                 
+                 // Silent background sync to detect metadata
+                 fetchMetadataBatch();
 
                  // Only restore if we are not in direct play mode
                  if (lastPlaybackState && lastPlaybackState.path) {
@@ -270,68 +263,72 @@ async function fetchArtistImage(artist, imgId) {
     }
 }
 
-function renderArtists() {
+async function renderArtists() {
     const container = document.getElementById('artists-container');
+    container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:20px;">加载中...</div>';
     
-    // Group by artist
-    const artists = {};
-    allTracks.forEach(track => {
-        const name = track.artist || 'Unknown Artist';
-        if (!artists[name]) {
-            artists[name] = 0;
+    try {
+        const res = await fetch(`${apiBase}?api_route=/api/music/artists/list`);
+        const data = await res.json();
+        
+        if (!data.ok || !data.artists) {
+             container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:20px;">无法加载歌手列表</div>';
+             return;
         }
-        artists[name]++;
-    });
-    
-    // Sort
-    const sortedArtists = Object.keys(artists).sort((a, b) => {
-        if (a === 'Unknown Artist') return 1;
-        if (b === 'Unknown Artist') return -1;
-        return a.localeCompare(b, 'zh-CN');
-    });
-    
-    container.innerHTML = '';
-    if (sortedArtists.length === 0) {
-        container.innerHTML = `
-            <div style="color:#666; text-align:center; grid-column: 1/-1;">
-                <p>暂无歌手数据，请先扫描音乐。</p>
-                <button onclick="rescanAll()" class="layui-btn layui-btn-normal layui-btn-sm" style="margin-top:10px;">
-                    <i class="layui-icon layui-icon-refresh"></i> 重新扫描
-                </button>
-            </div>`;
-        return;
+        
+        const sortedArtists = data.artists.sort((a, b) => {
+            if (a.artist === 'Unknown Artist') return 1;
+            if (b.artist === 'Unknown Artist') return -1;
+            return a.artist.localeCompare(b.artist, 'zh-CN');
+        });
+        
+        container.innerHTML = '';
+        if (sortedArtists.length === 0) {
+            container.innerHTML = `
+                <div style="color:#666; text-align:center; grid-column: 1/-1;">
+                    <p>暂无歌手数据，请先扫描音乐。</p>
+                    <button onclick="rescanAll()" class="layui-btn layui-btn-normal layui-btn-sm" style="margin-top:10px;">
+                        <i class="layui-icon layui-icon-refresh"></i> 重新扫描
+                    </button>
+                </div>`;
+            return;
+        }
+        
+        // Clear queue when re-rendering
+        imageQueue.length = 0;
+        
+        sortedArtists.forEach((item, index) => {
+            const name = item.artist;
+            const count = item.count;
+            const div = document.createElement('div');
+            div.className = 'artist-card';
+            
+            const safeName = escapeHtml(name);
+            const imgId = 'artist-img-' + index;
+            
+            div.innerHTML = `
+                <div class="artist-icon">
+                    <i class="layui-icon layui-icon-username" id="${imgId}-icon"></i>
+                    <img id="${imgId}" style="display:none; width:100%; height:100%; object-fit:cover;" alt="${safeName}" />
+                </div>
+                <div class="artist-name" title="${safeName}">${safeName}</div>
+                <div class="artist-count">${count} 首歌曲</div>
+            `;
+            div.onclick = () => {
+                showSection('library');
+                filterBy('artist', name);
+            };
+            container.appendChild(div);
+            
+            // Trigger image load
+            if (name !== 'Unknown Artist') {
+                queueArtistImage(name, imgId);
+            }
+        });
+    } catch (e) {
+        console.error('Failed to render artists', e);
+        container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:20px;">请求失败</div>';
     }
-    
-    // Clear queue when re-rendering
-    imageQueue.length = 0;
-    
-    sortedArtists.forEach((name, index) => {
-        const count = artists[name];
-        const div = document.createElement('div');
-        div.className = 'artist-card';
-        
-        const safeName = escapeHtml(name);
-        const imgId = 'artist-img-' + index;
-        
-        div.innerHTML = `
-            <div class="artist-icon">
-                <i class="layui-icon layui-icon-username" id="${imgId}-icon"></i>
-                <img id="${imgId}" style="display:none; width:100%; height:100%; object-fit:cover;" alt="${safeName}" />
-            </div>
-            <div class="artist-name" title="${safeName}">${safeName}</div>
-            <div class="artist-count">${count} 首歌曲</div>
-        `;
-        div.onclick = () => {
-            showSection('library');
-            filterBy('artist', name);
-        };
-        container.appendChild(div);
-        
-        // Trigger image load
-        if (name !== 'Unknown Artist') {
-            queueArtistImage(name, imgId);
-        }
-    });
 }
 
 // Library Management
@@ -382,88 +379,46 @@ async function rescanAll(isSilent = false) {
         document.getElementById('library-status').innerText = '正在快速扫描文件...';
     }
     
-    // Create a map of existing tracks to preserve metadata
-    const existingMap = new Map();
-    allTracks.forEach(t => existingMap.set(t.path, t));
-    
-    let newAllTracks = [];
-    
     for (const dir of directories) {
         try {
-            // Use scan-fast instead of scan
             const res = await fetch(`${apiBase}?api_route=/api/music/scan-fast`, {
                 method: 'POST',
                 body: dir
             });
-            const data = await res.json();
-            if (data.ok && data.files) {
-                // Merge: Use existing metadata if available, otherwise use new file info
-                const merged = data.files.map(f => {
-                    if (existingMap.has(f.path)) {
-                        // Keep existing metadata
-                        return existingMap.get(f.path);
-                    }
-                    return f;
-                });
-                newAllTracks = newAllTracks.concat(merged);
-            }
         } catch (e) {
             console.error('Scan failed for', dir, e);
         }
     }
     
-    // Check if anything changed
-    const currentPaths = new Set(allTracks.map(t => t.path));
-    const newPaths = new Set(newAllTracks.map(t => t.path));
-    let hasChanges = false;
-    
-    if (currentPaths.size !== newPaths.size) {
-        hasChanges = true;
-    } else {
-        for (const p of newPaths) {
-            if (!currentPaths.has(p)) {
-                hasChanges = true;
-                break;
-            }
+    // Refresh current view
+    await fetchLibraryPage(currentPage);
+}
+
+async function fetchLibraryPage(page) {
+    currentPage = page;
+    try {
+        let url = `${apiBase}?api_route=/api/music/library/get&page=${page}&limit=${ITEMS_PER_PAGE}`;
+        if (currentSearch) url += `&search=${encodeURIComponent(currentSearch)}`;
+        if (currentArtist) url += `&artist=${encodeURIComponent(currentArtist)}`;
+        if (currentAlbum) url += `&album=${encodeURIComponent(currentAlbum)}`;
+        
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.ok) {
+            allTracks = data.tracks;
+            totalTracks = data.total;
+            totalPages = data.pages;
+            
+            let statusText = `共 ${totalTracks} 首歌曲`;
+            if (currentArtist) statusText = `歌手: ${currentArtist} (共 ${totalTracks} 首)`;
+            if (currentAlbum) statusText = `专辑: ${currentAlbum} (共 ${totalTracks} 首)`;
+            if (currentSearch) statusText = `搜索: ${currentSearch} (共 ${totalTracks} 首)`;
+            
+            document.getElementById('library-status').innerText = statusText;
+            renderPlaylist();
         }
-    }
-    
-    if (!hasChanges) {
-        // Just update status and return
-        if (!isSilent) {
-            document.getElementById('library-status').innerText = `共 ${playlist.length} 首歌曲`;
-        }
-        return;
-    }
-    
-    allTracks = newAllTracks;
-    playlist = [...allTracks];
-    
-    // Reset to page 1 if not silent or if list was empty
-    if (!isSilent || existingMap.size === 0) {
-        currentPage = 1;
-    }
-    
-    // Re-apply search filter if any
-    const searchInput = document.getElementById('search-input');
-    if (searchInput && searchInput.value) {
-        onSearchInput(searchInput.value);
-    } else {
-        document.getElementById('library-status').innerText = `共 ${playlist.length} 首歌曲`;
-        renderPlaylist();
-    }
-    
-    // Refresh artists view if active
-    if (document.getElementById('section-artists').style.display === 'flex') {
-        renderArtists();
-    }
-    
-    // Save to cache (even if partial)
-    saveLibrary();
-    
-    // If we have a pending restore, try it again now that library is refreshed
-    if (lastPlaybackState && currentIndex === -1) {
-        restoreLastPlayback();
+    } catch (e) {
+        console.error('Failed to fetch library page', e);
     }
 }
 
@@ -482,32 +437,16 @@ async function fetchMetadataBatch(tracksToFetch) {
         if (data.ok && data.data) {
             let updatedCount = 0;
             data.data.forEach(meta => {
-                // Find track in allTracks and update it
-                // We need to update both allTracks and playlist objects (they reference same objects usually, but let's be safe)
-                // Note: playlist is a shallow copy array of objects from allTracks. Modifying the object works for both.
-                
-                // However, if we filter/sort, we rely on references.
-                // Let's find by path.
                 const track = allTracks.find(t => t.path === meta.path);
                 if (track) {
-                    if (meta.error) {
-                        // Mark as scanned but failed? Or just leave it.
-                        // Maybe set a flag so we don't retry immediately?
-                        track._scanned = true; 
-                    } else {
-                        Object.assign(track, meta);
-                        track._scanned = true;
-                        updatedCount++;
-                    }
+                    Object.assign(track, meta);
+                    track.scanned = 1;
+                    updatedCount++;
                 }
             });
             
             if (updatedCount > 0) {
-                // Refresh current view to show new metadata
-                // We only need to re-render if we are still looking at these tracks
-                renderPlaylist(); // This might be too aggressive if user is scrolling?
-                // But since we batch per page, it should be fine.
-                saveLibrary();
+                renderPlaylist();
             }
         }
     } catch (e) {
@@ -531,39 +470,12 @@ async function saveLibrary() {
 }
 
 function onSearchInput(query) {
-    const term = query.toLowerCase().trim();
+    currentSearch = query.trim();
+    if (searchTimeout) clearTimeout(searchTimeout);
     
-    // Store current playing song info before filtering
-    let currentSongPath = null;
-    if (currentIndex >= 0 && currentIndex < playlist.length) {
-        currentSongPath = playlist[currentIndex].path;
-    }
-    
-    if (!term) {
-        playlist = [...allTracks];
-    } else {
-        playlist = allTracks.filter(song => 
-            (song.name && song.name.toLowerCase().includes(term)) || 
-            (song.path && song.path.toLowerCase().includes(term)) ||
-            (song.title && song.title.toLowerCase().includes(term)) ||
-            (song.artist && song.artist.toLowerCase().includes(term)) ||
-            (song.album && song.album.toLowerCase().includes(term))
-        );
-    }
-    
-    // Reset to page 1 on search
-    currentPage = 1;
-    
-    // Update currentIndex to match the new playlist
-    if (currentSongPath) {
-        currentIndex = playlist.findIndex(p => p.path === currentSongPath);
-        // If not found in filtered list, currentIndex becomes -1, which stops playback flow effectively
-    } else {
-        currentIndex = -1;
-    }
-    
-    document.getElementById('library-status').innerText = `共 ${playlist.length} 首歌曲`;
-    renderPlaylist();
+    searchTimeout = setTimeout(() => {
+        fetchLibraryPage(1);
+    }, 500);
 }
 
 function formatTime(seconds) {
@@ -578,10 +490,26 @@ function formatSize(bytes) {
     return (bytes / 1024 / 1024).toFixed(1) + ' MB';
 }
 
-function filterBy(field, value) {
-    const searchInput = document.getElementById('search-input');
-    searchInput.value = value;
-    onSearchInput(value);
+function filterBy(type, value) {
+    if (type === 'artist') {
+        currentArtist = value;
+        currentAlbum = null;
+    } else if (type === 'album') {
+        currentAlbum = value;
+        currentArtist = null;
+    } else {
+        currentArtist = null;
+        currentAlbum = null;
+    }
+    
+    // Clear search when filtering by artist/album
+    if (currentArtist || currentAlbum) {
+        currentSearch = "";
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) searchInput.value = "";
+    }
+    
+    fetchLibraryPage(1);
 }
 
 function escapeHtml(str) {
@@ -601,49 +529,33 @@ function escapeJs(str) {
 
 function renderPlaylist() {
     const container = document.getElementById('playlist-container');
-    if (playlist.length === 0) {
+    if (allTracks.length === 0 && !currentSearch) {
         container.innerHTML = '<div style="text-align:center; margin-top: 50px; color: #666;">暂无音乐，请去“管理目录”添加文件夹。</div>';
         return;
     }
     
-    // Pagination Logic
-    const totalPages = Math.ceil(playlist.length / ITEMS_PER_PAGE);
-    if (currentPage > totalPages) currentPage = totalPages;
-    if (currentPage < 1) currentPage = 1;
-    
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, playlist.length);
-    
-    const pageItems = playlist.slice(startIndex, endIndex);
-    
-    // Check for missing metadata
-    const missingMeta = pageItems.filter(s => !s.duration && !s._scanned);
-    if (missingMeta.length > 0) {
-        // Mark as pending to avoid duplicate requests
-        missingMeta.forEach(s => s._scanned = 'pending');
-        // Fetch in background
-        fetchMetadataBatch(missingMeta);
-    }
-
     container.innerHTML = '';
     
     // Render Items
-    pageItems.forEach((song, i) => {
-        const index = startIndex + i;
+    allTracks.forEach((song, i) => {
         const div = document.createElement('div');
-        div.className = 'playlist-item' + (index === currentIndex ? ' active' : '');
+        // Check if playing
+        const isPlaying = playlist[currentIndex] && playlist[currentIndex].path === song.path;
+        div.className = 'playlist-item' + (isPlaying ? ' active' : '');
+        
         div.onclick = (e) => {
-            // Prevent play if clicking on a link
             if (e.target.tagName === 'A' || e.target.closest('a')) return;
-            play(index);
+            
+            // When clicking a song in library, we load the CURRENT PAGE as the playlist
+            playlist = [...allTracks];
+            play(i);
         };
         
         const title = song.title || song.name;
-        // Show "Loading..." if not scanned yet
-        const artist = song.artist || (song._scanned ? 'Unknown Artist' : 'Loading...');
-        const album = song.album || (song._scanned ? 'Unknown Album' : 'Loading...');
-        const duration = song.duration ? formatTime(song.duration) : (song._scanned ? '--:--' : 'Loading...');
-        const size = song.size ? formatSize(song.size) : (song._scanned ? '' : '');
+        const artist = song.artist || (song.scanned === 1 ? 'Unknown Artist' : 'Loading...');
+        const album = song.album || (song.scanned === 1 ? 'Unknown Album' : 'Loading...');
+        const duration = (song.duration && song.duration > 0) ? formatTime(song.duration) : (song.scanned === 1 ? '--:--' : 'Loading...');
+        const size = (song.size && song.size > 0) ? formatSize(song.size) : (song.scanned === 1 ? '' : '');
         
         const safeTitle = escapeHtml(title);
         const safeArtist = escapeHtml(artist);
@@ -675,6 +587,13 @@ function renderPlaylist() {
         `;
         container.appendChild(div);
     });
+
+    // Auto-fetch metadata for visible items if not scanned
+    const unscanned = allTracks.filter(s => s.scanned === 0 && !s._pending);
+    if (unscanned.length > 0) {
+        unscanned.forEach(s => s._pending = true);
+        fetchMetadataBatch(unscanned);
+    }
     
     // Render Pagination Controls
     if (totalPages > 1) {
@@ -687,9 +606,7 @@ function renderPlaylist() {
         prevBtn.disabled = currentPage === 1;
         prevBtn.onclick = () => {
             if (currentPage > 1) {
-                currentPage--;
-                renderPlaylist();
-                // Scroll to top of list
+                fetchLibraryPage(currentPage - 1);
                 document.querySelector('.main-content').scrollTop = 0;
             }
         };
@@ -699,8 +616,7 @@ function renderPlaylist() {
         nextBtn.disabled = currentPage === totalPages;
         nextBtn.onclick = () => {
             if (currentPage < totalPages) {
-                currentPage++;
-                renderPlaylist();
+                fetchLibraryPage(currentPage + 1);
                 document.querySelector('.main-content').scrollTop = 0;
             }
         };

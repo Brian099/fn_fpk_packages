@@ -1,526 +1,244 @@
-#!/bin/bash
+#!/usr/bin/python3
+import os
+import sys
+import json
+import urllib.parse
+from pathlib import Path
+import mimetypes
 
-# ============================================================================
-# File Name       : index.cgi
-# Version         : 1.0.1
-# Description     : CGI script for Waves static files and API.
-# ============================================================================
+# Fix path to include app/server for backend import
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+APP_ROOT = os.path.dirname(SCRIPT_DIR)
+sys.path.append(os.path.join(APP_ROOT, "server"))
 
-# Configuration
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-# Persistent path detection for FnOS
-PERSISTENT_BASE="/var/apps/waves"
-if [ -d "$PERSISTENT_BASE" ]; then
-    CONFIG_DIR="$PERSISTENT_BASE/home"
-else
-    # Fallback to app-local config directory
-    CONFIG_DIR="$APP_ROOT/home"
-fi
-CONFIG_FILE="$CONFIG_DIR/config.json"
-BASE_PATH="$APP_ROOT/www"
-BACKEND_SCRIPT="$APP_ROOT/server/sites_backend.sh"
+from waves_backend import WavesBackend
 
-# Parse Request
-URI_NO_QUERY="${REQUEST_URI%%\?*}"
-QUERY_STRING="${REQUEST_URI#*\?}"
+# Persistence Detection
+PERSISTENT_BASE = "/var/apps/waves"
+if os.path.isdir(PERSISTENT_BASE):
+    CONFIG_DIR = os.path.join(PERSISTENT_BASE, "home")
+else:
+    CONFIG_DIR = os.path.join(APP_ROOT, "home")
 
-# Default Path Logic
-REL_PATH="/"
+backend = WavesBackend(CONFIG_DIR)
 
-# Priority 1: Check for api_route in query string (for avoiding 404 on some servers)
-API_ROUTE=$(echo "$QUERY_STRING" | sed -n 's/.*api_route=\([^&]*\).*/\1/p')
-if [ -n "$API_ROUTE" ]; then
-    # Simple URL decode for / (%2F)
-    REL_PATH=$(echo "$API_ROUTE" | sed 's/%2F/\//g')
-else
-    # Priority 2: Fallback to PATH_INFO style routing
-    case "$URI_NO_QUERY" in
-      *index.cgi*)
-        REL_PATH="${URI_NO_QUERY#*index.cgi}"
-        ;;
-    esac
-fi
+def get_post_body():
+    try:
+        content_length = int(os.environ.get('CONTENT_LENGTH', 0))
+        if content_length > 0:
+            return sys.stdin.read(content_length)
+    except:
+        pass
+    return ""
 
-if [ -z "$REL_PATH" ] || [ "$REL_PATH" = "/" ]; then
-  REL_PATH="/index.html"
-fi
+def send_response(status, content_type, body, headers=None):
+    print(f"Status: {status}")
+    print(f"Content-Type: {content_type}")
+    if headers:
+        for k, v in headers.items():
+            print(f"{k}: {v}")
+    print("")
+    if isinstance(body, str):
+        sys.stdout.flush()
+        sys.stdout.buffer.write(body.encode('utf-8'))
+    elif isinstance(body, bytes):
+        sys.stdout.flush()
+        sys.stdout.buffer.write(body)
+    sys.exit(0)
 
-# Prepare Temporary Input File
-INPUT_TMP=$(mktemp 2>/dev/null || mktemp -t waves.XXXXXX 2>/dev/null || echo "/tmp/waves_input_$RANDOM")
-touch "$INPUT_TMP"
+def send_json(data):
+    send_response("200 OK", "application/json; charset=utf-8", json.dumps(data))
 
-# Only capture standard input for POST/PUT requests to prevent blocking on GET
-if [ "$REQUEST_METHOD" = "POST" ] || [ "$REQUEST_METHOD" = "PUT" ]; then
-    # Use dd or cat with timeout if needed, but simple cat is usually fine IF method is POST
-    cat > "$INPUT_TMP"
-fi
-
-# ============================================================================
-# API Routing
-# ============================================================================
-
-if [ "$REL_PATH" = "/api/music/scan" ]; then
-    if [ ! -f "$BACKEND_SCRIPT" ]; then
-        echo "Status: 500 Internal Server Error"
-        echo "Content-Type: application/json"
-        echo ""
-        echo '{"error":"backend script missing"}'
-        rm -f "$INPUT_TMP"
-        exit 0
-    fi
+def serve_static(rel_path):
+    base_path = os.path.join(APP_ROOT, "www")
+    if not rel_path or rel_path == "/":
+        rel_path = "/index.html"
     
-    TMP_OUTPUT=$(mktemp)
-    # Pass input to backend
-    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "scan-music" >"$TMP_OUTPUT" 2>/dev/null; then
-        if [ -s "$TMP_OUTPUT" ]; then
-            echo "Status: 200 OK"
-            echo "Content-Type: application/json; charset=utf-8"
-            echo ""
-            cat "$TMP_OUTPUT"
-        else
-            echo "Status: 200 OK"
-            echo "Content-Type: application/json; charset=utf-8"
-            echo ""
-            echo '{"ok":false,"error":"Empty response from scanner"}'
-        fi
-    else
-        echo "Status: 500 Internal Server Error"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        echo '{"ok":false,"error":"Internal script error"}'
-    fi
-    rm -f "$TMP_OUTPUT"
-    rm -f "$INPUT_TMP"
-    exit 0
-
-elif [ "$REL_PATH" = "/api/music/config/get" ]; then
-    # Get Config
-    TMP_OUTPUT=$(mktemp)
-    if bash "$BACKEND_SCRIPT" "get-config" >"$TMP_OUTPUT" 2>/dev/null; then
-        echo "Status: 200 OK"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        cat "$TMP_OUTPUT"
-    else
-        echo "Status: 500 Internal Server Error"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        echo '{"ok":false,"error":"Failed to read config"}'
-    fi
-    rm -f "$TMP_OUTPUT"
-    rm -f "$INPUT_TMP"
-    exit 0
-
-elif [ "$REL_PATH" = "/api/music/library/get" ]; then
-    TMP_OUTPUT=$(mktemp)
-    if bash "$BACKEND_SCRIPT" "get-library" >"$TMP_OUTPUT" 2>/dev/null; then
-        echo "Status: 200 OK"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        cat "$TMP_OUTPUT"
-    else
-        echo "Status: 500 Internal Server Error"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        echo '{"ok":false,"error":"Failed to get library"}'
-    fi
-    rm -f "$TMP_OUTPUT"
-    rm -f "$INPUT_TMP"
-    exit 0
-
-elif [ "$REL_PATH" = "/api/music/library/save" ]; then
-    TMP_OUTPUT=$(mktemp)
-    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "save-library" >"$TMP_OUTPUT" 2>/dev/null; then
-        echo "Status: 200 OK"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        cat "$TMP_OUTPUT"
-    else
-        echo "Status: 500 Internal Server Error"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        echo '{"ok":false,"error":"Failed to save library"}'
-    fi
-    rm -f "$TMP_OUTPUT"
-    rm -f "$INPUT_TMP"
-    exit 0
-
-elif [ "$REL_PATH" = "/api/music/config/save" ]; then
-    # Save Config
-    TMP_OUTPUT=$(mktemp)
-    STDERR_TMP=$(mktemp)
-    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "save-config" >"$TMP_OUTPUT" 2>"$STDERR_TMP"; then
-        echo "Status: 200 OK"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        cat "$TMP_OUTPUT"
-    else
-        ERR_MSG=$(cat "$STDERR_TMP" | tr '\n' ' ' | sed 's/"/\\"/g')
-        echo "Status: 500 Internal Server Error"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        echo "{\"ok\":false,\"error\":\"Failed to save config. Script error: $ERR_MSG\"}"
-    fi
-    rm -f "$STDERR_TMP"
-    rm -f "$TMP_OUTPUT"
-    rm -f "$INPUT_TMP"
-    exit 0
-
-elif [ "$REL_PATH" = "/api/music/scan-fast" ]; then
-    TMP_OUTPUT=$(mktemp)
-    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "scan-fast" >"$TMP_OUTPUT" 2>/dev/null; then
-        if [ -s "$TMP_OUTPUT" ]; then
-            echo "Status: 200 OK"
-            echo "Content-Type: application/json; charset=utf-8"
-            echo ""
-            cat "$TMP_OUTPUT"
-        else
-            echo "Status: 200 OK"
-            echo "Content-Type: application/json; charset=utf-8"
-            echo ""
-            echo '{"ok":false,"error":"Empty response from fast scanner"}'
-        fi
-    else
-        echo "Status: 500 Internal Server Error"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        echo '{"ok":false,"error":"Internal script error"}'
-    fi
-    rm -f "$TMP_OUTPUT"
-    rm -f "$INPUT_TMP"
-    exit 0
-
-elif [ "$REL_PATH" = "/api/music/meta-batch" ]; then
-    TMP_OUTPUT=$(mktemp)
-    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "get-meta-batch" >"$TMP_OUTPUT" 2>/dev/null; then
-        echo "Status: 200 OK"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        cat "$TMP_OUTPUT"
-    else
-        echo "Status: 500 Internal Server Error"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        echo '{"ok":false,"error":"Internal script error"}'
-    fi
-    rm -f "$TMP_OUTPUT"
-    rm -f "$INPUT_TMP"
-    exit 0
-
-elif [ "$REL_PATH" = "/api/music/artist/search" ]; then
-    # Search Artist Image
-    TMP_OUTPUT=$(mktemp)
-    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "search-artist" >"$TMP_OUTPUT" 2>/dev/null; then
-        echo "Status: 200 OK"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        cat "$TMP_OUTPUT"
-    else
-        echo "Status: 500 Internal Server Error"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        echo '{"ok":false,"error":"Failed to search artist"}'
-    fi
-    rm -f "$TMP_OUTPUT"
-    rm -f "$INPUT_TMP"
-    exit 0
-
-elif [ "$REL_PATH" = "/api/fs/list" ]; then
-    TMP_OUTPUT=$(mktemp)
-    # Pass input to backend
-    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "list-dirs" >"$TMP_OUTPUT" 2>/dev/null; then
-        if [ -s "$TMP_OUTPUT" ]; then
-            echo "Status: 200 OK"
-            echo "Content-Type: application/json; charset=utf-8"
-            echo ""
-            cat "$TMP_OUTPUT"
-        else
-            echo "Status: 200 OK"
-            echo "Content-Type: application/json; charset=utf-8"
-            echo ""
-            echo '{"ok":false,"error":"Empty response from directory lister"}'
-        fi
-    else
-        echo "Status: 500 Internal Server Error"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        echo '{"ok":false,"error":"Internal script error"}'
-    fi
-    rm -f "$TMP_OUTPUT"
-    rm -f "$INPUT_TMP"
-    exit 0
-
-
-
-elif [ "$REL_PATH" = "/api/music/stream" ]; then
-    # Parse path from query string
-    FILE_PATH=""
+    target_file = os.path.normpath(os.path.join(base_path, rel_path.lstrip("/")))
+    if not target_file.startswith(base_path) or not os.path.isfile(target_file):
+        send_response("404 Not Found", "text/plain", f"404 Not Found: {rel_path}")
     
-    # Use python/php for robust decoding if available
-    if command -v php >/dev/null 2>&1; then
-        FILE_PATH=$(php -r "parse_str(\$argv[1], \$output); echo \$output['path'] ?? '';" -- "$QUERY_STRING")
-    elif command -v python3 >/dev/null 2>&1; then
-         FILE_PATH=$(python3 -c "import sys, urllib.parse; q=urllib.parse.parse_qs(sys.argv[1]); print(q.get('path', [''])[0])" "$QUERY_STRING")
-    else
-         # Fallback (unsafe for special chars)
-         FILE_PATH=$(echo "$QUERY_STRING" | grep -o "path=[^&]*" | cut -d= -f2-)
-         # Basic URL decode for fallback
-         FILE_PATH=$(echo "$FILE_PATH" | sed -e 's/%/\\x/g' -e 's/+/ /g')
-         FILE_PATH=$(echo -e "$FILE_PATH")
-    fi
+    mime_type, _ = mimetypes.guess_type(target_file)
+    if not mime_type:
+        mime_type = "application/octet-stream"
+        
+    with open(target_file, "rb") as f:
+        send_response("200 OK", mime_type, f.read())
 
-    if [ -z "$FILE_PATH" ] || [ ! -f "$FILE_PATH" ]; then
-        echo "Status: 404 Not Found"
-        echo "Content-Type: text/plain"
-        echo ""
-        echo "File not found: $FILE_PATH"
-        rm -f "$INPUT_TMP"
-        exit 0
-    fi
-    
-    # Determine Mime Type
-    MIME_TYPE="application/octet-stream"
-    if command -v file >/dev/null 2>&1; then
-        MIME_TYPE=$(file --mime-type -b "$FILE_PATH")
-    else
-        case "$FILE_PATH" in
-            *.mp3) MIME_TYPE="audio/mpeg" ;;
-            *.ogg) MIME_TYPE="audio/ogg" ;;
-            *.wav) MIME_TYPE="audio/wav" ;;
-            *.flac) MIME_TYPE="audio/flac" ;;
-            *.m4a) MIME_TYPE="audio/mp4" ;;
-        esac
-    fi
-    
-    FILE_SIZE=$(stat -c%s "$FILE_PATH" 2>/dev/null || stat -f%z "$FILE_PATH" 2>/dev/null)
-    
-    echo "Status: 200 OK"
-    echo "Content-Type: $MIME_TYPE"
-    echo "Content-Length: $FILE_SIZE"
-    echo "Accept-Ranges: bytes"
-    echo ""
-    cat "$FILE_PATH"
-    rm -f "$INPUT_TMP"
-    exit 0
+def handle_api(rel_path, method, query_params):
+    # API Routing
+    if rel_path == "/api/music/scan-fast" or rel_path == "/api/music/scan":
+        # Expect directory in body
+        try:
+            body = get_post_body()
+            backend.scan_directories([body.strip()])
+            send_json({'ok': True})
+        except Exception as e:
+            send_json({'ok': False, 'error': str(e)})
 
-elif [ "$REL_PATH" = "/api/music/cover" ]; then
-    # Parse path from query string
-    FILE_PATH=""
-    if command -v php >/dev/null 2>&1; then
-        FILE_PATH=$(php -r "parse_str(\$argv[1], \$output); echo \$output['path'] ?? '';" -- "$QUERY_STRING")
-    elif command -v python3 >/dev/null 2>&1; then
-         FILE_PATH=$(python3 -c "import sys, urllib.parse; q=urllib.parse.parse_qs(sys.argv[1]); print(q.get('path', [''])[0])" "$QUERY_STRING")
-    else
-         FILE_PATH=$(echo "$QUERY_STRING" | grep -o "path=[^&]*" | cut -d= -f2-)
-         FILE_PATH=$(echo "$FILE_PATH" | sed -e 's/%/\\x/g' -e 's/+/ /g')
-         FILE_PATH=$(echo -e "$FILE_PATH")
-    fi
+    elif rel_path == "/api/music/meta-batch":
+        try:
+            body = get_post_body()
+            paths = json.loads(body) if body else None
+            data = backend.update_metadata_batch(50, paths) # Reduced limit to 50
+            send_json({'ok': True, 'data': data})
+        except:
+            data = backend.update_metadata_batch(50)
+            send_json({'ok': True, 'data': data})
 
-    if [ -z "$FILE_PATH" ]; then
-         echo "Status: 400 Bad Request"
-         echo "Content-Type: text/plain"
-         echo ""
-         echo "Missing path parameter"
-         exit 0
-    fi
+    elif rel_path == "/api/music/library/get":
+        page = int(query_params.get('page', [1])[0])
+        limit = int(query_params.get('limit', [50])[0])
+        search = query_params.get('search', [None])[0]
+        artist = query_params.get('artist', [None])[0]
+        album = query_params.get('album', [None])[0]
+        send_json(backend.get_tracks(page, limit, search, artist, album))
 
-    # Write path to temp input for backend
-    echo -n "$FILE_PATH" > "$INPUT_TMP"
-    
-    TMP_OUTPUT=$(mktemp)
-    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "get-cover" >"$TMP_OUTPUT" 2>/dev/null; then
-        if [ -s "$TMP_OUTPUT" ]; then
-            echo "Status: 200 OK"
-            echo "Content-Type: image/jpeg"
-            echo ""
-            cat "$TMP_OUTPUT"
-        else
-            echo "Status: 404 Not Found"
-            echo "Content-Type: text/plain"
-            echo ""
-            echo "Cover not found"
-        fi
-    else
-        echo "Status: 500 Internal Server Error"
-        echo "Content-Type: application/json"
-        echo ""
-        echo '{"error":"Internal script error"}'
-    fi
-    rm -f "$TMP_OUTPUT"
-    rm -f "$INPUT_TMP"
-    exit 0
+    elif rel_path == "/api/music/config/get":
+        dirs = backend.get_config('dirs', [])
+        last_playback = backend.get_config('last_playback', None)
+        send_json({'ok': True, 'dirs': dirs, 'lastPlayback': last_playback})
 
-elif [ "$REL_PATH" = "/api/music/lyrics" ]; then
-    # Parse path from query string
-    FILE_PATH=""
-    if command -v php >/dev/null 2>&1; then
-        FILE_PATH=$(php -r "parse_str(\$argv[1], \$output); echo \$output['path'] ?? '';" -- "$QUERY_STRING")
-    elif command -v python3 >/dev/null 2>&1; then
-         FILE_PATH=$(python3 -c "import sys, urllib.parse; q=urllib.parse.parse_qs(sys.argv[1]); print(q.get('path', [''])[0])" "$QUERY_STRING")
-    else
-         FILE_PATH=$(echo "$QUERY_STRING" | grep -o "path=[^&]*" | cut -d= -f2-)
-         FILE_PATH=$(echo "$FILE_PATH" | sed -e 's/%/\\x/g' -e 's/+/ /g')
-         FILE_PATH=$(echo -e "$FILE_PATH")
-    fi
+    elif rel_path == "/api/music/config/save":
+        try:
+            body = get_post_body()
+            data = json.loads(body)
+            if 'dirs' in data: backend.set_config('dirs', data['dirs'])
+            if 'lastPlayback' in data: backend.set_config('last_playback', data['lastPlayback'])
+            send_json({'ok': True})
+        except Exception as e:
+            send_json({'ok': False, 'error': str(e)})
 
-    if [ -z "$FILE_PATH" ]; then
-         echo "Status: 400 Bad Request"
-         echo "Content-Type: text/plain"
-         echo ""
-         echo "Missing path parameter"
-         exit 0
-    fi
+    elif rel_path == "/api/music/stream":
+        path = query_params.get('path', [""])[0]
+        if not path or not os.path.isfile(path):
+            send_response("404 Not Found", "text/plain", "File not found")
+        
+        mime_type, _ = mimetypes.guess_type(path)
+        file_size = os.path.getsize(path)
+        
+        range_header = os.environ.get('HTTP_RANGE')
+        start, end = 0, file_size - 1
+        status = "200 OK"
+        
+        if range_header:
+            try:
+                ranges = range_header.replace('bytes=', '').split('-')
+                start = int(ranges[0]) if ranges[0] else 0
+                if len(ranges) > 1 and ranges[1]:
+                    end = int(ranges[1])
+                status = "206 Partial Content"
+            except: pass
+            
+        headers = {
+            "Content-Length": str(end - start + 1),
+            "Content-Range": f"bytes {start}-{end}/{file_size}",
+            "Accept-Ranges": "bytes"
+        }
+        
+        print(f"Status: {status}")
+        print(f"Content-Type: {mime_type or 'audio/mpeg'}")
+        for k, v in headers.items():
+            print(f"{k}: {v}")
+        print("")
+        sys.stdout.flush()
+        
+        with open(path, "rb") as f:
+            f.seek(start)
+            remaining = end - start + 1
+            while remaining > 0:
+                chunk_size = min(remaining, 64 * 1024)
+                chunk = f.read(chunk_size)
+                if not chunk: break
+                sys.stdout.buffer.write(chunk)
+                remaining -= len(chunk)
+        sys.exit(0)
 
-    # Write path to temp input for backend
-    echo -n "$FILE_PATH" > "$INPUT_TMP"
-    
-    TMP_OUTPUT=$(mktemp)
-    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "get-lyrics" >"$TMP_OUTPUT" 2>/dev/null; then
-        if [ -s "$TMP_OUTPUT" ]; then
-            echo "Status: 200 OK"
-            echo "Content-Type: text/plain; charset=utf-8"
-            echo ""
-            cat "$TMP_OUTPUT"
-        else
-            echo "Status: 404 Not Found"
-            echo "Content-Type: text/plain"
-            echo ""
-            echo "Lyrics not found"
-        fi
-    else
-        echo "Status: 500 Internal Server Error"
-        echo "Content-Type: application/json"
-        echo ""
-        echo '{"error":"Internal script error"}'
-    fi
-    rm -f "$TMP_OUTPUT"
-    rm -f "$INPUT_TMP"
-    exit 0
-fi
+    elif rel_path == "/api/music/cover":
+        path = query_params.get('path', [""])[0]
+        if not path: send_response("400 Bad Request", "text/plain", "Missing path")
+        cover = backend.get_cover(path) # Need to implement in backend
+        if cover:
+            send_response("200 OK", "image/jpeg", cover)
+        else:
+            send_response("404 Not Found", "text/plain", "Cover not found")
 
-if [ "$REL_PATH" = "/api/music/playlist/list" ]; then
-    TMP_OUTPUT=$(mktemp)
-    if bash "$BACKEND_SCRIPT" "list-playlists" >"$TMP_OUTPUT" 2>/dev/null; then
-        echo "Status: 200 OK"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        cat "$TMP_OUTPUT"
-    else
-        echo "Status: 500 Internal Server Error"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        echo '{"ok":false,"error":"Failed to list playlists"}'
-    fi
-    rm -f "$TMP_OUTPUT"
-    rm -f "$INPUT_TMP"
-    exit 0
+    elif rel_path == "/api/music/lyrics":
+        path = query_params.get('path', [""])[0]
+        if not path: send_response("400 Bad Request", "text/plain", "Missing path")
+        lyrics = backend.get_lyrics(path) # Need to implement in backend
+        send_response("200 OK", "text/plain; charset=utf-8", lyrics or "")
 
-elif [ "$REL_PATH" = "/api/music/playlist/save" ]; then
-    TMP_OUTPUT=$(mktemp)
-    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "save-playlist" >"$TMP_OUTPUT" 2>/dev/null; then
-        echo "Status: 200 OK"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        cat "$TMP_OUTPUT"
-    else
-        echo "Status: 500 Internal Server Error"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        echo '{"ok":false,"error":"Failed to save playlist"}'
-    fi
-    rm -f "$TMP_OUTPUT"
-    rm -f "$INPUT_TMP"
-    exit 0
+    elif rel_path == "/api/music/playlist/list":
+        send_json(backend.get_playlists())
 
-elif [ "$REL_PATH" = "/api/music/playlist/get" ]; then
-    # Parse name from query string
-    PL_NAME=""
-    if command -v python3 >/dev/null 2>&1; then
-         PL_NAME=$(python3 -c "import sys, urllib.parse; q=urllib.parse.parse_qs(sys.argv[1]); print(q.get('name', [''])[0])" "$QUERY_STRING")
-    else
-         PL_NAME=$(echo "$QUERY_STRING" | grep -o "name=[^&]*" | cut -d= -f2-)
-         PL_NAME=$(echo "$PL_NAME" | sed -e 's/%/\\x/g' -e 's/+/ /g')
-         PL_NAME=$(echo -e "$PL_NAME")
-    fi
-    
-    echo -n "$PL_NAME" > "$INPUT_TMP"
-    TMP_OUTPUT=$(mktemp)
-    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "get-playlist" >"$TMP_OUTPUT" 2>/dev/null; then
-        echo "Status: 200 OK"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        cat "$TMP_OUTPUT"
-    else
-        echo "Status: 500 Internal Server Error"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        echo '{"ok":false,"error":"Failed to get playlist"}'
-    fi
-    rm -f "$TMP_OUTPUT"
-    rm -f "$INPUT_TMP"
-    exit 0
+    elif rel_path == "/api/music/playlist/save":
+        try:
+            body = get_post_body()
+            data = json.loads(body)
+            send_json(backend.save_playlist(data['name'], [i['path'] for i in data['data']]))
+        except Exception as e:
+            send_json({'ok': False, 'error': str(e)})
 
-elif [ "$REL_PATH" = "/api/music/playlist/delete" ]; then
-    PL_NAME=""
-    if command -v python3 >/dev/null 2>&1; then
-         PL_NAME=$(python3 -c "import sys, urllib.parse; q=urllib.parse.parse_qs(sys.argv[1]); print(q.get('name', [''])[0])" "$QUERY_STRING")
-    else
-         PL_NAME=$(echo "$QUERY_STRING" | grep -o "name=[^&]*" | cut -d= -f2-)
-         PL_NAME=$(echo "$PL_NAME" | sed -e 's/%/\\x/g' -e 's/+/ /g')
-         PL_NAME=$(echo -e "$PL_NAME")
-    fi
+    elif rel_path == "/api/music/playlist/get":
+        name = query_params.get('name', [""])[0]
+        send_json(backend.get_playlist(name))
 
-    echo -n "$PL_NAME" > "$INPUT_TMP"
-    TMP_OUTPUT=$(mktemp)
-    if cat "$INPUT_TMP" | bash "$BACKEND_SCRIPT" "delete-playlist" >"$TMP_OUTPUT" 2>/dev/null; then
-        echo "Status: 200 OK"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        cat "$TMP_OUTPUT"
-    else
-        echo "Status: 500 Internal Server Error"
-        echo "Content-Type: application/json; charset=utf-8"
-        echo ""
-        echo '{"ok":false,"error":"Failed to delete playlist"}'
-    fi
-    rm -f "$TMP_OUTPUT"
-    rm -f "$INPUT_TMP"
-    exit 0
-fi
+    elif rel_path == "/api/music/playlist/delete":
+        name = query_params.get('name', [""])[0]
+        send_json(backend.delete_playlist(name))
 
-rm -f "$INPUT_TMP"
+    elif rel_path == "/api/fs/list":
+        try:
+            body = get_post_body().strip() or "/"
+            # Re-implement simple directory listing
+            if not os.path.isdir(body):
+                send_json({'ok': False, 'error': 'Not a directory'})
+            
+            items = os.listdir(body)
+            dirs = [i for i in items if os.path.isdir(os.path.join(body, i)) and not i.startswith('.')]
+            dirs.sort()
+            
+            send_json({
+                'ok': True,
+                'current': body,
+                'parent': os.path.dirname(body),
+                'dirs': dirs
+            })
+        except Exception as e:
+            send_json({'ok': False, 'error': str(e)})
 
-# ============================================================================
-# Static File Serving (Fallback)
-# ============================================================================
+    elif rel_path == "/api/music/artist/search":
+        try:
+            artist = get_post_body().strip()
+            send_json(backend.search_artist(artist))
+        except Exception as e:
+            send_json({'ok': False, 'error': str(e)})
 
-# Map REL_PATH to local file
-LOCAL_FILE="${BASE_PATH}${REL_PATH}"
+    elif rel_path == "/api/music/artists/list":
+        send_json(backend.get_artists())
 
-if [ -f "$LOCAL_FILE" ]; then
-  # Determine Content-Type
-  case "$LOCAL_FILE" in
-    *.html) CTYPE="text/html" ;;
-    *.css)  CTYPE="text/css" ;;
-    *.js)   CTYPE="application/javascript" ;;
-    *.png)  CTYPE="image/png" ;;
-    *.jpg)  CTYPE="image/jpeg" ;;
-    *.gif)  CTYPE="image/gif" ;;
-    *.svg)  CTYPE="image/svg+xml" ;;
-    *.woff) CTYPE="font/woff" ;;
-    *.woff2) CTYPE="font/woff2" ;;
-    *.ttf)  CTYPE="font/ttf" ;;
-    *)      CTYPE="application/octet-stream" ;;
-  esac
+    else:
+        send_json({'ok': False, 'error': 'Unknown API route'})
 
-  echo "Status: 200 OK"
-  echo "Content-Type: $CTYPE"
-  echo ""
-  cat "$LOCAL_FILE"
-else
-  echo "Status: 404 Not Found"
-  echo "Content-Type: text/plain"
-  echo ""
-  echo "404 Not Found: $REL_PATH"
-fi
+# --- Main Execution ---
+request_uri = os.environ.get('REQUEST_URI', '/')
+query_string = os.environ.get('QUERY_STRING', '')
+request_method = os.environ.get('REQUEST_METHOD', 'GET')
+query_params = urllib.parse.parse_qs(query_string)
+
+# Route Detection
+rel_path = query_params.get('api_route', [None])[0]
+if not rel_path:
+    # PATH_INFO mode
+    uri_no_query = request_uri.split('?')[0]
+    if 'index.cgi' in uri_no_query:
+        rel_path = uri_no_query.split('index.cgi')[1]
+
+if not rel_path or rel_path == "":
+    rel_path = "/"
+
+if rel_path.startswith('/api/'):
+    handle_api(rel_path, request_method, query_params)
+else:
+    serve_static(rel_path)
