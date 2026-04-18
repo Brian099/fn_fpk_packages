@@ -8,7 +8,17 @@ LOG_FILE="${DATA_DIR}/info.log"
 PID_FILE="${DATA_DIR}/reverseproxy.pid"
 STATE_FILE="${DATA_DIR}/.running"
 SOCKET_FILE="${DATA_DIR}/reverseproxy.sock"
-BINARY="${APP_DIR}/server/reverseproxy"
+BINARY_X86="${APP_DIR}/server/reverseproxy_x86"
+BINARY_ARM64="${APP_DIR}/server/reverseproxy_arm64"
+
+# 自动检测架构并选择对应的二进制文件
+ARCH=$(uname -m)
+if [ "$ARCH" = "x86_64" ] && [ -f "${BINARY_X86}" ]; then
+    BINARY="${BINARY_X86}"
+elif [[ "$ARCH" =~ ^(aarch64|arm64)$ ]] && [ -f "${BINARY_ARM64}" ]; then
+    BINARY="${BINARY_ARM64}"
+fi
+
 WWW_DIR="${APP_DIR}/www"
 
 log_msg() {
