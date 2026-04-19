@@ -683,13 +683,15 @@ textarea {
 }
 
 .app-card-source {
-    font-size: 12px;
-    color: var(--semi-color-text-3);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--semi-color-text-2);
     margin-bottom: 8px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    opacity: 0.8;
 }
 
 .app-installed-badge {
@@ -722,13 +724,20 @@ textarea {
 }
 
 .app-card-category {
-    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
     color: var(--semi-color-text-2);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-bottom: 12px;
-    /* 增加分类行与按钮行的间距 */
+    margin-bottom: 10px;
+}
+
+.row-icon {
+    flex-shrink: 0;
+    opacity: 0.7;
 }
 
 /* My Apps 模式下的特殊样式：隐藏安装按钮，但保持分类和推荐按钮可见 */
@@ -1720,6 +1729,7 @@ textarea {
     outline: none;
     border-color: var(--semi-color-primary);
 }
+
 /* Wizard Dialog */
 .wizard-overlay {
     position: fixed;
@@ -1749,8 +1759,15 @@ textarea {
 }
 
 @keyframes wizard-fade-in {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 .wizard-header {
@@ -1921,8 +1938,15 @@ textarea {
 }
 
 @keyframes wizard-fade-in {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 .wizard-header {
@@ -2032,6 +2056,7 @@ textarea {
     border-color: var(--semi-color-primary);
     background-color: var(--semi-color-primary-light-default);
 }
+
 /* Status Badge for Details */
 .status-badge {
     padding: 2px 8px;
@@ -2055,16 +2080,26 @@ textarea {
     color: var(--semi-amber-5);
 }
 
-.status-badge.status-starting, .status-badge.status-stopping, .status-badge.status-installing {
+.status-badge.status-starting,
+.status-badge.status-stopping,
+.status-badge.status-installing {
     background-color: var(--semi-blue-0);
     color: var(--semi-blue-5);
     animation: pulse 1.5s infinite;
 }
 
 @keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.6; }
-    100% { opacity: 1; }
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
+
+    100% {
+        opacity: 1;
+    }
 }
 
 .manual-volume-section select {
