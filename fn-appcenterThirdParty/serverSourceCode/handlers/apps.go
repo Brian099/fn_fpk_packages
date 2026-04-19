@@ -226,22 +226,20 @@ func GetApps(c *gin.Context) {
 	// 按分类过滤
 	if category != "" {
 		filtered := make([]models.App, 0)
-
-		if category == "installed" {
+		switch category {
+		case "installed":
 			for _, app := range allApps {
-				// 使用内部 appname 或 id 进行比对 (必须匹配 list 中的 APP NAME)
 				if installedMap != nil && (installedMap[app.AppName] != nil || installedMap[app.ID] != nil) {
 					filtered = append(filtered, app)
 				}
 			}
-		} else if category == "推荐应用" {
+		case "推荐应用":
 			for _, app := range allApps {
 				if app.Recommended {
 					filtered = append(filtered, app)
 				}
 			}
-		} else if category == "trending" {
-			// 热门应用：按下载量排序并取前 25
+		case "trending":
 			sort.Slice(allApps, func(i, j int) bool {
 				return allApps[i].DownloadCount > allApps[j].DownloadCount
 			})
@@ -249,28 +247,20 @@ func GetApps(c *gin.Context) {
 				allApps = allApps[:25]
 			}
 			filtered = allApps
-		} else {
+		default:
 			for _, app := range allApps {
-				match := false
-				switch category {
-				case "trending":
-					// 已经在上面处理了特例，这里设为 true 只是为了逻辑严密
-					match = true
-				default:
-					for _, cat := range app.Labels {
-						if strings.EqualFold(cat, category) {
-							match = true
-							break
-						}
-					}
+				labels := app.Labels
+				if len(labels) == 0 {
+					labels = app.Categories
 				}
-
-				if match {
-					filtered = append(filtered, app)
+				for _, label := range labels {
+					if strings.EqualFold(label, category) {
+						filtered = append(filtered, app)
+						break
+					}
 				}
 			}
 		}
-
 		allApps = filtered
 	}
 

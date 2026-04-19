@@ -210,15 +210,26 @@ func parseFnpackFormat(tmpPath string, sourceID string) []models.App {
 
 	apps := make([]models.App, 0)
 	for appName, fnpackApp := range *fnpackData {
-		app := convertToApp(appName, fnpackApp, sourceID)
+		app := rebuildToApp(appName, fnpackApp, sourceID)
 		apps = append(apps, app)
 	}
 
 	return apps
 }
 
-// convertToApp 将FnpackApp转换为App
-func convertToApp(appName string, fnpackApp models.FnpackApp, sourceID string) models.App {
+// cleanPersonName 清洗人名字段，移除混入的 URL 部分
+// 例如 "Giraff https://giraff.fun" → "Giraff"
+func cleanPersonName(s string) string {
+	if idx := strings.Index(s, " http"); idx > 0 {
+		return strings.TrimSpace(s[:idx])
+	}
+	return s
+}
+
+// rebuildToApp 将 FnpackApp 重建为标准 models.App 格式
+// 输出与 Laok NAS API（{"code":0,"data":{"apps":[...]}}）字段格式完全对齐
+func rebuildToApp(appKey string, fnpackApp models.FnpackApp, sourceID string) models.App {
+	// 1. platform 处理（interface{} 兼容 string 和 []interface{} 两种形式）
 	platform := "x86"
 	switch p := fnpackApp.Platform.(type) {
 	case string:
@@ -227,75 +238,97 @@ func convertToApp(appName string, fnpackApp models.FnpackApp, sourceID string) m
 		}
 	case []interface{}:
 		if len(p) > 0 {
-			platform = p[0].(string)
+			platform = fmt.Sprintf("%v", p[0])
 		}
 	}
 
-	version := fnpackApp.Version
-	size := fnpackApp.Size
-	desc := fnpackApp.Desc
+	// 2. 从 arch_diff 提取平台特定覆盖字段（保留原有架构差异逻辑）
+	version     := fnpackApp.Version
+	size        := fnpackApp.Size
+	desc        := fnpackApp.Desc
 	downloadURL := fnpackApp.DownloadURL
-	changelog := fnpackApp.Changelog
+	changelog   := fnpackApp.Changelog
 
 	if fnpackApp.ArchDiff != nil {
 		if archDiff, ok := fnpackApp.ArchDiff[platform]; ok {
-			if archDiff.Version != "" {
-				version = archDiff.Version
-			}
-			if archDiff.Size != "" {
-				size = archDiff.Size
-			}
-			if archDiff.Desc != "" {
-				desc = archDiff.Desc
-			}
-			if archDiff.DownloadURL != "" {
-				downloadURL = archDiff.DownloadURL
-			}
-			if archDiff.Changelog != "" {
-				changelog = archDiff.Changelog
+			if archDiff.Version != ""     { version     = archDiff.Version }
+			if archDiff.Size != ""        { size        = archDiff.Size }
+			if archDiff.Desc != ""        { desc        = archDiff.Desc }
+			if archDiff.DownloadURL != "" { downloadURL = archDiff.DownloadURL }
+			if archDiff.Changelog != ""   { changelog   = archDiff.Changelog }
+		}
+	}
+
+	// 3. version 标准化：统一去除 v/V 前缀（"v1.0.22" / "V1.0.28" → "1.0.22" / "1.0.28"）
+	version = strings.TrimPrefix(strings.TrimPrefix(version, "V"), "v")
+
+	// 4. size 清洗：去除前导/尾随空格（RROrg 源存在 " 3.082" 格式）
+	size = strings.TrimSpace(size)
+
+	// 5. download_url 处理：
+	//    - blob 链接 → raw 直链（修复 Gitee 源所有应用安装失败的问题）
+	//    - 空链接 → 生成本地占位路径
+	downloadURL = NormalizeURL(downloadURL)
+	if downloadURL == "" {
+		downloadURL = fmt.Sprintf("/download/%s/%s.fpk", sourceID, appKey)
+	}
+
+	// 6. changelog 兜底：changelog 为空时从 history 提取当前版本更新说明
+	//    兼容 "v1.0.22" 和 "1.0.22" 两种 key 格式
+	if changelog == "" && len(fnpackApp.History) > 0 {
+		if v, ok := fnpackApp.History["v"+version]; ok {
+			changelog = v
+		} else if v, ok := fnpackApp.History[version]; ok {
+			changelog = v
+		}
+	}
+
+	// 7. categories / labels：逗号分隔字符串 → []string，两者保持完全一致
+	categories := []string{}
+	if fnpackApp.Labels != "" {
+		for _, part := range strings.Split(fnpackApp.Labels, ",") {
+			if t := strings.TrimSpace(part); t != "" {
+				categories = append(categories, t)
 			}
 		}
 	}
 
-	if downloadURL == "" {
-		downloadURL = fmt.Sprintf("/download/%s/%s.fpk", sourceID, appName)
-	}
-
-	categories := []string{}
-	labels := []string{}
-	if fnpackApp.Labels != "" {
-		categories = strings.Split(fnpackApp.Labels, ",")
-		labels = categories
-	}
-
-	publisher := fnpackApp.Distributor
+	// 8. author / publisher 清洗：去除 "Name https://..." 中混入的 URL 部分
+	author    := cleanPersonName(fnpackApp.Author)
+	publisher := cleanPersonName(fnpackApp.Distributor)
 	if publisher == "" {
-		publisher = fnpackApp.Author
+		publisher = author
 	}
 
-	iconPath := filepath.Join(appStoreDir, appName, "ICON.PNG")
-	icon := ""
+	// 9. icon 优先级：本地 ICON.PNG > fnpack 的 icon 字段（远程 URL）> 空
+	//    本地文件优先，确保管理员自定义图标始终生效
+	//    远程 icon 同样经过 NormalizeURL，兼容 Gitee blob 链接
+	iconPath := filepath.Join(appStoreDir, appKey, "ICON.PNG")
+	icon := NormalizeURL(fnpackApp.Icon) // 先取远程 icon 并规范化（blob→raw，空值不变）
 	if _, err := os.Stat(iconPath); !os.IsNotExist(err) {
-		icon = "/AppStore/" + appName + "/ICON.PNG"
+		icon = "/AppStore/" + appKey + "/ICON.PNG" // 本地存在则覆盖
 	}
 
 	return models.App{
-		ID:          appName,
-		AppName:     appName,
-		Name:        fnpackApp.DisplayName,
-		Description: desc,
-		Version:     version,
-		Platform:    platform,
-		Categories:  categories,
-		Labels:      labels,
-		Author:      fnpackApp.Author,
-		Publisher:   publisher,
-		Size:        size,
-		Icon:        icon,
-		DownloadURL: downloadURL,
-		Changelog:   changelog,
-		SourceID:    sourceID,
-		Recommended: fnpackApp.Recommended,
+		ID:            appKey,
+		AppName:       appKey,
+		Name:          fnpackApp.DisplayName,
+		Description:   desc,
+		Version:       version,
+		Platform:      platform,
+		Categories:    categories,
+		Labels:        categories, // 与 Laok NAS 格式保持一致：labels == categories
+		Author:        author,
+		Publisher:     publisher,
+		Size:          size,
+		Icon:          icon,
+		Screenshots:   nil,
+		DownloadURL:   downloadURL,
+		Changelog:     changelog,
+		SourceID:      sourceID,
+		SourceName:    "",
+		DownloadCount: 0,
+		Recommended:   fnpackApp.Recommended,
 	}
 }
 

@@ -44,12 +44,14 @@ type FnpackApp struct {
 	IsDocker       string              `json:"isdocker"`
 	InstallType    string              `json:"install_type"`
 	Size           string              `json:"size"`
+	Icon           string              `json:"icon"`          // 远程图标 URL（如 GitHub/Gitee raw 链接）
 	DownloadURL    string              `json:"download_url"`
 	Changelog      string              `json:"changelog"`
 	Distributor    string              `json:"distributor"`
 	DistributorURL string              `json:"distributor_url"`
 	Recommended    bool                `json:"recommended"`
 	ArchDiff       map[string]ArchDiff `json:"arch_diff"`
+	History        map[string]string   `json:"history"` // Gitee 风格版本历史，key=版本号，value=更新说明
 }
 
 // ArchDiff 架构差异结构体

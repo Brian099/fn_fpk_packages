@@ -323,6 +323,9 @@ func SyncPresetSources(c *gin.Context) {
 
 	if added > 0 {
 		services.SaveSources(sources)
+		// 同步更新内存中的源列表，确保前端无需重启即可立即看到新源
+		// （GetSources 读取的是 GlobalStore 内存，不是磁盘）
+		services.GlobalStore.UpdateSources(sources)
 	}
 
 	c.JSON(http.StatusOK, gin.H{

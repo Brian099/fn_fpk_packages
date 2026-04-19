@@ -57,7 +57,7 @@ if [ ! -f "${SOURCES_FILE}" ]; then
                 JSON_ARRAY="${JSON_ARRAY}
   {
     \"id\": \"${ID}\",
-    \"name\": \"${NAME}(预设)\",
+    \"name\": \"${NAME}(推荐)\",
     \"url\": \"${URL}\",
     \"enabled\": ${ENABLED},
     \"auto_update\": true,
