@@ -134,7 +134,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
 
           # 克隆目标仓库（使用 RELEASE token）
-          git clone "https://${{ secrets.RELEASE }}@github.com/${{ github.actor }}/FnDepot.git" fndepot-repo
+          git clone "https://${{ secrets.RELEASE }}@github.com/Brian099/FnDepot.git" fndepot-repo
           cd fndepot-repo
 
           # 处理每个 fpk 文件
