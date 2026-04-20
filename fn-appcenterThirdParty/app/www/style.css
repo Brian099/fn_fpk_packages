@@ -2239,8 +2239,16 @@ textarea {
         display: none;
     }
 
+    .semi-input-prefix {
+        margin-right: 0 !important;
+    }
+
     .sidebar-expanded .semi-input {
         display: block;
+    }
+
+    .sidebar-expanded .semi-input-prefix {
+        margin-right: 8px !important;
     }
 
     .nav-scroll {
