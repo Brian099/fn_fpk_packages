@@ -283,6 +283,8 @@ function setupEventListeners() {
                 b.classList.remove('active');
             });
             document.getElementById('settingsBtn').classList.remove('active');
+            document.getElementById('myAppsBtn').classList.remove('active');
+            document.getElementById('aboutBtn').classList.remove('active');
             this.classList.add('active');
             currentCategory = this.dataset.category;
             switchView('appGrid');
@@ -295,6 +297,8 @@ function setupEventListeners() {
         document.querySelectorAll('.base-Tab-root').forEach(function (b) {
             b.classList.remove('active');
         });
+        document.getElementById('myAppsBtn').classList.remove('active');
+        document.getElementById('aboutBtn').classList.remove('active');
         this.classList.add('active');
         showSettingsManager(true);
     });
@@ -305,8 +309,20 @@ function setupEventListeners() {
             b.classList.remove('active');
         });
         document.getElementById('settingsBtn').classList.remove('active');
+        document.getElementById('aboutBtn').classList.remove('active');
         this.classList.add('active');
         showMyAppsManager();
+    });
+
+    document.getElementById('aboutBtn').addEventListener('click', function (e) {
+        e.preventDefault();
+        document.querySelectorAll('.base-Tab-root').forEach(function (b) {
+            b.classList.remove('active');
+        });
+        document.getElementById('settingsBtn').classList.remove('active');
+        document.getElementById('myAppsBtn').classList.remove('active');
+        this.classList.add('active');
+        switchView('aboutView');
     });
 
     document.getElementById('appDetailOverlay').addEventListener('click', function () {

@@ -475,6 +475,13 @@ textarea {
     border-top: 1px solid var(--semi-color-border);
 }
 
+.nav-footer-divider {
+    height: 1px;
+    background-color: var(--semi-color-divider-2);
+    margin: 6px 12px;
+    opacity: 0.6;
+}
+
 .nav-extra-btn {
     display: flex;
     align-items: center;
@@ -492,6 +499,123 @@ textarea {
 
 .nav-extra-btn:hover {
     background-color: var(--card-HoverBg);
+}
+
+/* About Page Styles */
+.about-content {
+    padding: 40px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.about-header {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 40px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--semi-color-divider-2);
+}
+
+.about-title h2 {
+    font-size: 24px;
+    color: var(--semi-color-text-0);
+    margin-bottom: 4px;
+}
+
+.about-title p {
+    font-size: 14px;
+    color: var(--semi-color-text-2);
+}
+
+.about-section {
+    margin-bottom: 32px;
+}
+
+.about-section h3 {
+    font-size: 18px;
+    color: var(--semi-color-text-0);
+    margin-bottom: 12px;
+}
+
+.about-section p {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--semi-color-text-1);
+}
+
+.about-links {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.about-link-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    background-color: var(--card-DefaultBg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.about-link-card:hover {
+    background-color: var(--card-HoverBg);
+    border-color: var(--semi-color-primary-light-default);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.link-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.qq-icon {
+    background-color: #e6f4ff;
+    color: #0066ff;
+}
+
+.github-icon {
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+.link-info h4 {
+    font-size: 16px;
+    color: var(--semi-color-text-0);
+    margin-bottom: 2px;
+}
+
+.link-info p {
+    font-size: 13px;
+    color: var(--semi-color-text-2);
+}
+
+/* Mobile adjustments for About Page */
+@media (max-width: 768px) {
+    .about-content {
+        padding: 24px;
+    }
+    
+    .about-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 16px;
+    }
+    
+    .about-links {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Main Content Area */
@@ -2332,6 +2456,17 @@ textarea {
     .sidebar-expanded .nav-extra-btn span {
         display: inline;
         white-space: nowrap;
+    }
+
+    .nav-footer-divider {
+        width: 32px;
+        margin: 4px auto;
+        opacity: 0.4;
+    }
+
+    .sidebar-expanded .nav-footer-divider {
+        width: calc(100% - 24px);
+        margin: 6px 12px;
     }
 
     /* 3. Main Content Consistency */

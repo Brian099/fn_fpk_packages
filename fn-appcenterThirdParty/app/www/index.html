@@ -16,7 +16,13 @@
                 <nav class="base-TabsList-root">
                     <div class="nav-header">
                         <div class="nav-toggle" id="navToggle">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <line x1="3" y1="12" x2="21" y2="12"></line>
+                                <line x1="3" y1="6" x2="21" y2="6"></line>
+                                <line x1="3" y1="18" x2="21" y2="18"></line>
+                            </svg>
                         </div>
                         <div class="search-wrapper">
                             <div class="semi-input-prefix">
@@ -213,6 +219,17 @@
                             </svg>
                             <span>设置中心</span>
                         </button>
+                        <div class="nav-footer-divider"></div>
+                        <button class="nav-extra-btn" id="aboutBtn">
+                            <svg class="icon" viewBox="0 0 1024 1024" width="16" height="16" fill="currentColor">
+                                <path
+                                    d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64z m0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372 372 166.6 372 372-166.6 372-372 372z"
+                                    p-id="10313"></path>
+                                <path d="M464 336a48 48 0 1 0 96 0 48 48 0 1 0-96 0zM472 448h80v288h-80z" p-id="10314">
+                                </path>
+                            </svg>
+                            <span>关于</span>
+                        </button>
                     </div>
                 </nav>
 
@@ -225,6 +242,69 @@
                         </div>
                         <div class="app-main-view scroll-container" id="settingsView">
                             <!-- Settings will be injected here -->
+                        </div>
+                        <div class="app-main-view scroll-container" id="aboutView">
+                            <div class="about-content">
+                                <div class="about-header">
+                                    <div class="about-logo">
+                                        <svg viewBox="0 0 1024 1024" width="64" height="64">
+                                            <path
+                                                d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64z"
+                                                fill="var(--semi-color-primary)"></path>
+                                            <path
+                                                d="M512 128c212.1 0 384 171.9 384 384s-171.9 384-384 384-384-171.9-384-384 171.9-384 384-384z"
+                                                fill="#ffffff"></path>
+                                            <path d="M464 336a48 48 0 1 0 96 0 48 48 0 1 0-96 0zM472 448h80v288h-80z"
+                                                fill="var(--semi-color-primary)"></path>
+                                        </svg>
+                                    </div>
+                                    <div class="about-title">
+                                        <h2>应用精选【第三方】应用中心</h2>
+                                        <p>版本 v1.1.0</p>
+                                    </div>
+                                </div>
+                                <div class="about-body">
+                                    <section class="about-section">
+                                        <h3>应用介绍</h3>
+                                        <p>这是一个为 FnOS 打造的第三方应用中心，旨在为用户提供更丰富的应用资源和便捷的安装体验。支持多应用源管理、版本切换以及便捷的安装向导。</p>
+                                    </section>
+                                    <section class="about-section">
+                                        <h3>社区与支持</h3>
+                                        <div class="about-links">
+                                            <a href="https://qm.qq.com/q/R0MMFN44M4" target="_blank"
+                                                class="about-link-card">
+                                                <div class="link-icon qq-icon">
+                                                    <svg viewBox="0 0 1024 1024" width="24" height="24"
+                                                        fill="currentColor">
+                                                        <path
+                                                            d="M824.8 613.2c-16-19.6-56.4-57.2-78.8-79.6 0-5.2 0.8-10.4 0.8-15.6 0-143.6-110-260-245.2-260s-245.2 116.4-245.2 260c0 5.2 0.8 10.4 0.8 15.6-22.4 22.4-62.8 60-78.8 79.6-35.6 44-12 110.8 44 110.8h56c4 63.6 59.2 113.6 124.8 113.6 13.6 0 26.8-2.4 39.2-6.8 14.8 28.8 44.8 48.4 79.2 48.4s64.4-19.6 79.2-48.4c12.4 4.4 25.6 6.8 39.2 6.8 65.6 0 120.8-50 124.8-113.6h56c56 0 79.6-66.8 44-110.8z">
+                                                        </path>
+                                                    </svg>
+                                                </div>
+                                                <div class="link-info">
+                                                    <h4>QQ 群</h4>
+                                                    <p>加入 FnOS Group 社区讨论</p>
+                                                </div>
+                                            </a>
+                                            <a href="https://github.com/Brian099/FnDepot" target="_blank"
+                                                class="about-link-card">
+                                                <div class="link-icon github-icon">
+                                                    <svg viewBox="0 0 1024 1024" width="24" height="24"
+                                                        fill="currentColor">
+                                                        <path
+                                                            d="M511.6 76.3C264.3 76.2 64 276.4 64 523.5 64 718.1 188.1 883.6 360 944.6c21.8 4.7 27.2-9.1 27.2-21 0-11.3-1-41.5-1-82.3-112.7 20.4-144.8-54-154-80-5.1-12.9-27.1-51.4-46.1-62-15.5-8.4-37.5-28.7-1-29.1 35.2-0.4 60.3 32.4 68.8 46.1 40.1 67.5 104.1 48.2 129.5 36.9 4-29.1 15.6-48.2 28.4-59.4-99.6-11.4-204.1-49.8-204.1-221.4 0-48.9 17.4-88.9 46-120.2-4.6-11.3-20-56.9 4.4-118.4 0 0 37.6-12 123.2 45.9 35.7-9.9 74-14.9 112.2-15.1 38.2 0.2 76.5 5.2 112.2 15.1 85.6-58.1 123.2-45.9 123.2-45.9 24.4 61.5 9 107.1 4.4 118.4 28.6 31.3 46 71.3 46 120.2 0 171.9-104.8 210-204.5 221.1 16.1 13.9 30.4 41.2 30.4 82.9 0 59.9-1 108.1-1 122.9 0 12 5.4 25.9 27.4 20.9 174.4-58.5 298.8-225.8 298.8-421.1 0-247-200.3-447.2-447.6-447.2z">
+                                                        </path>
+                                                    </svg>
+                                                </div>
+                                                <div class="link-info">
+                                                    <h4>GitHub</h4>
+                                                    <p>项目地址</p>
+                                                </div>
+                                            </a>
+                                        </div>
+                                    </section>
+                                </div>
+                            </div>
                         </div>
                         <div class="app-main-view scroll-container" id="appDetailView">
                             <!-- Detail content will be injected here -->
