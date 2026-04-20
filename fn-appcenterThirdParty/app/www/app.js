@@ -313,6 +313,12 @@ function setupEventListeners() {
         hideAppDetail();
     });
 
+    const navToggle = document.getElementById('navToggle');
+    if (navToggle) {
+        navToggle.addEventListener('click', function () {
+            document.querySelector('.app-body').classList.toggle('sidebar-expanded');
+        });
+    }
 }
 
 async function loadApps() {
