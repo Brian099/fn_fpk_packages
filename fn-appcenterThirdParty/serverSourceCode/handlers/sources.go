@@ -110,7 +110,7 @@ func SyncSource(c *gin.Context) {
 		return
 	}
 
-	added, updated, removed := services.SyncSourceData(targetSource)
+	total := services.SyncSourceData(targetSource)
 
 	targetSource.LastSync = time.Now().Format(time.RFC3339)
 	
@@ -122,9 +122,7 @@ func SyncSource(c *gin.Context) {
 		"code":    0,
 		"message": "Source synced successfully",
 		"data": gin.H{
-			"added":   added,
-			"updated": updated,
-			"removed": removed,
+			"total": total,
 		},
 	})
 }

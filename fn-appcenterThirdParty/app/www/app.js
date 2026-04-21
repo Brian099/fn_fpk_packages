@@ -839,7 +839,7 @@ function showInstallationWizard(app, wizardData, volumes, defaultVolumeId) {
                     const step = wizardData.steps[wizardStepIdx];
                     stepTitle = step.stepTitle || `配置 - 第${wizardStepIdx + 1}步`;
                     currentContent = step.items.map(item => renderWizardItem(item, collectedEnv)).join('');
-                    
+
                     // 如果是 root 安装，并且是最后一步配置，则设为最终确认
                     if (isRootInstall && wizardStepIdx === wizardData.steps.length - 1) {
                         isFinal = true;
@@ -915,7 +915,7 @@ function showInstallationWizard(app, wizardData, volumes, defaultVolumeId) {
                     </div>
                 </div>
             `;
-            
+
             // 补充处理 root 安装场景下的自动启动选项（如果存储池页面被跳过，则放在最后一个业务步骤）
             if (isRootInstall && isFinal && !document.getElementById('auto-start-check')) {
                 const footer = wizardOverlay.querySelector('.wizard-body');
@@ -1655,7 +1655,7 @@ async function syncSource(sourceId) {
         });
 
         if (data.code === 0) {
-            showNotification(`同步成功！新增: ${data.data.added}, 更新: ${data.data.updated}, 移除: ${data.data.removed}`, 'success');
+            showNotification(`同步成功！当前仓库共有 ${data.data.total} 个应用`, 'success');
             showSettingsManager(true, 'sources');
             loadApps();
         } else {
@@ -1678,7 +1678,7 @@ async function resetCache(sourceId) {
         });
 
         if (data.code === 0) {
-            showNotification(`缓存已重置，当前共 ${data.data.total} 个应用`, 'success');
+            showNotification(`缓存已重置，本地仓库共 ${data.data.total} 个应用`, 'success');
             showSettingsManager(true, 'sources');
             loadApps();
         } else {

@@ -127,13 +127,20 @@ func parseAndCacheSource(sourceID string) []models.App {
 	}
 
 	if len(apps) > 0 {
-		os.MkdirAll(cacheDir, 0755)
-		cachePath := filepath.Join(cacheDir, sourceID+".json")
-
+		// 统一使用 saveAppsToCache 存储，避免格式不一致
 		// 尝试合并旧的元数据（推荐状态、标签、下载量）
+		cachePath := filepath.Join(cacheDir, sourceID+".json")
 		if oldData, err := ioutil.ReadFile(cachePath); err == nil {
 			var oldApps []models.App
-			if err := json.Unmarshal(oldData, &oldApps); err == nil {
+			// 兼容处理：既尝试解析缓存对象，也尝试解析纯数组
+			var cachedData models.FPKCacheData
+			if err := json.Unmarshal(oldData, &cachedData); err == nil && len(cachedData.Apps) > 0 {
+				oldApps = cachedData.Apps
+			} else {
+				json.Unmarshal(oldData, &oldApps)
+			}
+
+			if len(oldApps) > 0 {
 				oldMap := make(map[string]models.App)
 				for _, oa := range oldApps {
 					oldMap[oa.ID] = oa
@@ -142,7 +149,7 @@ func parseAndCacheSource(sourceID string) []models.App {
 					if oa, ok := oldMap[apps[i].ID]; ok {
 						// 继承下载量
 						apps[i].DownloadCount = oa.DownloadCount
-						// 继承本地设定的推荐状态（自荐模式：源端如果是 Recommended，本地也接受；本地如果是 Recommended，更新后也保留）
+						// 继承本地设定的推荐状态
 						if oa.Recommended {
 							apps[i].Recommended = true
 						}
@@ -156,8 +163,7 @@ func parseAndCacheSource(sourceID string) []models.App {
 			}
 		}
 
-		cacheData, _ := json.MarshalIndent(apps, "", "  ")
-		ioutil.WriteFile(cachePath, cacheData, 0644)
+		saveAppsToCache(sourceID, apps, nil)
 	}
 
 	return apps

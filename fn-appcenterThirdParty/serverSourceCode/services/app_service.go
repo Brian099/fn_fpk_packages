@@ -204,8 +204,16 @@ func LoadAppsFromSource(source *models.Source) []models.App {
 	}
 
 	var apps []models.App
-	if err := json.Unmarshal(data, &apps); err != nil {
-		return []models.App{}
+	// 首先尝试解析为 FPKCacheData (带指纹的格式)
+	var cachedData models.FPKCacheData
+	if err := json.Unmarshal(data, &cachedData); err == nil && (len(cachedData.Apps) > 0 || len(cachedData.Fingerprints) > 0) {
+		apps = cachedData.Apps
+	} else {
+		// 降级：尝试解析为纯数组 (老格式或远程源格式)
+		if err := json.Unmarshal(data, &apps); err != nil {
+			log.Printf("[Store] Failed to unmarshal cache %s: %v", cachePath, err)
+			return []models.App{}
+		}
 	}
 
 	// 注入源名称
@@ -369,48 +377,18 @@ func collectFPKFiles(dir string) []string {
 	return fpkFiles
 }
 
-// SyncSourceData 同步源数据（增量更新，指纹机制）
-func SyncSourceData(source *models.Source) (int, int, int) {
-	oldApps := LoadAppsFromSource(source)
-
+// SyncSourceData 同步源数据（彻底清理对比逻辑，仅返回总数）
+func SyncSourceData(source *models.Source) int {
 	var newApps []models.App
 	if source.Local {
-		newApps = ScanFPKDir(source.URL, source.ID, false)
+		// 对于本地源，强制重新扫描以检测物理文件变动
+		newApps = ScanFPKDir(source.URL, source.ID, true)
 	} else {
 		newApps = parseAndCacheSource(source.ID)
 	}
 
-	added := 0
-	updated := 0
-	removed := 0
-
-	oldMap := make(map[string]models.App)
-	for _, app := range oldApps {
-		oldMap[app.ID] = app
-	}
-
-	newMap := make(map[string]models.App)
-	for _, app := range newApps {
-		newMap[app.ID] = app
-	}
-
-	for id := range newMap {
-		if _, exists := oldMap[id]; !exists {
-			added++
-		} else if oldMap[id].Version != newMap[id].Version {
-			updated++
-		}
-	}
-
-	for id := range oldMap {
-		if _, exists := newMap[id]; !exists {
-			removed++
-		}
-	}
-
 	source.AppCount = len(newApps)
-
-	return added, updated, removed
+	return source.AppCount
 }
 
 // IncrementDownloadCount 递增应用下载计数
