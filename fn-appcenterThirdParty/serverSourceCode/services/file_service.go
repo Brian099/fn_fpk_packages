@@ -214,6 +214,21 @@ func ExtractWizardConfig(fpkPath string) (models.WizardConfig, error) {
 					log.Printf("Failed to unmarshal wizard/install from %s: %v", fpkPath, err)
 				}
 			}
+		} else if filepath.Base(name) == "manifest" {
+			// 查找并解析 Manifest 获取 install_type
+			data, err := ioutil.ReadAll(tarReader)
+			if err == nil {
+				lines := strings.Split(string(data), "\n")
+				for _, line := range lines {
+					line = strings.TrimSpace(line)
+					if strings.HasPrefix(strings.ToLower(line), "install_type") {
+						parts := strings.SplitN(line, "=", 2)
+						if len(parts) == 2 {
+							config.InstallType = strings.TrimSpace(parts[1])
+						}
+					}
+				}
+			}
 		}
 	}
 

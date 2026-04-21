@@ -82,8 +82,9 @@ type WizardStep struct {
 
 // WizardConfig 向导总配置
 type WizardConfig struct {
-	License string       `json:"license,omitempty"`
-	Steps   []WizardStep `json:"steps"`
+	License     string       `json:"license,omitempty"`
+	Steps       []WizardStep `json:"steps"`
+	InstallType string       `json:"install_type"`
 }
 
 // StorageVolume 储存卷信息

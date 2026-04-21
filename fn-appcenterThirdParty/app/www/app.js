@@ -801,18 +801,19 @@ async function installApp(app, envFilePath = null) {
 function showInstallationWizard(app, wizardData, volumes, defaultVolumeId) {
     return new Promise((resolve) => {
         let currentStep = 0;
-        const totalSteps = (wizardData.license ? 1 : 0) + (wizardData.steps ? wizardData.steps.length : 0) + 1; // +1 for Volume Select
+        const isRootInstall = wizardData.install_type === 'root';
+        // 如果是 root 安装，则总步数减 1 (跳过 Volume Select)
+        const totalSteps = (wizardData.license ? 1 : 0) + (wizardData.steps ? wizardData.steps.length : 0) + (isRootInstall ? 0 : 1);
         const collectedEnv = {};
 
-        // 初始选中默认卷
-        let selectedVolumeId = defaultVolumeId || (volumes.length > 0 ? volumes[0].id : null);
+        // 初始选中默认卷，如果是 root 安装则强制为 0
+        let selectedVolumeId = isRootInstall ? 0 : (defaultVolumeId || (volumes.length > 0 ? volumes[0].id : null));
 
         const wizardOverlay = document.createElement('div');
         wizardOverlay.className = 'wizard-overlay';
         document.body.appendChild(wizardOverlay);
 
         const updateWizardUI = () => {
-            // ... (License and Steps rendering logic remains the same)
             let realStep = currentStep;
             let currentContent = '';
             let stepTitle = '';
@@ -838,7 +839,12 @@ function showInstallationWizard(app, wizardData, volumes, defaultVolumeId) {
                     const step = wizardData.steps[wizardStepIdx];
                     stepTitle = step.stepTitle || `配置 - 第${wizardStepIdx + 1}步`;
                     currentContent = step.items.map(item => renderWizardItem(item, collectedEnv)).join('');
-                } else {
+                    
+                    // 如果是 root 安装，并且是最后一步配置，则设为最终确认
+                    if (isRootInstall && wizardStepIdx === wizardData.steps.length - 1) {
+                        isFinal = true;
+                    }
+                } else if (!isRootInstall) {
                     stepTitle = '选择安装位置';
                     isFinal = true;
 
@@ -882,6 +888,9 @@ function showInstallationWizard(app, wizardData, volumes, defaultVolumeId) {
                             </label>
                         </div>
                     `;
+                } else if (isRootInstall && totalSteps === (wizardData.license ? 1 : 0) + (wizardData.steps ? wizardData.steps.length : 0)) {
+                    // 如果是 root 安装且没有自定义步骤，且当前是最后一步（通常是 license/tips 之后）
+                    isFinal = true;
                 }
             }
 
@@ -906,6 +915,22 @@ function showInstallationWizard(app, wizardData, volumes, defaultVolumeId) {
                     </div>
                 </div>
             `;
+            
+            // 补充处理 root 安装场景下的自动启动选项（如果存储池页面被跳过，则放在最后一个业务步骤）
+            if (isRootInstall && isFinal && !document.getElementById('auto-start-check')) {
+                const footer = wizardOverlay.querySelector('.wizard-body');
+                const autoStartDiv = document.createElement('div');
+                autoStartDiv.style.marginTop = '24px';
+                autoStartDiv.style.paddingTop = '16px';
+                autoStartDiv.style.borderTop = '1px solid var(--semi-color-border)';
+                autoStartDiv.innerHTML = `
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="auto-start-check" checked>
+                        <span style="font-size: 14px; color: var(--semi-color-text-1);">安装后立即启动</span>
+                    </label>
+                `;
+                footer.appendChild(autoStartDiv);
+            }
         };
 
         window.selectWizardVolume = (id) => {
@@ -985,7 +1010,8 @@ function showInstallationWizard(app, wizardData, volumes, defaultVolumeId) {
                         volume_id: parseInt(selectedVolumeId),
                         download_url: app.download_url,
                         source_id: app.source_id,
-                        auto_start: autoStart
+                        auto_start: autoStart,
+                        install_type: wizardData.install_type
                     });
 
                     if (progressPoller) clearInterval(progressPoller);

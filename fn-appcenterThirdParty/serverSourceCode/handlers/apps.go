@@ -406,6 +406,7 @@ type InstallAppRequest struct {
 	DownloadURL string            `json:"download_url"`  // 下载地址（远程应用）
 	SourceID    string            `json:"source_id"`     // 来源ID
 	AutoStart   bool              `json:"auto_start"`    // 安装后是否自动启动
+	InstallType string            `json:"install_type"`  // 应用安装类型 (root/...)
 }
 
 // InstallApp 安装应用
@@ -465,8 +466,16 @@ func InstallApp(c *gin.Context) {
 	cliPath := getAppCenterCliPath()
 	args := []string{"install-fpk", fpkPath}
 
-	// 处理存储池
-	if req.VolumeID > 0 {
+	// 如果前端没传 InstallType，尝试从 FPK 中解析 (确保逻辑严密)
+	installType := req.InstallType
+	if installType == "" {
+		if config, err := services.ExtractWizardConfig(fpkPath); err == nil {
+			installType = config.InstallType
+		}
+	}
+
+	// 处理存储池：如果不是 root 类型才传 -v
+	if installType != "root" && req.VolumeID > 0 {
 		args = append(args, "-v", fmt.Sprintf("%d", req.VolumeID))
 	}
 
