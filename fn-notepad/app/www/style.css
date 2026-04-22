@@ -380,7 +380,8 @@ body {
     border: 1px solid var(--glass-border);
     border-radius: 12px;
     padding: 20px;
-    min-height: 200px;
+    height: 280px;
+    min-height: 280px;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
     display: flex;
@@ -694,7 +695,8 @@ body {
 
     .note-card {
         padding: 15px;
-        min-height: 160px;
+        height: 240px;
+        min-height: 240px;
     }
     
     .note-title {
@@ -720,6 +722,7 @@ body {
 .markdown-body {
     line-height: 1.6;
     word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .markdown-body p { margin-bottom: 10px; }
@@ -746,6 +749,49 @@ body {
     padding-left: 10px;
     opacity: 0.8;
     margin: 10px 0;
+}
+
+.markdown-body img,
+.markdown-body video,
+.markdown-body iframe {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 8px 0;
+}
+
+.note-card .markdown-body img,
+.note-card .markdown-body video {
+    max-height: 100px;
+    width: 100%;
+    object-fit: cover;
+    display: block;
+    margin: 8px 0;
+}
+
+/* Table support */
+.markdown-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+    font-size: 13px;
+    display: block;
+    overflow-x: auto;
+}
+
+.markdown-body th, .markdown-body td {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    text-align: left;
+}
+
+.markdown-body th {
+    background: rgba(0, 120, 212, 0.05);
+    font-weight: 600;
+}
+
+.markdown-body tr:nth-child(even) {
+    background: rgba(0, 0, 0, 0.02);
 }
 
 /* Scrollbar styling */
