@@ -9,7 +9,22 @@ echo "开始执行 PHP 8.3 脱网离线安装..." >> "$LOG_FILE"
 chmod -R +x "$TRIM_APPDEST/cmd" 2>/dev/null
 chmod -R +x "$TRIM_APPDEST/ui" 2>/dev/null
 
-PACKAGES_DIR="$TRIM_APPDEST/target/packages"
+# 架构检测
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64)
+        ARCH_DIR="amd64"
+        ;;
+    aarch64)
+        ARCH_DIR="arm64"
+        ;;
+    *)
+        echo "不支持的系统架构: $ARCH" >> "$LOG_FILE"
+        exit 1
+        ;;
+esac
+
+PACKAGES_DIR="$TRIM_APPDEST/target/packages/$ARCH_DIR"
 
 export DEBIAN_FRONTEND=noninteractive
 
