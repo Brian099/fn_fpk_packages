@@ -34,6 +34,21 @@ nginx_status_json() {
   echo "{\"installed\":$installed,\"running\":$running,\"version\":$version_json,\"config_exists\":$config_exists}"
 }
 
+# 获取系统架构
+ARCH=$(uname -m)
+case "$ARCH" in
+  x86_64)
+    PKG_ARCH_DIR="$PKG_DIR/x86_64"
+    ;;
+  aarch64|arm64)
+    PKG_ARCH_DIR="$PKG_DIR/aarch64"
+    ;;
+  *)
+    printf '{"ok":false,"error":"不支持的架构: %s"}' "$ARCH"
+    exit 1
+    ;;
+esac
+
 # Nginx 离线安装及配置逻辑 (支持引导参数)
 nginx_install_json() {
   # 获取向导传入的端口参数，默认为 2829
@@ -45,12 +60,12 @@ nginx_install_json() {
   fi
   
   if [ "$already_installed" = false ]; then
-    if [ ! -d "$PKG_DIR" ]; then
-      printf '{"ok":false,"error":"本地软件包目录不存在，请检查应用完整性"}'
+    if [ ! -d "$PKG_ARCH_DIR" ] || [ -z "$(ls -A "$PKG_ARCH_DIR" 2>/dev/null)" ]; then
+      printf '{"ok":false,"error":"架构 %s 的本地软件包目录不存在或为空"}' "$ARCH"
       return 1
     fi
     # 使用 dpkg 尝试离线安装
-    dpkg -i "$PKG_DIR"/*.deb >/tmp/nginx_manager_install.log 2>&1
+    dpkg -i "$PKG_ARCH_DIR"/*.deb >/tmp/nginx_manager_install.log 2>&1
     # 修复依赖关系 (如果系统中存在部分未满足的库)
     apt-get install -y -f >>/tmp/nginx_manager_install.log 2>&1
   fi
