@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# cmd/main for NginxManager
+# fly-NAS App Life-cycle Management Script
+
+case "$1" in
+  start)
+    # 启动 Nginx (如果尚未启动)
+    if ! systemctl is-active --quiet nginx; then
+      systemctl start nginx
+    fi
+    exit 0
+    ;;
+  stop)
+    # 停止 Nginx (根据应用策略，通常 fnOS 应用停止时应释放资源)
+    # 注意：如果共享系统 Nginx，停止需谨慎。此处由于 NginxManager 为环境助手，保持逻辑。
+    systemctl stop nginx
+    exit 0
+    ;;
+  status)
+    # 关键点：fly-NAS 会根据此状态显示“运行中”或“已停止”
+    if [ -x "/usr/sbin/nginx" ] && systemctl is-active --quiet nginx; then
+      exit 0 # 运行中
+    else
+      exit 3 # 未运行
+    fi
+    ;;
+  *)
+    exit 1
+    ;;
+esac

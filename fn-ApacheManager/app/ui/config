@@ -1,0 +1,12 @@
+{
+    ".url": {
+        "NginxManager.Application": {
+            "title": "Nginx 管理器",
+            "icon": "images/icon_{0}.png",
+            "type": "iframe",
+            "protocol": "http",
+            "url": "/cgi/ThirdParty/NginxManager/index.cgi/",
+            "allUsers": true
+        }
+    }
+}

@@ -1,0 +1,37 @@
+[
+    {
+        "stepTitle": "欢迎使用 Apache 管理器",
+        "items": [
+            {
+                "type": "tips",
+                "helpText": "欢迎使用 Apache 管理器！该应用将为您部署 Apache2 核心环境。"
+            },
+            {
+                "type": "text",
+                "field": "wizard_apache_port",
+                "label": "Apache 服务端口",
+                "initValue": "2880",
+                "rules": [
+                    {
+                        "required": true,
+                        "message": "端口号不能为空"
+                    },
+                    {
+                        "pattern": "^[0-9]+$",
+                        "message": "端口号必须是数字"
+                    }
+                ]
+            },
+            {
+                "type": "tips",
+                "helpText": "默认为 2880。为了不占用系统 80 端口，请确保此处端口不冲突。"
+            },
+            {
+                "type": "switch",
+                "field": "wizard_agree_install",
+                "label": "确认并开始离线安装",
+                "initValue": "true"
+            }
+        ]
+    }
+]

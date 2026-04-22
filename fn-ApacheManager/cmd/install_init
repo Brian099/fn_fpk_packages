@@ -1,0 +1,4 @@
+#!/bin/bash
+# cmd/install_init
+# Before installation logic (checks)
+exit 0

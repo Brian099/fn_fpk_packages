@@ -1,0 +1,30 @@
+#!/bin/bash
+# cmd/install_callback
+# Actions after installation
+
+# Log file for installation details
+LOG_FILE="/tmp/nginx_manager_install.log"
+
+# Define backend script path (following fnOS standard layout)
+# TRIM_APPNAME and TRIM_APPDEST are provided by the system
+BACKEND_SCRIPT="${TRIM_APPDEST}/server/manager.sh"
+
+# Local environment compatibility (if TRIM_APPDEST is not set)
+if [ -z "$TRIM_APPDEST" ]; then
+    BACKEND_SCRIPT="$(dirname "$(dirname "$(readlink -f "$0")")")/app/server/manager.sh"
+fi
+
+if [ -f "$BACKEND_SCRIPT" ]; then
+    # Trigger the Nginx installation/configuration
+    # wizard_nginx_port is automatically passed as an environment variable by the system
+    if ! bash "$BACKEND_SCRIPT" install > "$LOG_FILE" 2>&1; then
+        # If backend fails, pass the log output to the system for user alert
+        cat "$LOG_FILE" > "$TRIM_TEMP_LOGFILE"
+        exit 1
+    fi
+else
+    echo "Error: Backend script not found at $BACKEND_SCRIPT" > "$TRIM_TEMP_LOGFILE"
+    exit 1
+fi
+
+exit 0

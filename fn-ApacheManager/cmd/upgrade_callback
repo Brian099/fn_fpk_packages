@@ -1,0 +1,4 @@
+#!/bin/bash
+# cmd/upgrade_callback
+# Actions after upgrade
+exit 0

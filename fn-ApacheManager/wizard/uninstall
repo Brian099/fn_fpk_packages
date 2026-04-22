@@ -1,0 +1,37 @@
+[
+    {
+        "stepTitle": "确认卸载 Apache 管理器",
+        "items": [
+            {
+                "type": "tips",
+                "helpText": "您即将卸载此应用。请选择您希望执行的卸载策略："
+            },
+            {
+                "type": "radio",
+                "field": "wizard_cleanup_action",
+                "label": "清理级别",
+                "initValue": "keep",
+                "options": [
+                    {
+                        "label": "仅卸载管理器面板 (保留 Apache 环境和站点配置)",
+                        "value": "keep"
+                    },
+                    {
+                        "label": "彻底卸载 Apache 系统包并清理所有配置文件 (推荐用于彻底重置)",
+                        "value": "remove"
+                    }
+                ],
+                "rules": [
+                    {
+                        "required": true,
+                        "message": "请选择卸载策略"
+                    }
+                ]
+            },
+            {
+                "type": "tips",
+                "helpText": "<b>安全说明：</b> 选择彻底卸载只会移除位于 <code>/usr/sbin/apache2</code> 的应用级 Apache，<b>不会</b>触及系统内置的核心服务，请放心操作。"
+            }
+        ]
+    }
+]
