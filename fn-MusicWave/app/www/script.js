@@ -880,13 +880,14 @@ function togglePlay() {
 }
 
 function updatePlayPauseIcon(isPlaying) {
-    const icon = btnPlayPause.querySelector('i');
     if (isPlaying) {
-        icon.className = 'layui-icon layui-icon-pause';
+        btnPlayPause.innerHTML = '<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M6 19H10V5H6V19ZM14 5V19H18V5H14Z"></path></svg>';
     } else {
-        icon.className = 'layui-icon layui-icon-play';
+        btnPlayPause.innerHTML = '<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M8 5.14V19.14L19 12.14L8 5.14Z"></path></svg>';
     }
+
 }
+
 
 function playNext() {
     if (playlist.length === 0) return;
@@ -924,13 +925,17 @@ function toggleLoop() {
     isLoopOne = !isLoopOne;
     const btn = document.getElementById('btn-loop');
     if (isLoopOne) {
+        btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M7 7H17V10L21 6L17 2V5H5V11H7V7ZM17 17H7V14L3 18L7 22V19H19V13H17V17ZM13 15V9H11L10 10V11H11.5V15H13Z"></path></svg>';
         btn.style.color = 'var(--accent-color)';
         btn.title = "单曲循环";
     } else {
+        btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M7 7H17V10L21 6L17 2V5H5V11H7V7ZM17 17H7V14L3 18L7 22V19H19V13H17V17Z"></path></svg>';
         btn.style.color = 'white';
         btn.title = "列表循环";
     }
+
 }
+
 
 // Visualizer Functions
 function initVisualizer() {
@@ -1073,8 +1078,27 @@ function setupPlayerEvents() {
     volumeBar.addEventListener('input', () => {
         audio.volume = volumeBar.value;
         updateRangeBackground(volumeBar);
+        updateVolumeIcon(volumeBar.value);
     });
 }
+
+function updateVolumeIcon(value) {
+    const container = document.getElementById('volume-icon-container');
+    if (!container) return;
+    
+    let iconHtml = '';
+    if (value == 0) {
+        iconHtml = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>';
+    } else if (value <= 0.5) {
+        iconHtml = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>';
+    } else {
+        iconHtml = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>';
+    }
+
+
+    container.innerHTML = iconHtml;
+}
+
 
 function updateRangeBackground(el) {
     if (!el) return;

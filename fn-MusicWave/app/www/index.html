@@ -34,7 +34,10 @@
             <!-- Library View -->
             <div id="section-library" class="section">
                <div class="toolbar" style="display: flex; align-items: center; gap: 10px;">
-                  <button onclick="playAll()"><i class="layui-icon layui-icon-play"></i> 播放全部</button>
+                  <button onclick="playAll()">
+                     <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5.14V19.14L19 12.14L8 5.14Z"></path></svg>
+                     播放全部
+                  </button>
                   <button class="secondary" onclick="shufflePlay()"><i class="layui-icon layui-icon-refresh"></i>
                      随机播放</button>
                   <input type="text" id="search-input" placeholder="搜索音乐..." oninput="onSearchInput(this.value)"
@@ -106,8 +109,10 @@
                   <div class="toolbar" style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
                      <button class="secondary" onclick="backToPlaylistList()"><i class="layui-icon layui-icon-left"></i>
                         返回列表</button>
-                     <button style="margin-left:auto;" onclick="playCurrentPlaylist()"><i
-                           class="layui-icon layui-icon-play"></i> 播放全部</button>
+                     <button style="margin-left:auto;" onclick="playCurrentPlaylist()">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5.14V19.14L19 12.14L8 5.14Z"></path></svg>
+                        播放全部
+                     </button>
                      <button class="secondary" onclick="deletePlaylistPrompt()"><i
                            class="layui-icon layui-icon-delete"></i> 删除歌单</button>
                   </div>
@@ -148,10 +153,15 @@
          </div>
 
          <div class="controls">
-            <button class="control-btn" onclick="playPrev()"><i class="layui-icon layui-icon-prev"></i></button>
-            <button class="control-btn" id="btn-play-pause" onclick="togglePlay()"><i
-                  class="layui-icon layui-icon-play"></i></button>
-            <button class="control-btn" onclick="playNext()"><i class="layui-icon layui-icon-next"></i></button>
+            <button class="control-btn" onclick="playPrev()" title="上一首">
+               <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 6H8V18H6V6ZM9.5 12L18 18V6L9.5 12Z"></path></svg>
+            </button>
+            <button class="control-btn" id="btn-play-pause" onclick="togglePlay()" title="播放/暂停">
+               <svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M8 5.14V19.14L19 12.14L8 5.14Z"></path></svg>
+            </button>
+            <button class="control-btn" onclick="playNext()" title="下一首">
+               <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 18L14.5 12L6 6V18ZM16 6V18H18V6H16Z"></path></svg>
+            </button>
          </div>
 
          <div class="progress-container">
@@ -161,10 +171,13 @@
          </div>
 
          <div class="controls">
-            <button class="control-btn" onclick="toggleLoop()" id="btn-loop" title="循环模式"><i
-                  class="layui-icon layui-icon-refresh-1"></i></button>
+            <button class="control-btn" onclick="toggleLoop()" id="btn-loop" title="列表循环">
+               <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M7 7H17V10L21 6L17 2V5H5V11H7V7ZM17 17H7V14L3 18L7 22V19H19V13H17V17Z"></path></svg>
+            </button>
             <div class="volume-control">
-               <i class="layui-icon layui-icon-speaker"></i>
+               <div id="volume-icon-container">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+               </div>
                <input type="range" id="volume-bar" min="0" max="1" step="0.1" value="1">
             </div>
          </div>

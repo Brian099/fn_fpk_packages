@@ -560,13 +560,11 @@ body.lyrics-active #lyrics-panel {
   box-shadow: 0 10px 25px rgba(59, 130, 246, 0.5);
 }
 
-#btn-play-pause i {
-  margin-left: 2px; /* Visual centering for play icon */
+#btn-play-pause svg {
+  width: 28px;
+  height: 28px;
 }
 
-#btn-play-pause .layui-icon-pause {
-  margin-left: 0;
-}
 
 .progress-container {
   flex: 1;
@@ -586,9 +584,26 @@ body.lyrics-active #lyrics-panel {
   margin-left: 10px;
 }
 
-.volume-control i {
-  font-size: 18px;
+.volume-control svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
   color: rgba(255, 255, 255, 0.6);
+  transition: color 0.2s ease;
+  display: block;
+}
+
+#volume-icon-container {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.volume-control:hover svg {
+  color: white;
 }
 
 input[type=range] {
@@ -618,13 +633,16 @@ input[type=range]::-webkit-slider-thumb {
   opacity: 0; /* Hide by default, show on hover */
 }
 
-input[type=range]:hover::-webkit-slider-thumb {
-  opacity: 1;
-  transform: scale(1.2);
-}
+input[type=range]:active::-webkit-slider-thumb {
   transform: scale(1.2);
   background: var(--accent-color);
 }
+
+.control-btn svg {
+  flex-shrink: 0;
+  overflow: visible;
+}
+
 
 /* Modal */
 .modal {
