@@ -1,0 +1,155 @@
+#!/bin/bash
+
+# MariaDB 12 服务管理脚本
+
+# 环境变量：
+# $TRIM_APPDEST - target 目录
+# $TRIM_PKGVAR  - var 目录（存放数据）
+# $TRIM_PKGETC  - etc 目录（存放配置）
+# $TRIM_SERVICE_PORT - 从 manifest 或向导中指定的端口
+# $TRIM_TEMP_LOGFILE - 系统反馈日志文件路径
+
+DATA_DIR="$TRIM_PKGVAR/data"
+PID_FILE="$TRIM_PKGVAR/mariadb.pid"
+SOCKET_FILE="$TRIM_PKGVAR/mariadb.sock"
+PORT="${TRIM_SERVICE_PORT:-3306}"
+CONFIG_FILE="$TRIM_PKGETC/my.cnf"
+
+# 架构检测与路径适配
+ARCH=$(uname -m)
+if [ "$ARCH" = "aarch64" ]; then
+    ARCH_TARGET="aarch64"
+else
+    ARCH_TARGET="x86_64"
+fi
+BIN_DIR="$TRIM_APPDEST/target/$ARCH_TARGET/usr/bin"
+SBIN_DIR="$TRIM_APPDEST/target/$ARCH_TARGET/usr/sbin"
+BASE_DIR="$TRIM_APPDEST/target/$ARCH_TARGET/usr"
+
+case $1 in
+start)
+    echo "正在启动 MariaDB 12 (端口: $PORT)..." >> "$TRIM_TEMP_LOGFILE"
+
+    # 1. 检查数据目录是否存在
+    if [ ! -d "$DATA_DIR/mysql" ]; then
+        echo "错误：数据目录尚未初始化，请先运行安装过程。" >> "$TRIM_TEMP_LOGFILE"
+        exit 1
+    fi
+
+    # 2. 检查 my.cnf 配置文件
+    if [ ! -f "$CONFIG_FILE" ]; then
+        # 如果 my.cnf 不存在，尝试重建一次 (以防更新配置时丢失)
+        echo "正在重新生成主配置文件..." >> "$TRIM_TEMP_LOGFILE"
+        sed -e "s|\${TRIM_APPDEST}|$TRIM_APPDEST|g" \
+            -e "s|\${TRIM_PKGVAR}|$TRIM_PKGVAR|g" \
+            -e "s|\${TRIM_PKGTMP}|$TRIM_PKGTMP|g" \
+            -e "s|\${TRIM_MARIADB_BASEDIR}|$BASE_DIR|g" \
+            -e "s|\${TRIM_SERVICE_PORT}|$PORT|g" \
+            "$TRIM_APPDEST/etc/my.cnf.template" > "$CONFIG_FILE"
+    fi
+
+    # 3. 启动 mysqld
+    INIT_FILE="$TRIM_PKGVAR/init_db.sql"
+    
+    if [ -f "$INIT_FILE" ]; then
+        echo "发现数据库初始化/配置脚本 ($INIT_FILE)，将通过 --init-file 模式启动加载..." >> "$TRIM_TEMP_LOGFILE"
+        "$SBIN_DIR/mariadbd" \
+            --defaults-file="$CONFIG_FILE" \
+            --basedir="$BASE_DIR" \
+            --datadir="$DATA_DIR" \
+            --port="$PORT" \
+            --pid-file="$PID_FILE" \
+            --socket="$SOCKET_FILE" \
+            --tmpdir="$TRIM_PKGTMP" \
+            --init-file="$INIT_FILE" \
+            --console >> "$TRIM_TEMP_LOGFILE" 2>&1 &
+    else
+        "$TRIM_APPDEST/target/bin/mariadbd" \
+            --defaults-file="$CONFIG_FILE" \
+            --basedir="$TRIM_APPDEST/target" \
+            --datadir="$DATA_DIR" \
+            --port="$PORT" \
+            --pid-file="$PID_FILE" \
+            --socket="$SOCKET_FILE" \
+            --tmpdir="$TRIM_PKGTMP" \
+            --console >> "$TRIM_TEMP_LOGFILE" 2>&1 &
+    fi
+
+    # 等待一会儿确认进程存活
+    sleep 2
+    if ! pgrep -F "$PID_FILE" > /dev/null; then
+        echo "MariaDB 启动失败，请检查日志。" >> "$TRIM_TEMP_LOGFILE"
+        exit 1
+    fi
+    echo "MariaDB 服务进程已启动。" >> "$TRIM_TEMP_LOGFILE"
+
+    # 清理初始脚本 (等待服务完全就绪后再清理，防止引擎启动慢导致文件提前被删)
+    if [ -f "$INIT_FILE" ]; then
+        echo "等待数据库引擎就绪后再清理脚本..." >> "$TRIM_TEMP_LOGFILE"
+        for i in {1..30}; do
+            if "$BIN_DIR/mariadb-admin" --socket="$SOCKET_FILE" -u root ping >/dev/null 2>&1; then
+                rm -f "$INIT_FILE"
+                echo "初始化/配置脚本已被成功读取并自动清理。" >> "$TRIM_TEMP_LOGFILE"
+                break
+            fi
+            sleep 1
+        done
+        
+        # 兜底超时删除
+        if [ -f "$INIT_FILE" ]; then
+            rm -f "$INIT_FILE"
+            echo "警告：服务响应超时，强制清理初始化脚本。" >> "$TRIM_TEMP_LOGFILE"
+        fi
+    fi
+
+    exit 0
+    ;;
+
+stop)
+    echo "正在停止 MariaDB 12..." >> "$TRIM_TEMP_LOGFILE"
+    if [ -f "$PID_FILE" ]; then
+        PID=$(cat "$PID_FILE")
+        # 优雅停机
+        kill "$PID"
+        
+        # 等待停止
+        for i in {1..30}; do
+            if ! kill -0 "$PID" 2>/dev/null; then
+                echo "MariaDB 已安全停止。" >> "$TRIM_TEMP_LOGFILE"
+                rm -f "$PID_FILE" "$SOCKET_FILE"
+                exit 0
+            fi
+            sleep 1
+        done
+
+        # 强制销毁
+        kill -9 "$PID"
+        rm -f "$PID_FILE" "$SOCKET_FILE"
+        exit 0
+    else
+        echo "未发现运行中的 MariaDB。 (PID 文件缺失)" >> "$TRIM_TEMP_LOGFILE"
+        exit 0
+    fi
+    ;;
+
+status)
+    # 检查进程
+    if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
+        echo "MariaDB 正在运行。"
+        exit 0
+    else
+        # 二重检查：通过端口
+        if [ -n "$(lsof -i :$PORT | grep LISTEN)" ]; then
+             echo "MariaDB 正在运行 (仅端口活跃)。"
+             exit 0
+        fi
+        echo "MariaDB 已停止。"
+        exit 3
+    fi
+    ;;
+
+*)
+    echo "用法: $0 {start|stop|status}"
+    exit 1
+    ;;
+esac

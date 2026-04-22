@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# MariaDB 10 卸载前初始化脚本
+echo "正在开始卸载 MariaDB 10..." >> "$TRIM_TEMP_LOGFILE"
+exit 0

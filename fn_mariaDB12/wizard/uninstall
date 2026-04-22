@@ -1,0 +1,18 @@
+[
+    {
+        "stepTitle": "卸载选项",
+        "items": [
+            {
+                "type": "tips",
+                "helpText": "危险：默认卸载操作仅移除程序本身，如果希望清理彻底，请您手动勾选下面的清理选项。"
+            },
+            {
+                "type": "switch",
+                "field": "service_delete_data",
+                "label": "同时清理所有数据库数据",
+                "initValue": "false",
+                "helpText": "勾选此项将会清空该应用产生的所有数据结构与账户。数据彻底丢失且无法找回！"
+            }
+        ]
+    }
+]

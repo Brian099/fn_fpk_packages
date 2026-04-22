@@ -1,0 +1,44 @@
+# MariaDB 12 飞牛 fnOS 优化配置模板
+# 自动通过环境变量注入路径和端口
+
+[client-server]
+# 端口由环境变量 $TRIM_SERVICE_PORT 控制 (默认为 3306)
+port = ${TRIM_SERVICE_PORT}
+socket = ${TRIM_PKGVAR}/mariadb.sock
+
+[mysqld]
+# --- 基础路径 ---
+user = root
+basedir = ${TRIM_MARIADB_BASEDIR}
+datadir = ${TRIM_PKGVAR}/data
+tmpdir = ${TRIM_PKGTMP}
+pid-file = ${TRIM_PKGVAR}/mariadb.pid
+
+# --- 网络配置 ---
+bind-address = 0.0.0.0
+# 最大连接数控制
+max_connections = 100
+
+# --- 内存优化 (针对 NAS 常见 4GB-16GB 内存设计) ---
+# 缓冲池大小，建议设置为可用内存的 10%-25%
+innodb_buffer_pool_size = 256M
+innodb_log_file_size = 64M
+innodb_flush_log_at_trx_commit = 2
+innodb_file_per_table = 1
+
+# 临时表大小
+tmp_table_size = 32M
+max_heap_table_size = 32M
+
+# --- 日志配置 ---
+log_error = ${TRIM_PKGVAR}/mariadb.err
+slow_query_log = 1
+slow_query_log_file = ${TRIM_PKGVAR}/mariadb-slow.log
+long_query_time = 2
+
+# --- 字符集 ---
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
+
+[mysql]
+default-character-set = utf8mb4

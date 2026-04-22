@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# MariaDB 10 卸载回调脚本
+# 用户在通过应用中心卸载时，会调用此脚本。
+
+echo "开始卸载 MariaDB 10..." >> "$TRIM_TEMP_LOGFILE"
+
+# 获取卸载向导中用户是否勾选了“同时清理所有数据库数据”
+if [ "$service_delete_data" = "true" ] || [ "$service_delete_data" = "1" ]; then
+    echo "用户勾选了不仅卸载应用，还彻底清理数据。" >> "$TRIM_TEMP_LOGFILE"
+    echo "正在销毁数据库目录 $TRIM_PKGVAR ..." >> "$TRIM_TEMP_LOGFILE"
+    # 删除数据库数据
+    rm -rf "$TRIM_PKGVAR"
+    # 如果存在其他挂载点或配置文件缓存，可以一并删除
+    rm -rf "$TRIM_PKGETC"
+    echo "所有遗留数据文件以及配置结构已被清空。" >> "$TRIM_TEMP_LOGFILE"
+else
+    echo "根据飞牛规范和用户选择，已安全保留位于 $TRIM_PKGVAR 的数据库内容。" >> "$TRIM_TEMP_LOGFILE"
+fi
+
+exit 0

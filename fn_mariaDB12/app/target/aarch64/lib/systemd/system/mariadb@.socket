@@ -1,0 +1,26 @@
+
+[Unit]
+Description=MariaDB 12.2.2 database server (socket activation multi-instance %I))
+Documentation=man:mariadbd(8)
+Documentation=https://mariadb.com/kb/en/library/systemd/
+
+[Install]
+WantedBy=sockets.target
+
+[Socket]
+
+##############################################################################
+## USERs can override
+##
+##
+## by creating a file in /etc/systemd/system/mariadb.socket.d/MY_SPECIAL.conf
+## and adding/setting the following under [Socket] will override this file's
+## settings.
+
+SocketUser=mysql
+SocketMode=777
+
+ListenStream=@mariadb-%I
+ListenStream=/run/mysqld/mysqld.sock-%I
+
+# Backlog=150

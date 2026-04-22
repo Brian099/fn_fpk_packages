@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# MariaDB 12 升级回调脚本
+# 用户在应用中心点击升级时，会调用此脚本。
+
+echo "开始升级 MariaDB 12..." >> "$TRIM_TEMP_LOGFILE"
+
+# 在此您可以执行针对旧版本的数据库结构迁移或参数更新逻辑
+# 此时 $TRIM_APPDEST 已更新为新版本路径
+
+exit 0

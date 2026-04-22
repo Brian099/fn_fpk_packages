@@ -1,0 +1,129 @@
+#!/bin/bash
+
+# MariaDB 安装初始化脚本
+
+# 变量说明:
+# $TRIM_APPDEST - 应用可执行文件目录 (target)
+# $TRIM_PKGVAR  - 动态数据保存目录 (var)，数据库文件将放在此处
+# $TRIM_PKGETC  - 配置文件目录 (etc)
+
+DATA_DIR="$TRIM_PKGVAR/data"
+LOG_FILE="$TRIM_TEMP_LOGFILE"
+
+# 架构检测与路径适配
+ARCH=$(uname -m)
+if [ "$ARCH" = "aarch64" ]; then
+    ARCH_TARGET="aarch64"
+else
+    ARCH_TARGET="x86_64"
+fi
+BIN_DIR="$TRIM_APPDEST/target/$ARCH_TARGET/usr/bin"
+SBIN_DIR="$TRIM_APPDEST/target/$ARCH_TARGET/usr/sbin"
+BASE_DIR="$TRIM_APPDEST/target/$ARCH_TARGET/usr"
+
+echo "开始初始化 MariaDB 12 数据库..." >> "$LOG_FILE"
+
+# 0. 核心修正：确保所有脚本和二进制具备执行权限
+echo "正在配置执行权限..." >> "$LOG_FILE"
+chmod +x "$BIN_DIR"/* 2>/dev/null
+chmod +x "$SBIN_DIR"/* 2>/dev/null
+chmod -R +x "$TRIM_APPDEST/cmd" 2>/dev/null
+chmod -R +x "$TRIM_APPDEST/ui" 2>/dev/null
+
+# （已移除不存在的二次确认密码校验）
+
+# 2. 检查数据目录是否已存在
+if [ -d "$DATA_DIR/mysql" ]; then
+    echo "数据库已存在，跳过基础表结构初始化。" >> "$LOG_FILE"
+    DB_EXISTS=true
+else
+    DB_EXISTS=false
+fi
+
+# 3. 创建必要目录
+mkdir -p "$DATA_DIR"
+mkdir -p "$TRIM_PKGETC"
+
+# 4. 生成 my.cnf (从模板注入环境变量)
+CONFIG_TEMPLATE="$TRIM_APPDEST/etc/my.cnf.template"
+TARGET_CONFIG="$TRIM_PKGETC/my.cnf"
+
+if [ -f "$CONFIG_TEMPLATE" ]; then
+    echo "发现配置模板，正在生成运行配置..." >> "$LOG_FILE"
+    sed -e "s|\${TRIM_APPDEST}|$TRIM_APPDEST|g" \
+        -e "s|\${TRIM_PKGVAR}|$TRIM_PKGVAR|g" \
+        -e "s|\${TRIM_PKGTMP}|$TRIM_PKGTMP|g" \
+        -e "s|\${TRIM_MARIADB_BASEDIR}|$BASE_DIR|g" \
+        -e "s|\${TRIM_SERVICE_PORT}|${TRIM_SERVICE_PORT:-3306}|g" \
+        "$CONFIG_TEMPLATE" > "$TARGET_CONFIG"
+else
+    echo "警告：未发现配置模板，主程序将尝试使用默认参数运行。" >> "$LOG_FILE"
+fi
+
+# 5. 运行 mysql_install_db (仅当数据库不存在时)
+if [ "$DB_EXISTS" = "false" ]; then
+    INSTALL_DB_CMD="$BIN_DIR/mariadb-install-db"
+    BASED_DIR="$BASE_DIR"
+
+    if [ -f "$INSTALL_DB_CMD" ]; then
+        echo "确认找到工具: $INSTALL_DB_CMD" >> "$LOG_FILE"
+        "$INSTALL_DB_CMD" \
+            --defaults-file="$TARGET_CONFIG" \
+            --user=root \
+            --basedir="$BASED_DIR" \
+            --datadir="$DATA_DIR" \
+            --auth-root-authentication-method=normal >> "$LOG_FILE" 2>&1
+            
+        if [ $? -eq 0 ]; then
+            echo "数据库基础表初始化成功。" >> "$LOG_FILE"
+        else
+            echo "数据库安装工具执行失败，请查看日志。" >> "$LOG_FILE"
+            exit 1
+        fi
+    else
+        echo "严重错误：在 $BIN_DIR 中未发现数据库初始化工具。" >> "$LOG_FILE"
+        exit 1
+    fi
+fi
+
+# 6. 仅预备密码注入脚本，交由 main 启动时执行
+DEBUG_LOG="$TRIM_PKGVAR/maria_install_debug.log"
+echo "--- INSTALL CALLBACK TRIGGERED ($(date)) ---" >> "$DEBUG_LOG"
+echo "service_password value length: ${#service_password}" >> "$DEBUG_LOG"
+
+if [ -n "$service_password" ]; then
+    echo "正在准备 Root 密码初始化文件，将在应用启动时生效..." >> "$DEBUG_LOG"
+    echo "正在准备应用 Root 密码..." >> "$LOG_FILE"
+    INIT_FILE="$TRIM_PKGVAR/init_db.sql"
+    ESCAPED_PASSWORD=$(echo "$service_password" | sed "s/'/\\\\'/g")
+    
+    cat <<EOF > "$INIT_FILE"
+FLUSH PRIVILEGES;
+CREATE USER IF NOT EXISTS 'root'@'localhost';
+ALTER USER 'root'@'localhost' IDENTIFIED BY '$ESCAPED_PASSWORD';
+CREATE USER IF NOT EXISTS 'root'@'%';
+ALTER USER 'root'@'%' IDENTIFIED BY '$ESCAPED_PASSWORD';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' WITH GRANT OPTION;
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
+EOF
+    echo "SQL File created at $INIT_FILE. Content size: $(wc -c < "$INIT_FILE")" >> "$DEBUG_LOG"
+    echo "初始化脚本文档准备完成。" >> "$LOG_FILE"
+
+    # 7. 生成本地备份授权文件 (V3)
+    BACKUP_CNF="$TRIM_PKGVAR/.backup.cnf"
+    echo "正在生成本地备份授权文件..." >> "$LOG_FILE"
+    cat <<EOF > "$BACKUP_CNF"
+[client]
+user = root
+password = $service_password
+socket = $TRIM_PKGVAR/mariadb.sock
+EOF
+    chmod 600 "$BACKUP_CNF"
+    echo "本地备份授权文件 (.backup.cnf) 已成功生成并加固权限。" >> "$LOG_FILE"
+else
+    echo "Warning: TRIM_SERVICE_PASSWORD is empty or not set!!" >> "$DEBUG_LOG"
+fi
+
+echo "数据库安装与预配置流程全部完成。" >> "$LOG_FILE"
+exit 0

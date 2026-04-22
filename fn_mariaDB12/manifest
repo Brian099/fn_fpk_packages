@@ -1,0 +1,29 @@
+appname=MariaDB12
+version=12.2.2
+display_name=MariaDB 12
+desc=MariaDB 数据库服务器 12.2 版本，专为飞牛 fnOS 优化的原生应用。支持自定义端口并运行于系统分区。
+platform=all
+source=thirdparty
+maintainer=MariaDB
+maintainer_url=https://mariadb.org/
+distributor=Giraff
+distributor_url=https://giraff.fun
+
+os_min_version=0.9.0
+
+# 安装类型为 root，应用将安装在 /usr/local/apps/@appcenter/
+install_type=root
+
+# 启用桌面图标关联
+desktop_uidir=ui
+desktop_applaunchname=MariaDB12.Dashboard
+
+# 默认服务端口
+service_port=3306
+checkport=true
+
+# 启用向导配置
+install_wizard=install
+config_wizard=config
+upgrade_wizard=install
+uninstall_wizard=uninstall

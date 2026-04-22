@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# MariaDB 12 安装前初始化脚本
+# 该脚本在安装过程开始前执行
+
+echo "正在准备安装 MariaDB 12..." >> "$TRIM_TEMP_LOGFILE"
+
+exit 0

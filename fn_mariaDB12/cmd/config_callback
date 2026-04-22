@@ -1,0 +1,66 @@
+#!/bin/bash
+
+# MariaDB 10 应用配置回调脚本
+# 当用户在配置向导修改设置并点击“保存”后触发
+
+PORT="${TRIM_SERVICE_PORT:-3306}"
+CONFIG_TEMPLATE="$TRIM_APPDEST/etc/my.cnf.template"
+TARGET_CONFIG="$TRIM_PKGETC/my.cnf"
+
+# 架构检测与路径适配
+ARCH=$(uname -m)
+if [ "$ARCH" = "aarch64" ]; then
+    ARCH_TARGET="aarch64"
+else
+    ARCH_TARGET="x86_64"
+fi
+BASE_DIR="$TRIM_APPDEST/target/$ARCH_TARGET/usr"
+
+echo "正在应用新的配置参数 (端口: $PORT)..." >> "$TRIM_TEMP_LOGFILE"
+
+# 1. 重新生成配置文件 (如果模板存在)
+if [ -f "$CONFIG_TEMPLATE" ]; then
+    sed -e "s|\${TRIM_APPDEST}|$TRIM_APPDEST|g" \
+        -e "s|\${TRIM_PKGVAR}|$TRIM_PKGVAR|g" \
+        -e "s|\${TRIM_PKGTMP}|$TRIM_PKGTMP|g" \
+        -e "s|\${TRIM_MARIADB_BASEDIR}|$BASE_DIR|g" \
+        -e "s|\${TRIM_SERVICE_PORT}|$PORT|g" \
+        "$CONFIG_TEMPLATE" > "$TARGET_CONFIG"
+    echo "新的 my.cnf 已生成。" >> "$TRIM_TEMP_LOGFILE"
+fi
+
+# 2. 如果用户修改了密码，准备密码更新脚本
+if [ -n "$service_password" ]; then
+    echo "检测到密码配置变更，正在准备更新脚本..." >> "$TRIM_TEMP_LOGFILE"
+    INIT_FILE="$TRIM_PKGVAR/init_db.sql"
+    ESCAPED_PASSWORD=$(echo "$service_password" | sed "s/'/\\\\'/g")
+    
+    cat <<EOF > "$INIT_FILE"
+FLUSH PRIVILEGES;
+CREATE USER IF NOT EXISTS 'root'@'localhost';
+ALTER USER 'root'@'localhost' IDENTIFIED BY '$ESCAPED_PASSWORD';
+CREATE USER IF NOT EXISTS 'root'@'%';
+ALTER USER 'root'@'%' IDENTIFIED BY '$ESCAPED_PASSWORD';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' WITH GRANT OPTION;
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
+EOF
+    echo "密码更新脚本生成完成，将在下次服务启动时自动应用。" >> "$TRIM_TEMP_LOGFILE"
+
+    # 4. 生成本地备份授权文件 (V3)
+    BACKUP_CNF="$TRIM_PKGVAR/.backup.cnf"
+    echo "正在同步本地备份授权文件 (.backup.cnf)..." >> "$TRIM_TEMP_LOGFILE"
+    cat <<EOF > "$BACKUP_CNF"
+[client]
+user = root
+password = $service_password
+socket = $TRIM_PKGVAR/mariadb.sock
+EOF
+    chmod 600 "$BACKUP_CNF"
+fi
+
+# 3. 这里的端口/密码变更实际上由系统管理（重启整个服务后主程序会加载新配置）
+# 如果飞牛系统没自动重启，我们可以在此手动调用 $TRIM_APPDEST/cmd/main stop && $TRIM_APPDEST/cmd/main start
+
+echo "应用配置准备完成。" >> "$TRIM_TEMP_LOGFILE"
+exit 0

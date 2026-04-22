@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# MariaDB 12 升级前初始化脚本
+echo "正在准备升级 MariaDB 12..." >> "$TRIM_TEMP_LOGFILE"
+exit 0

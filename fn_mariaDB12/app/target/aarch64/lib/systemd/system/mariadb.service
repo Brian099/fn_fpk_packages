@@ -1,0 +1,173 @@
+# It's not recommended to modify this file in-place, because it will be
+# overwritten during package upgrades.  If you want to customize, the
+# best way is to create a file "/etc/systemd/system/mariadb.service",
+# containing
+#	.include /usr/lib/systemd/system/mariadb.service
+#	...make your changes here...
+# or create a file "/etc/systemd/system/mariadb.service.d/foo.conf",
+# which doesn't need to include ".include" call and which will be parsed
+# after the file mariadb.service itself is parsed.
+#
+# For more info about custom unit files, see systemd.unit(5) or
+# https://mariadb.com/kb/en/mariadb/systemd/
+#
+# Copyright notice:
+#
+# This file is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+
+[Unit]
+Description=MariaDB 12.2.2 database server
+Documentation=man:mariadbd(8)
+Documentation=https://mariadb.com/kb/en/library/systemd/
+After=network.target
+
+[Install]
+WantedBy=multi-user.target
+
+
+[Service]
+
+##############################################################################
+## Core requirements
+##
+
+Type=notify
+
+# Setting this to true can break replication and the Type=notify settings
+# See also bind-address mariadbd option.
+PrivateNetwork=false
+
+##############################################################################
+## Package maintainers
+##
+
+User=mysql
+Group=mysql
+
+# CAP_IPC_LOCK To allow memlock to be used as non-root user
+# These are enabled by default
+AmbientCapabilities=CAP_IPC_LOCK
+
+# Prevent writes to /usr, /boot, and /etc
+ProtectSystem=full
+
+
+
+# Doesn't yet work properly with SELinux enabled
+# NoNewPrivileges=true
+
+# Prevent accessing /home, /root and /run/user
+ProtectHome=true
+
+# Use an environment file to pass variable _WSREP_NEW_CLUSTER
+EnvironmentFile=-/run/mysqld/wsrep-new-cluster
+
+# Use an environment file to pass variable _WSREP_START_POSITION
+EnvironmentFile=-/run/mysqld/wsrep-start-position
+
+# Perform automatic wsrep recovery. When server is started without wsrep,
+# galera_recovery simply returns an empty string. In any case, however,
+# the script is not expected to return with a non-zero status.
+# It is always safe to remove /run/mysqld/wsrep-start-position
+# environment file.
+# Do not panic if galera_recovery script is not available. (MDEV-10538)
+ExecStartPre=/bin/sh -c "[ ! -e /usr/bin/galera_recovery ] && VAR= || \
+ VAR=`/usr/bin/galera_recovery`; [ $? -eq 0 ] \
+ && echo _WSREP_START_POSITION=$VAR > /run/mysqld/wsrep-start-position || exit 1"
+
+# Needed to create system tables etc.
+# ExecStartPre=/usr/bin/mariadb-install-db
+
+# Start main service
+# MYSQLD_OPTS here is for users to set in /etc/systemd/system/mariadb.service.d/MY_SPECIAL.conf
+# Use the [Service] section and Environment="MYSQLD_OPTS=...".
+# This isn't a replacement for my.cnf.
+# _WSREP_NEW_CLUSTER is for the exclusive use of the script galera_new_cluster
+ExecStart=/usr/sbin/mariadbd $MYSQLD_OPTS $_WSREP_NEW_CLUSTER $_WSREP_START_POSITION
+
+# Unset _WSREP_START_POSITION/_WSREP_NEW_CLUSTER environment variable.
+ExecStartPost=/bin/rm -f /run/mysqld/wsrep-start-position /run/mysqld/wsrep-new-cluster
+
+ExecStartPost=!/etc/mysql/debian-start
+
+KillSignal=SIGTERM
+
+# Don't want to see an automated SIGKILL ever
+SendSIGKILL=no
+
+# Restart crashed server only, on-failure would also restart, for example, when
+# my.cnf contains unknown option
+Restart=on-abnormal
+RestartSec=5s
+
+UMask=007
+
+##############################################################################
+## USERs can override
+##
+##
+## by creating a file in /etc/systemd/system/mariadb.service.d/MY_SPECIAL.conf
+## and adding/setting the following under [Service] will override this file's
+## settings.
+
+# Useful options not previously available in [mysqld_safe]
+
+# Kernels like killing mariadbd when out of memory because its big.
+# Lets temper that preference a little.
+# OOMScoreAdjust=-600
+
+# Explicitly start with high IO priority
+# BlockIOWeight=1000
+
+# If you don't use the /tmp directory for SELECT ... OUTFILE and
+# LOAD DATA INFILE you can enable PrivateTmp=true for a little more security.
+PrivateTmp=false
+
+# Set an explicit Start and Stop timeout of 900 seconds (15 minutes!)
+# this is the same value as used in SysV init scripts in the past
+# Galera might need a longer timeout, check the KB if you want to change this:
+# https://mariadb.com/kb/en/library/systemd/#configuring-the-systemd-service-timeout
+TimeoutStartSec=900
+TimeoutStopSec=900
+
+# Set the maximium number of tasks (threads) to 99% of what the system can
+# handle as set by the kernel, reserve the 1% for a remote ssh connection,
+# some monitoring, or that backup cron job. Without the directive this would
+# be 15% (see DefaultTasksMax in systemd man pages).
+TasksMax=99%
+
+##
+## Options previously available to be set via [mysqld_safe]
+## that now needs to be set by systemd config files as mysqld_safe
+## isn't executed.
+##
+
+# Number of files limit. previously [mysqld_safe] open-files-limit
+LimitNOFILE=32768
+# For liburing and io_uring_setup()
+LimitMEMLOCK=524288
+# Maximium core size. previously [mysqld_safe] core-file-size
+# LimitCore=
+
+# Nice priority. previously [mysqld_safe] nice
+# Nice=-5
+
+# Timezone. previously [mysqld_safe] timezone
+# Environment="TZ=UTC"
+
+# Library substitutions. previously [mysqld_safe] malloc-lib with explicit paths
+# (in LD_LIBRARY_PATH) and library name (in LD_PRELOAD).
+# Environment="LD_LIBRARY_PATH=/path1 /path2" "LD_PRELOAD=
+
+# Flush caches. previously [mysqld_safe] flush-caches=1
+# ExecStartPre=sync
+# ExecStartPre=sysctl -q -w vm.drop_caches=3
+
+# numa-interleave=1 equalivant
+# Change ExecStart=numactl --interleave=all /usr/sbin/mariadbd......
+
+# crash-script equalivent
+# FailureAction=

@@ -1,0 +1,12 @@
+{
+    "usr-local-linker": {
+        "bin": [
+            "target/bin/mysql",
+            "target/bin/mysqldump",
+            "target/bin/mysqladmin",
+            "target/bin/mysqlcheck",
+            "target/bin/mysqlshow",
+            "target/bin/mysql_upgrade"
+        ]
+    }
+}

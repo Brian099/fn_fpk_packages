@@ -1,0 +1,15 @@
+{
+    ".url": {
+        "MariaDB12.Dashboard": {
+            "title": "MariaDB",
+            "icon": "images/ICON_{0}.PNG",
+            "type": "iframe",
+            "protocol": "http",
+            "url": "/cgi/ThirdParty/MariaDB12/index.cgi",
+            "allUsers": true,
+            "control": {
+                "accessPerm": "readonly"
+            }
+        }
+    }
+}
