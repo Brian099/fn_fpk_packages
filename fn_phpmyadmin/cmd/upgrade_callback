@@ -1,0 +1,14 @@
+#!/bin/bash
+# upgrade_callback: 升级后处理
+# 重新链接配置文件（以防升级覆盖）
+
+PMA_DIR="${TRIM_APPDEST}/phpmyadmin"
+ETC="${TRIM_PKGETC}"
+CONFIG_FILE="${ETC}/config.inc.php"
+
+# 确保配置文件软链接存在
+if [ -f "${CONFIG_FILE}" ] && [ ! -f "${PMA_DIR}/config.inc.php" ]; then
+    ln -sf "${CONFIG_FILE}" "${PMA_DIR}/config.inc.php"
+fi
+
+exit 0

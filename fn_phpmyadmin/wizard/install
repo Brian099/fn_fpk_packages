@@ -1,0 +1,46 @@
+[
+    {
+        "stepTitle": "欢迎安装 phpMyAdmin",
+        "items": [
+            {
+                "type": "tips",
+                "helpText": "<strong>phpMyAdmin</strong> 是一款流行的 MySQL / MariaDB 图形化数据库管理工具，安装完成后即可通过浏览器管理您的数据库。"
+            },
+            {
+                "type": "tips",
+                "helpText": "⚠️ <strong>注意：</strong>本应用依赖 <strong>MariaDB</strong>，安装前请确保 MariaDB 已安装并运行。"
+            },
+            {
+                "type": "tips",
+                "helpText": "📦 使用过程中请谨慎操作，数据珍贵，请做好备份。"
+            }
+        ]
+    },
+    {
+        "stepTitle": "配置访问端口",
+        "items": [
+            {
+                "type": "text",
+                "field": "wizard_port",
+                "label": "Web 访问端口",
+                "helpText": "phpMyAdmin 将监听此端口，请确保该端口未被其他应用占用。",
+                "initValue": "18090",
+                "rules": [
+                    {
+                        "required": true,
+                        "message": "请输入端口号"
+                    },
+                    {
+                        "pattern": "^[0-9]+$",
+                        "message": "端口号必须为纯数字"
+                    },
+                    {
+                        "min": 4,
+                        "max": 5,
+                        "message": "请输入有效端口号（1024-65535）"
+                    }
+                ]
+            }
+        ]
+    }
+]

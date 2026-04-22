@@ -1,0 +1,13 @@
+{
+    ".url": {
+        "phpMyAdmin.Application": {
+            "title": "phpMyAdmin",
+            "icon": "images/icon-{0}.png",
+            "type": "url",
+            "protocol": "http",
+            "port": "${wizard_port}",
+            "url": "/",
+            "allUsers": false
+        }
+    }
+}

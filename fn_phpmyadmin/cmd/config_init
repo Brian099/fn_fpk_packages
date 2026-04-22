@@ -1,0 +1,3 @@
+#!/bin/bash
+# config_init: 配置向导初始化
+exit 0

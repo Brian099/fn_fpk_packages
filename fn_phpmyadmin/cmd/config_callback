@@ -1,0 +1,4 @@
+#!/bin/bash
+# config_callback: 配置变更后处理
+# 端口变更后需重启服务（系统会自动处理重启）
+exit 0

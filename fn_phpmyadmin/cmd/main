@@ -1,0 +1,152 @@
+#!/bin/bash
+# cmd/main: 应用启动、停止、状态管理
+
+PMA_DIR="${TRIM_APPDEST}/server/phpmyadmin"
+PORT="${wizard_port}"
+LOG_FILE="${TRIM_PKGVAR}/info.log"
+PID_FILE="${TRIM_PKGVAR}/app.pid"
+ETC="${TRIM_PKGETC}"
+
+# 检测架构并设置 PHP 二进制位置
+ARCH=$(uname -m)
+if [ "$ARCH" = "x86_64" ]; then
+    PHP_BIN="${TRIM_APPDEST}/server/php/x86_64/php"
+elif [ "$ARCH" = "aarch64" ]; then
+    PHP_BIN="${TRIM_APPDEST}/server/php/aarch64/php"
+else
+    # 回退到旧路径或系统环境
+    if [ -x "${TRIM_APPDEST}/server/php/php" ]; then
+        PHP_BIN="${TRIM_APPDEST}/server/php/php"
+    else
+        PHP_BIN=$(which php 2>/dev/null)
+    fi
+fi
+
+log_msg() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "${LOG_FILE}"
+}
+
+check_process() {
+    local pid="$1"
+    kill -0 "${pid}" 2>/dev/null
+}
+
+status() {
+    if [ -f "${PID_FILE}" ]; then
+        pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
+        if [ -n "${pid}" ] && check_process "${pid}"; then
+            return 0  # 运行中
+        else
+            rm -f "${PID_FILE}"
+        fi
+    fi
+    return 1  # 未运行
+}
+
+start_app() {
+    if status; then
+        log_msg "phpMyAdmin 已在运行 (port: ${PORT})"
+        return 0
+    fi
+
+    # 检查 PHP 二进制是否存在
+    if [ -z "${PHP_BIN}" ]; then
+        echo "错误：未发现 PHP 运行时。请确保应用自带静态 PHP 二进制，或系统环境中已安装 PHP。" > "${TRIM_TEMP_LOGFILE}"
+        exit 1
+    fi
+
+    # 检查 phpMyAdmin 是否存在
+    if [ ! -f "${PMA_DIR}/index.php" ]; then
+        echo "错误：phpMyAdmin 文件未找到 (${PMA_DIR}/index.php)，请检查软件包完整性。" > "${TRIM_TEMP_LOGFILE}"
+        exit 1
+    fi
+
+    # 确保配置文件软链接存在
+    if [ ! -f "${PMA_DIR}/config.inc.php" ]; then
+        if [ -f "${ETC}/config.inc.php" ]; then
+            ln -sf "${ETC}/config.inc.php" "${PMA_DIR}/config.inc.php"
+        fi
+    fi
+
+    # 创建 tmp 目录
+    mkdir -p "${TRIM_PKGVAR}/tmp"
+
+    log_msg "启动 phpMyAdmin (port: ${PORT}, PHP: ${PHP_BIN})..."
+
+    # 启动 PHP 内置 Web 服务器（后台运行）
+    "${PHP_BIN}" \
+        -d error_reporting="E_ALL & ~E_DEPRECATED & ~E_STRICT" \
+        -d display_errors=Off \
+        -d session.save_path="${TRIM_PKGVAR}/tmp" \
+        -S "0.0.0.0:${PORT}" \
+        -t "${PMA_DIR}" \
+        >> "${LOG_FILE}" 2>&1 &
+    APP_PID=$!
+
+    # 写入 PID 文件
+    echo "${APP_PID}" > "${PID_FILE}"
+
+    # 等待 1 秒验证进程是否启动成功
+    sleep 1
+    if check_process "${APP_PID}"; then
+        log_msg "phpMyAdmin 启动成功 (PID: ${APP_PID}, port: ${PORT})"
+        return 0
+    else
+        rm -f "${PID_FILE}"
+        echo "错误：phpMyAdmin 启动失败，请查看日志：${LOG_FILE}" > "${TRIM_TEMP_LOGFILE}"
+        exit 1
+    fi
+}
+
+stop_app() {
+    log_msg "停止 phpMyAdmin..."
+
+    if [ -f "${PID_FILE}" ]; then
+        pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
+
+        if [ -n "${pid}" ] && check_process "${pid}"; then
+            kill -TERM "${pid}" >> "${LOG_FILE}" 2>&1
+
+            # 等待进程退出（最多 10 秒）
+            count=0
+            while check_process "${pid}" && [ ${count} -lt 10 ]; do
+                sleep 1
+                count=$((count + 1))
+            done
+
+            if check_process "${pid}"; then
+                kill -KILL "${pid}" 2>/dev/null
+                sleep 1
+            fi
+        fi
+
+        rm -f "${PID_FILE}"
+        log_msg "phpMyAdmin 已停止"
+    else
+        log_msg "phpMyAdmin 未运行"
+    fi
+
+    return 0
+}
+
+# ─────────────────────────────────────────────────────────
+case "$1" in
+start)
+    start_app
+    exit 0
+    ;;
+stop)
+    stop_app
+    exit 0
+    ;;
+status)
+    if status; then
+        exit 0   # 运行中
+    else
+        exit 3   # 未运行
+    fi
+    ;;
+*)
+    exit 1
+    ;;
+esac

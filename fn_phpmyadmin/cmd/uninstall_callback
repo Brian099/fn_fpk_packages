@@ -1,0 +1,13 @@
+#!/bin/bash
+# uninstall_callback: 卸载后处理
+# 根据向导选择决定是否删除数据
+
+if [ "${wizard_delete_data}" = "delete" ]; then
+    # 清理 var 目录中的应用数据
+    rm -rf "${TRIM_PKGVAR}/tmp"
+    rm -f "${TRIM_PKGVAR}/app.pid"
+    rm -f "${TRIM_PKGVAR}/info.log"
+    rm -f "${TRIM_PKGVAR}/install.log"
+fi
+
+exit 0

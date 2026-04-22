@@ -1,0 +1,15 @@
+appname               = phpMyAdmin
+version               = 1.0.4
+platform              = all
+display_name          = phpMyAdmin
+desc                  = phpMyAdmin 是一款功能强大的 MySQL / MariaDB 数据库 Web 管理工具，提供直观的图形界面进行数据库管理、SQL 查询、数据导入导出等操作。安装后即可通过浏览器轻松管理您的 MariaDB 数据库。
+source                = thirdparty
+maintainer            = sfconservancy.org
+maintainer_url        = https://sfconservancy.org/
+distributor           = Giraff
+distributor_url       = https://giraff.fun
+desktop_uidir         = ui
+desktop_applaunchname = phpMyAdmin.Application
+service_port          = ${wizard_port}
+checkport             = true
+os_min_version        = 0.9.0

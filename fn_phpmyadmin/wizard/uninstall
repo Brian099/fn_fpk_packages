@@ -1,0 +1,33 @@
+[
+    {
+        "stepTitle": "确认卸载 phpMyAdmin",
+        "items": [
+            {
+                "type": "tips",
+                "helpText": "您即将卸载 phpMyAdmin。卸载后将停止 phpMyAdmin 服务，但 <strong>不会影响 MariaDB 中的数据库数据</strong>。"
+            },
+            {
+                "type": "radio",
+                "field": "wizard_delete_data",
+                "label": "是否删除应用数据",
+                "initValue": "keep",
+                "options": [
+                    {
+                        "label": "保留数据（推荐）— 重新安装时可恢复配置",
+                        "value": "keep"
+                    },
+                    {
+                        "label": "删除所有数据 — 清除 phpMyAdmin 配置文件",
+                        "value": "delete"
+                    }
+                ],
+                "rules": [
+                    {
+                        "required": true,
+                        "message": "请选择数据处理方式"
+                    }
+                ]
+            }
+        ]
+    }
+]

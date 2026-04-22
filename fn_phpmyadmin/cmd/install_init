@@ -1,0 +1,17 @@
+#!/bin/bash
+# install_init: 安装前初始化（安装向导完成后、文件解压前调用）
+# 此阶段可做环境检查，向导变量已可用
+
+# 检查端口是否合法
+if [ -z "${wizard_port}" ]; then
+    echo "错误：未设置访问端口" > "${TRIM_TEMP_LOGFILE}"
+    exit 1
+fi
+
+PORT_NUM="${wizard_port}"
+if [ "${PORT_NUM}" -lt 1024 ] || [ "${PORT_NUM}" -gt 65535 ] 2>/dev/null; then
+    echo "错误：端口号 ${wizard_port} 无效，请使用 1024-65535 之间的端口" > "${TRIM_TEMP_LOGFILE}"
+    exit 1
+fi
+
+exit 0
