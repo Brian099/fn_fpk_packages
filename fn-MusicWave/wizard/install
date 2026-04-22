@@ -1,0 +1,11 @@
+[
+  {
+    "stepTitle": "安装向导",
+    "items": [
+      {
+        "type": "tips",
+        "helpText": "MusicWave 是一个简单的 NAS 音乐播放器，支持多目录管理和流式播放。"
+      }
+    ]
+  }
+]
