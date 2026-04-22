@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>便签记事本 - notepad</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="lucide.min.js"></script>
+    <script src="marked.min.js"></script>
+</head>
+
+<body>
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <i data-lucide="sticky-note"></i>
+            <span>便签记事本</span>
+        </div>
+        <nav>
+            <div class="nav-item active" onclick="filterNotes('all', event)">
+                <i data-lucide="layout-grid"></i>
+                <span data-i18n="nav_all">全部便签</span>
+            </div>
+            <div class="nav-item" onclick="filterNotes('pinned', event)">
+                <i data-lucide="pin"></i>
+                <span data-i18n="nav_pinned">已置顶</span>
+            </div>
+            <div class="nav-item" onclick="filterNotes('reminder', event)">
+                <i data-lucide="bell"></i>
+                <span data-i18n="nav_reminder">提醒事项</span>
+            </div>
+            <div class="nav-item" onclick="filterNotes('calendar', event)">
+                <i data-lucide="calendar"></i>
+                <span data-i18n="nav_timeline">时间轴</span>
+            </div>
+        </nav>
+        <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border-color);">
+            <div class="nav-item" onclick="filterNotes('settings', event)">
+                <i data-lucide="settings"></i>
+                <span data-i18n="nav_settings">设置</span>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="top-bar">
+            <div class="search-bar">
+                <i data-lucide="search" style="width:18px; opacity:0.5;"></i>
+                <input type="text" placeholder="搜索便签..." id="searchInput">
+            </div>
+            <div class="user-actions">
+                <button id="batchSelectBtn" class="btn-icon-text" onclick="toggleBatchMode()">
+                    <i data-lucide="check-square"></i>
+                    <span data-i18n="btn_batch">批量选择</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- New Selection Bar -->
+        <div id="selectionBar" class="selection-overlay">
+            <div class="selection-info">
+                <button class="btn-icon" onclick="toggleBatchMode()" title="退出选择">
+                    <i data-lucide="x"></i>
+                </button>
+                <span id="selectionCountText">已选中 0 项</span>
+            </div>
+            <div class="selection-actions">
+                <button id="selectAllBtn" class="btn-glass" onclick="toggleSelectAll()">
+                    <i data-lucide="list-checks"></i>
+                    <span id="selectAllText">全选</span>
+                </button>
+                <button class="btn-glass btn-danger-glass" onclick="deleteSelected()">
+                    <i data-lucide="trash-2"></i>
+                    <span data-i18n="btn_delete_selected">删除</span>
+                </button>
+            </div>
+        </div>
+
+        <section class="notes-grid" id="notesGrid">
+            <!-- Notes will be injected here -->
+        </section>
+
+        <section id="settingsPanel" style="display:none; padding: 40px; width: 100%;">
+            <h2 data-i18n="settings_title" style="margin-bottom: 30px;">设置</h2>
+            
+            <div class="setting-item" style="margin-bottom: 40px; background: var(--card-bg); padding: 20px; border-radius: 12px; backdrop-filter: var(--blur);">
+                <h3 data-i18n="language_title" style="margin-bottom: 15px; font-size: 18px;">语言设置 (Language)</h3>
+                <select id="langSelect" style="padding: 8px 15px; border-radius: 6px; border: 1px solid var(--border-color); background: transparent; color: var(--text-color); outline: none;" onchange="changeLanguage(this.value)">
+                    <option value="zh">简体中文</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+
+            <div class="setting-item" style="margin-bottom: 30px; background: var(--card-bg); padding: 25px; border-radius: 16px; backdrop-filter: var(--blur); border: 1px solid var(--glass-border);">
+                <h3 data-i18n="backup_title" style="margin-bottom: 10px; font-size: 18px;">数据管理</h3>
+                <p data-i18n="backup_desc" style="opacity: 0.6; margin-bottom: 25px; font-size: 14px;">您可以手动导出所有便签数据进行备份，或从备份文件中恢复。</p>
+                <div style="display: flex; gap: 15px;">
+                    <button class="btn btn-primary" onclick="exportNotes()">
+                        <i data-lucide="download" style="width: 18px;"></i>
+                        <span data-i18n="btn_export">导出数据</span>
+                    </button>
+                    <button class="btn btn-outline" onclick="document.getElementById('importInput').click()">
+                        <i data-lucide="upload" style="width: 18px;"></i>
+                        <span data-i18n="btn_import">恢复数据</span>
+                    </button>
+                    <input type="file" id="importInput" style="display: none;" accept=".json" onchange="importNotes(event)">
+                </div>
+            </div>
+        </section>
+
+        <div class="add-btn" id="addNoteBtn">
+            <i data-lucide="plus"></i>
+        </div>
+    </main>
+
+    <!-- Note Modal/Editor -->
+    <div id="noteModal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); backdrop-filter:blur(10px); z-index:2000; justify-content:center; align-items:center;">
+        <div class="modal-container"
+            style="background:var(--card-bg); backdrop-filter:var(--blur); width:90%; max-width:600px; border-radius:16px; padding:30px; box-shadow:var(--shadow); position:relative; border:1px solid var(--glass-border);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                <input type="text" id="modalTitle" data-i18n="modal_placeholder_title" placeholder="标题"
+                    style="width:90%; font-size:24px; font-weight:600; border:none; background:transparent; outline:none; color:var(--text-color);">
+                <span onclick="togglePin()" style="cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                    <i data-lucide="pin" id="modalPin" style="width:24px; height:24px; color:var(--text-color); opacity:0.3;"></i>
+                </span>
+            </div>
+            <div class="modal-separator"></div>
+            <textarea id="modalContent" data-i18n="modal_placeholder_content" placeholder="开始记录..."
+                style="width:100%; height:300px; border:none; background:transparent; outline:none; font-size:16px; resize:none; color:var(--text-color);"></textarea>
+
+            <div style="margin-top: 15px; display: flex; align-items: center; gap: 10px;">
+                <i data-lucide="bell" style="width:18px; color:var(--text-color); opacity:0.6;"></i>
+                <input type="datetime-local" id="modalReminder"
+                    style="background:transparent; border:1px solid var(--border-color); border-radius:4px; color:var(--text-color); padding:4px 8px; font-size:14px; outline:none;">
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px;">
+                <div class="color-picker" style="display:flex; gap:10px;">
+                    <div class="color-dot color-yellow"
+                        style="width:20px; height:20px; border-radius:10px; cursor:pointer;"
+                        onclick="selectColor('yellow')"></div>
+                    <div class="color-dot color-blue"
+                        style="width:20px; height:20px; border-radius:10px; cursor:pointer;"
+                        onclick="selectColor('blue')"></div>
+                    <div class="color-dot color-green"
+                        style="width:20px; height:20px; border-radius:10px; cursor:pointer;"
+                        onclick="selectColor('green')"></div>
+                    <div class="color-dot color-pink"
+                        style="width:20px; height:20px; border-radius:10px; cursor:pointer;"
+                        onclick="selectColor('pink')"></div>
+                    <div class="color-dot color-purple"
+                        style="width:20px; height:20px; border-radius:10px; cursor:pointer;"
+                        onclick="selectColor('purple')"></div>
+                </div>
+                <div style="display:flex; gap:12px; align-items:center;">
+                    <button class="btn btn-outline" onclick="closeModal()" data-i18n="modal_btn_cancel">取消</button>
+                    <button class="btn btn-primary" onclick="saveNote()" data-i18n="modal_btn_save">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="selectionBox" style="display:none; position:fixed; border:1px solid var(--primary-color); background:rgba(0,120,212,0.1); z-index:1000; pointer-events:none;"></div>
+    <script src="app.js"></script>
+</body>
+
+</html>

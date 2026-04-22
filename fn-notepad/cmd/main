@@ -1,0 +1,175 @@
+#!/bin/bash
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Derive paths if not provided by environment
+if [ -z "$TRIM_APPDEST" ]; then
+    if [ -d "${APP_ROOT}/app" ]; then
+        TRIM_APPDEST="${APP_ROOT}/app"
+    else
+        TRIM_APPDEST="/var/apps/notepad/target"
+    fi
+fi
+
+if [ -z "$TRIM_PKGVAR" ]; then
+    if [ -d "${APP_ROOT}/var" ]; then
+        TRIM_PKGVAR="${APP_ROOT}/var"
+    else
+        TRIM_PKGVAR="/var/apps/notepad/var"
+    fi
+fi
+
+ARCH=$(uname -m)
+if [ "$ARCH" == "x86_64" ]; then
+    BINARY_ARCH="x86_64"
+elif [ "$ARCH" == "aarch64" ]; then
+    BINARY_ARCH="aarch64"
+else
+    BINARY_ARCH="$ARCH"
+fi
+
+APPNAME="notepad"
+LOG_FILE="${TRIM_PKGVAR}/info.log"
+PID_FILE="${TRIM_PKGVAR}/notepad.pid"
+SOCKET_FILE="${TRIM_PKGVAR}/${APPNAME}.sock"
+BINARY="${TRIM_APPDEST}/server/notepad-server_${BINARY_ARCH}"
+
+log_msg() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >>"${LOG_FILE}"
+}
+
+fail() {
+    local msg="$1"
+    log_msg "FAIL: ${msg}"
+    if [ -n "${TRIM_TEMP_LOGFILE:-}" ]; then
+        echo "${msg}" >"${TRIM_TEMP_LOGFILE}"
+    fi
+    return 1
+}
+
+status() {
+    if [ -f "${PID_FILE}" ]; then
+        local pid
+        pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
+        if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+build_cmd() {
+    printf '%s' "\"${BINARY}\" --unix-socket \"${SOCKET_FILE}\" --data-dir \"${TRIM_PKGVAR}/data\""
+}
+
+start_process() {
+    if status; then
+        log_msg "Process already running (PID $(head -n 1 "${PID_FILE}"))"
+        return 0
+    fi
+
+    log_msg "========== STARTING =========="
+    log_msg "TRIM_PKGVAR=${TRIM_PKGVAR}"
+    log_msg "TRIM_APPDEST=${TRIM_APPDEST}"
+
+    mkdir -p "${TRIM_PKGVAR}"
+    mkdir -p "$(dirname "${LOG_FILE}")" 2>/dev/null || true
+
+    if [ ! -f "${BINARY}" ]; then
+        fail "Binary not found: ${BINARY}"
+        return 1
+    fi
+
+    chmod +x "${BINARY}"
+
+    local cmd
+    cmd="$(build_cmd)"
+    log_msg "Exec: ${cmd}"
+
+    bash -c "${cmd}" >>"${LOG_FILE}" 2>&1 &
+    local pid=$!
+    printf "%s" "$pid" >"${PID_FILE}"
+
+    sleep 2
+    if status; then
+        log_msg "Process started successfully (PID ${pid})"
+        log_msg "Unix socket: ${SOCKET_FILE}"
+    else
+        log_msg "Process failed to start or exited immediately"
+        fail "应用启动失败，请查看日志: ${LOG_FILE}"
+        return 1
+    fi
+    return 0
+}
+
+stop_process() {
+    log_msg "========== STOPPING =========="
+
+    if [ -f "${PID_FILE}" ]; then
+        local pid
+        pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
+        if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
+            log_msg "Sending SIGTERM to PID ${pid}"
+            kill "${pid}" 2>/dev/null
+            local wait_count=0
+            while kill -0 "${pid}" 2>/dev/null && [ $wait_count -lt 10 ]; do
+                sleep 1
+                wait_count=$((wait_count + 1))
+            done
+            if kill -0 "${pid}" 2>/dev/null; then
+                log_msg "SIGTERM timeout, sending SIGKILL to PID ${pid}"
+                kill -9 "${pid}" 2>/dev/null
+            fi
+            log_msg "Process terminated"
+        else
+            log_msg "PID file exists but process not running"
+        fi
+        rm -f "${PID_FILE}"
+    else
+        log_msg "No PID file found"
+    fi
+
+    rm -f "${SOCKET_FILE}"
+    log_msg "Cleanup complete"
+    return 0
+}
+
+reload_process() {
+    log_msg "========== RELOADING =========="
+    stop_process
+    sleep 1
+    start_process
+}
+
+case "$1" in
+start)
+    start_process
+    ;;
+stop)
+    stop_process
+    ;;
+restart)
+    stop_process
+    sleep 1
+    start_process
+    ;;
+reload)
+    reload_process
+    ;;
+status)
+    if status; then
+        echo "Running (PID $(head -n 1 "${PID_FILE}"))"
+        exit 0
+    else
+        echo "Not running"
+        exit 3
+    fi
+    ;;
+*)
+    echo "Usage: $0 {start|stop|restart|reload|status}"
+    exit 1
+    ;;
+esac
+
+exit 0

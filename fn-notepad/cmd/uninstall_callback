@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# 脚本名称: uninstall_callback
+# 描述: 卸载完成后的清理回调脚本
+
+echo "便签应用卸载回调处理中..."
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Derive paths if not provided by environment
+if [ -z "$TRIM_PKGVAR" ]; then
+    if [ -d "${APP_ROOT}/var" ]; then
+        TRIM_PKGVAR="${APP_ROOT}/var"
+    else
+        TRIM_PKGVAR="/var/apps/notepad/var"
+    fi
+fi
+
+# 数据目录路径 (根据系统环境变量)
+DATA_DIR="${TRIM_PKGVAR}"
+
+# 获取向导中的数据处理选项 (FNOS 会将其转为小写环境变量)
+# 注意：向导中的 field 是 wizard_data_action
+ACTION="${wizard_data_action}"
+
+if [ "${ACTION}" = "delete" ]; then
+    echo "用户选择彻底删除数据。"
+    if [ -n "${DATA_DIR}" ] && [ -d "${DATA_DIR}" ]; then
+        echo "正在清理数据目录: ${DATA_DIR}"
+        # 安全删除，避免删除根目录
+        if [ "${DATA_DIR}" != "/" ] && [ "${DATA_DIR}" != "/var/apps" ]; then
+            rm -rf "${DATA_DIR}"
+            if [ $? -eq 0 ]; then
+                echo "数据目录清理成功。"
+            else
+                echo "错误：数据目录清理失败。"
+            fi
+        else
+            echo "错误：非法的数据目录路径，取消删除。"
+        fi
+    else
+        echo "未发现数据目录，无需清理。"
+    fi
+else
+    echo "用户选择保留数据 (选项: ${ACTION:-keep})。"
+    # 即使保留数据，也要清理掉运行时的进程和 Socket 文件
+    echo "清理运行时临时文件..."
+    rm -f "${DATA_DIR}/notepad.sock"
+    rm -f "${DATA_DIR}/notepad.pid"
+fi
+
+echo "卸载回调执行完毕。"
+exit 0

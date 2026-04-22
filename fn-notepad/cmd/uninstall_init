@@ -1,0 +1,19 @@
+#!/bin/bash
+
+echo "便签应用卸载初始化..."
+
+# Stop the service before uninstall
+if [ -x "${TRIM_APPDEST:-/var/apps/notepad/target}/main" ]; then
+    echo "Stopping service before uninstall..."
+    "${TRIM_APPDEST:-/var/apps/notepad/target}/main" stop
+else
+    # Try alternative path
+    if [ -x "${TRIM_APPDEST:-/var/apps/notepad/target}/cmd/main" ]; then
+        echo "Stopping service before uninstall..."
+        "${TRIM_APPDEST:-/var/apps/notepad/target}/cmd/main" stop
+    else
+        echo "Service control script not found, skipping stop"
+    fi
+fi
+
+exit 0

@@ -1,0 +1,40 @@
+#!/bin/bash
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Derive paths if not provided by environment
+if [ -z "$TRIM_APPDEST" ]; then
+    if [ -d "${APP_ROOT}/app" ]; then
+        TRIM_APPDEST="${APP_ROOT}/app"
+    else
+        TRIM_APPDEST="/var/apps/notepad/target"
+    fi
+fi
+
+if [ -z "$TRIM_PKGVAR" ]; then
+    if [ -d "${APP_ROOT}/var" ]; then
+        TRIM_PKGVAR="${APP_ROOT}/var"
+    else
+        TRIM_PKGVAR="/var/apps/notepad/var"
+    fi
+fi
+
+echo "便签应用安装回调..."
+
+# 尝试在多个可能的路径中设置执行权限
+for d in "${TRIM_APPDEST}" "${TRIM_APPDEST}/app" "${APP_ROOT}/app"; do
+    [ -d "$d" ] && [ -d "$d/ui" ] || continue
+    echo "正在设置权限: $d"
+    chmod +x "$d"/ui/*.cgi 2>/dev/null || true
+    chmod +x "$d"/www/*.cgi 2>/dev/null || true
+    chmod +x "$d"/server/* 2>/dev/null || true
+done
+
+mkdir -p "${TRIM_PKGVAR}"
+mkdir -p "${TRIM_PKGVAR}/data"
+
+
+
+echo "安装回调完成！"
+exit 0
