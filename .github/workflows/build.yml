@@ -210,7 +210,7 @@ jobs:
                   # 同步更新根目录 fnpack.json 中多个字段（如果不存在则新增）
                   jq --arg app "$APPNAME" \
                      --arg name "$DISPLAY_NAME" \
-                     --arg ver "V${VERSION}" \
+                     --arg ver "${VERSION}" \
                      --arg desc "$DESC" \
                      --arg labs "$LABELS" \
                      --arg type "$INSTALL_TYPE" \
