@@ -133,7 +133,8 @@ jobs:
             ASSETS_JSON=$(gh release view "${TAG}" --repo "${REPO}" --json assets --jq '.assets' 2>/dev/null || echo "[]")
             ASSET_COUNT=$(echo "$ASSETS_JSON" | jq 'length')
             if [ "$ASSET_COUNT" -gt 0 ]; then
-              echo "Found $ASSET_COUNT assets."
+              echo "Found $ASSET_COUNT assets in release."
+              echo "Asset names: $(echo "$ASSETS_JSON" | jq -r '.[].name' | xargs)"
               break
             fi
             echo "Assets not ready yet, retrying in 10s... ($((RETRY_COUNT+1))/$MAX_RETRIES)"
@@ -147,11 +148,14 @@ jobs:
           for meta in metadata/*.json; do
             APPNAME=$(basename "$meta" .json)
             FILENAME=$(jq -r --arg app "$APPNAME" '.[$app].filename' "$meta")
+            echo "Searching for $APPNAME asset: $FILENAME"
             DL_URL=$(echo "$ASSETS_JSON" | jq -r --arg file "$FILENAME" '.[] | select(.name == $file) | .browserDownloadUrl')
             
             if [ -n "$DL_URL" ] && [ "$DL_URL" != "null" ]; then
-              echo "Updating $APPNAME with URL: $DL_URL"
+              echo "Found URL for $APPNAME: $DL_URL"
+              # 更新下载地址并移除临时文件名
               jq --arg app "$APPNAME" --arg dl "$DL_URL" '.[$app].download_url = $dl | del(.[$app].filename)' "$meta" > "${meta}.tmp" && mv "${meta}.tmp" "$meta"
+              # 增量更新到主 fnpack.json
               jq -s '.[0] * .[1]' fnpack.json "$meta" > fnpack.json.tmp && mv fnpack.json.tmp fnpack.json
               UPDATED=true
             else
@@ -182,7 +186,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
           
-          git add fnpack.json README.md
+          git add -f fnpack.json README.md
           if ! git diff-index --quiet HEAD; then
             git commit -m "chore: update metadata and readme [skip ci]"
             git pull --rebase origin main
@@ -227,7 +231,7 @@ jobs:
           echo "Merging fnpack.json..."
           jq -s '.[0] * .[1]' fnpack.json ../fnpack.json > fnpack.json.tmp && mv fnpack.json.tmp fnpack.json
           
-          git add .
+          git add -A
           if ! git diff-index --quiet HEAD; then
             echo "Committing changes to FnDepot..."
             git commit -m "Update from ${{ github.repository }} - ${{ env.TAG }}"
