@@ -49,10 +49,10 @@ jobs:
             # ./fnpack create ${APP} --without-ui true  # 如果不需要 UI, 可以启用此行
             ./fnpack build --directory ${APP}
 
-            APPNAME=$(grep '^appname' "$APP/manifest" | awk -F= '{print $2}' | xargs)
-            VERSION=$(grep '^version' "$APP/manifest" | awk -F= '{print $2}' | xargs)
-            DESC=$(grep '^desc' "$APP/manifest" | awk -F= '{print $2}' | xargs)
-            PLATFORM=$(grep '^platform' "$APP/manifest" | awk -F= '{print $2}' | xargs)
+            APPNAME=$(grep -E '^appname[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
+            VERSION=$(grep -E '^version[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
+            DESC=$(grep -E '^desc[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
+            PLATFORM=$(grep -E '^platform[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
             [ -z "$PLATFORM" ] && PLATFORM="x86"
 
             mv -f "${APPNAME}.fpk" "${APPNAME}_v${VERSION}.fpk"
@@ -64,9 +64,16 @@ jobs:
 
             # For fnpack.json
             SIZE_NUM=$(stat -c%s "${APPNAME}_v${VERSION}.fpk" 2>/dev/null | awk '{printf "%10.3f",$1/1024/1024}')
-            NAME=$(grep '^display_name' "$APP/manifest" | awk -F= '{print $2}' | xargs)
-            TYPE=$(grep '^install_type' "$APP/manifest" | awk -F= '{print $2}' | xargs)
-            APPS+=("\"${APP}\": {\"display_name\": \"${NAME}\", \"desc\": \"${DESC}\", \"labels\": \"工具\", \"version\": \"${VERSION}\", \"download_url\": \"https://github.com/${REPO}/releases/download/${TAG}/${APPNAME}_v${VERSION}.fpk\", \"author\": \"Ing\", \"author_url\": \"https://github.com/${REPO}\", \"bug_report_url\": \"https://github.com/${REPO}/issues\", \"install_type\": \"${TYPE}\", \"size\": \"${SIZE_NUM}\", \"history\": {\"v${VERSION}\": \"Initial release of ${APPNAME} package.\"}}")
+            NAME=$(grep -E '^display_name[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
+            TYPE=$(grep -E '^install_type[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
+            MAINTAINER=$(grep -E '^maintainer[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
+            MAINTAINER_URL=$(grep -E '^maintainer_url[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
+            [ -z "$MAINTAINER" ] && MAINTAINER="Ing"
+            [ -z "$MAINTAINER_URL" ] && MAINTAINER_URL="https://github.com/${REPO}"
+            LABELS="工具"
+            [ -f "$APP/labels.txt" ] && LABELS=$(cat "$APP/labels.txt" | xargs)
+            
+            APPS+=("\"${APP}\": {\"display_name\": \"${NAME}\", \"desc\": \"${DESC}\", \"labels\": \"${LABELS}\", \"version\": \"${VERSION}\", \"download_url\": \"https://github.com/${REPO}/releases/download/${TAG}/${APPNAME}_v${VERSION}.fpk\", \"author\": \"${MAINTAINER}\", \"author_url\": \"${MAINTAINER_URL}\", \"bug_report_url\": \"https://github.com/${REPO}/issues\", \"install_type\": \"${TYPE}\", \"size\": \"${SIZE_NUM}\", \"history\": {\"v${VERSION}\": \"Initial release of ${APPNAME} package.\"}}")
           done
 
           echo "" >> apps-list.md
@@ -177,15 +184,18 @@ jobs:
 
                   # 提取元数据
                   MANIFEST="$SOURCE_DIR/manifest"
-                  DISPLAY_NAME=$(grep '^display_name' "$MANIFEST" | awk -F= '{print $2}' | xargs)
-                  DESC=$(grep '^desc' "$MANIFEST" | awk -F= '{print $2}' | xargs)
-                  MAINTAINER=$(grep '^maintainer' "$MANIFEST" | awk -F= '{print $2}' | xargs)
-                  MAINTAINER_URL=$(grep '^maintainer_url' "$MANIFEST" | awk -F= '{print $2}' | xargs)
-                  DISTRIBUTOR=$(grep '^distributor' "$MANIFEST" | awk -F= '{print $2}' | xargs)
-                  DISTRIBUTOR_URL=$(grep '^distributor_url' "$MANIFEST" | awk -F= '{print $2}' | xargs)
-                  RAW_TYPE=$(grep '^install_type' "$MANIFEST" | awk -F= '{print $2}' | xargs)
-                  PLATFORM=$(grep '^platform' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  DISPLAY_NAME=$(grep -E '^display_name[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  DESC=$(grep -E '^desc[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  MAINTAINER=$(grep -E '^maintainer[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  MAINTAINER_URL=$(grep -E '^maintainer_url[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  DISTRIBUTOR=$(grep -E '^distributor[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  DISTRIBUTOR_URL=$(grep -E '^distributor_url[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  RAW_TYPE=$(grep -E '^install_type[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  PLATFORM=$(grep -E '^platform[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
                   [ -z "$PLATFORM" ] && PLATFORM="x86"
+                  
+                  LABELS="工具"
+                  [ -f "$SOURCE_DIR/labels.txt" ] && LABELS=$(cat "$SOURCE_DIR/labels.txt" | xargs)
                   
                   if [ "$RAW_TYPE" = "root" ]; then
                       INSTALL_TYPE="系统空间"
@@ -201,25 +211,23 @@ jobs:
                     echo "Copied ICON.PNG for $APPNAME"
                   fi
 
-                  # 同步更新根目录 fnpack.json 中多个字段
-                  if jq -e --arg app "$APPNAME" 'has($app)' fnpack.json >/dev/null; then
-                    jq --arg app "$APPNAME" \
-                       --arg name "$DISPLAY_NAME" \
-                       --arg ver "V${VERSION}" \
-                       --arg desc "$DESC" \
-                       --arg type "$INSTALL_TYPE" \
-                       --arg size "$SIZE" \
-                       --arg author "$MAINTAINER" \
-                       --arg author_url "$MAINTAINER_URL" \
-                       --arg dist "$DISTRIBUTOR" \
-                       --arg dist_url "$DISTRIBUTOR_URL" \
-                       --arg plat "$PLATFORM" \
-                       '.[$app].display_name = $name | .[$app].version = $ver | .[$app].desc = $desc | .[$app].install_type = $type | .[$app].size = $size | .[$app].author = $author | .[$app].author_url = $author_url | .[$app].distributor = $dist | .[$app].distributor_url = $dist_url | .[$app].platform = $plat' \
-                       fnpack.json > fnpack.json.tmp && mv fnpack.json.tmp fnpack.json
-                    echo "Updated fnpack.json metadata for $APPNAME"
-                  else
-                    echo "Warning: app key '$APPNAME' not found in fnpack.json, skipping metadata update"
-                  fi
+                  # 同步更新根目录 fnpack.json 中多个字段（如果不存在则新增）
+                  jq --arg app "$APPNAME" \
+                     --arg name "$DISPLAY_NAME" \
+                     --arg ver "V${VERSION}" \
+                     --arg desc "$DESC" \
+                     --arg labs "$LABELS" \
+                     --arg type "$INSTALL_TYPE" \
+                     --arg size "$SIZE" \
+                     --arg author "$MAINTAINER" \
+                     --arg author_url "$MAINTAINER_URL" \
+                     --arg dist "$DISTRIBUTOR" \
+                     --arg dist_url "$DISTRIBUTOR_URL" \
+                     --arg plat "$PLATFORM" \
+                     --arg bug "https://github.com/${REPO}/issues" \
+                     '.[$app].display_name = $name | .[$app].version = $ver | .[$app].desc = $desc | .[$app].labels = $labs | .[$app].install_type = $type | .[$app].size = $size | .[$app].author = $author | .[$app].author_url = $author_url | .[$app].distributor = $dist | .[$app].distributor_url = $dist_url | .[$app].platform = $plat | .[$app].bug_report_url = $bug' \
+                     fnpack.json > fnpack.json.tmp && mv fnpack.json.tmp fnpack.json
+                  echo "Updated or added fnpack.json metadata for $APPNAME"
             fi
           done
 
