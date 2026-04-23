@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>反向代理管理平台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            color: #333;
+            font-size: 24px;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .card-header h2 {
+            color: #333;
+            font-size: 20px;
+        }
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .table th,
+        .table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .table th {
+            background: #f8f9fa;
+            color: #495057;
+            font-weight: 600;
+        }
+        .table tr:hover {
+            background: #f8f9fa;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .badge-danger {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.show {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            padding: 0;
+            border-radius: 12px;
+            min-width: 600px;
+            max-width: min(90vw, 900px);
+            width: 95%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .modal-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        .modal-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .modal-content::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        .modal-content::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+        .modal-content {
+            scrollbar-width: thin;
+            scrollbar-color: #c1c1c1 transparent;
+        }
+        .modal-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 12px 12px 0 0;
+        }
+        .modal-header h3 {
+            color: #333;
+            font-size: 18px;
+        }
+        .close {
+            font-size: 24px;
+            color: #999;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+        .close:hover {
+            color: #333;
+            background: #f0f0f0;
+        }
+        .modal-body {
+            padding: 20px 24px;
+        }
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            border-radius: 0 0 12px 12px;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        .btn {
+            padding: 9px 18px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .btn:active {
+            transform: translateY(0);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-sm {
+            padding: 5px 11px;
+            font-size: 12px;
+        }
+        .form-group {
+            margin-bottom: 14px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+            font-size: 13px;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .form-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .form-row .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        .form-check {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+        .form-check input {
+            width: auto;
+        }
+        .form-check label {
+            margin-bottom: 0;
+            font-weight: 400;
+        }
+        .fieldset {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .fieldset legend {
+            padding: 0 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+        .tab-container {
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 16px;
+        }
+        .tabs {
+            display: flex;
+            list-style: none;
+        }
+        .tab {
+            padding: 10px 18px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        .tab.active {
+            border-bottom-color: #667eea;
+            color: #667eea;
+            font-weight: 600;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .tips-card {
+            background: linear-gradient(135deg, #e8f4fd 0%, #f0e6ff 100%);
+            border-left: 4px solid #667eea;
+            padding: 18px 22px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            line-height: 1.7;
+            color: #444;
+        }
+        .tips-card strong {
+            color: #333;
+        }
+        .tips-card ul {
+            margin: 6px 0 0 16px;
+            padding: 0;
+        }
+        .tips-card li {
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="mainPage" class="main-content">
+            <div class="header">
+                <h1>反向代理服务器</h1>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>代理规则列表</h2>
+                    <button class="btn btn-success" onclick="openAddModal()" title="添加新的代理规则">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                        </svg>
+                        添加规则
+                    </button>
+                </div>
+                <div id="proxyList"></div>
+            </div>
+
+            <div class="tips-card" title="使用前请阅读以下说明">
+                <strong>使用说明</strong>
+                <ul>
+                    <li><strong>证书准备：</strong>如需使用 HTTPS，请先在「系统设置 → 证书管理」中添加对应域名的 SSL 证书</li>
+                    <li><strong>添加规则：</strong>来源端口 + 协议的组合必须唯一，同一端口的同种协议只能被一条规则占用</li>
+                    <li><strong>域名匹配：</strong>支持多域名（逗号分隔），系统会自动从证书库中按精确匹配 > 通配符匹配 > 父域回退的优先级查找证书</li>
+                    <li><strong>保存即生效：</strong>规则保存后立即加载，无需手动重启服务</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="proxyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">添加代理规则</h3>
+                <button class="close" onclick="closeModal()" title="关闭">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="tab-container">
+                    <ul class="tabs">
+                        <li class="tab active" onclick="switchTab('general')">常规</li>
+                        <li class="tab" onclick="switchTab('advanced')">高级设置</li>
+                    </ul>
+                </div>
+
+                <div id="general" class="tab-content active">
+                    <div class="form-group">
+                        <label for="ruleName" title="用于标识和区分不同的代理规则">规则名称</label>
+                        <input type="text" id="ruleName" placeholder="例如：网站A">
+                    </div>
+
+                    <div class="fieldset">
+                        <legend title="配置客户端请求的来源信息，即外部访问的入口参数">来源设置</legend>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="sourceProtocol" title="监听客户端连接时使用的协议">协议</label>
+                                <select id="sourceProtocol">
+                                    <option value="http">HTTP</option>
+                                    <option value="https">HTTPS</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="sourceHost" title="监听的主机地址，通常留空表示所有地址">主机名/IP</label>
+                                <input type="text" id="sourceHost" placeholder="留空表示监听所有地址">
+                            </div>
+                            <div class="form-group">
+                                <label for="sourcePort" title="对外提供服务的端口号">端口</label>
+                                <input type="number" id="sourcePort" placeholder="例如：8080">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="sourceDomains" title="匹配的域名列表，多个域名用英文逗号分隔">域名（多个用逗号分隔）</label>
+                            <input type="text" id="sourceDomains" placeholder="例如：example.com,www.example.com">
+                        </div>
+                    </div>
+
+                    <div class="fieldset">
+                        <legend title="配置请求转发的目标后端服务地址">目标设置</legend>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="targetProtocol" title="转发到后端服务时使用的协议">协议</label>
+                                <select id="targetProtocol">
+                                    <option value="http">HTTP</option>
+                                    <option value="https">HTTPS</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="targetHost" title="后端服务的主机名或IP地址">主机名/IP</label>
+                                <input type="text" id="targetHost" placeholder="例如：127.0.0.1">
+                            </div>
+                            <div class="form-group">
+                                <label for="targetPort" title="后端服务监听的端口号">端口</label>
+                                <input type="number" id="targetPort" placeholder="例如：8080">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-check">
+                        <input type="checkbox" id="ruleEnable" checked>
+                        <label for="ruleEnable" title="勾选后规则立即生效，取消则暂停该规则">启用规则</label>
+                    </div>
+                </div>
+
+                <div id="advanced" class="tab-content">
+                    <div class="form-group">
+                        <label for="proxyTimeout" title="等待后端响应的最大时间，超时后将断开连接">代理超时（秒）</label>
+                        <input type="number" id="proxyTimeout" placeholder="默认：30">
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" id="enableHsts">
+                        <label for="enableHsts" title="强制浏览器仅通过HTTPS访问该域名，增强安全性">启用 HSTS</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" id="preserveHost">
+                        <label for="preserveHost" title="转发时保留原始请求中的Host头，而非使用目标地址的Host">保留原始主机头</label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveProxy()" title="保存当前规则并立即生效">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let editingId = null;
+
+        const API_BASE = (function () {
+            try {
+                let basePath = window.location.pathname || '/';
+                const idx = basePath.indexOf('index.cgi');
+                if (idx >= 0) {
+                    return basePath.slice(0, idx + 'index.cgi'.length) + '/';
+                }
+                if (!basePath.endsWith('/')) {
+                    const last = basePath.lastIndexOf('/');
+                    basePath = last >= 0 ? basePath.slice(0, last + 1) : '/';
+                }
+                return basePath;
+            } catch (e) {
+                return '/';
+            }
+        })();
+
+        async function request(url, options = {}) {
+            const resolved = /^(https?:)?\/\//.test(url) || url.startsWith('/') ? url : (API_BASE + url.replace(/^\/+/, ''));
+            const headers = {
+                'Content-Type': 'application/json',
+                ...options.headers
+            };
+            const res = await fetch(resolved, {
+                ...options,
+                headers
+            });
+            return res;
+        }
+
+        function showMainPage() {
+            document.getElementById('mainPage').style.display = 'block';
+            loadProxies();
+        }
+
+        async function loadProxies() {
+            try {
+                const res = await request('api/proxies');
+                const proxies = await res.json();
+                renderProxies(proxies);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function renderProxies(proxies) {
+            const el = document.getElementById('proxyList');
+            if (!proxies || proxies.length === 0) {
+                el.innerHTML = `
+                    <div class="empty-state">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                        <h3>暂无代理规则</h3>
+                        <p>点击右上角"添加规则"开始使用</p>
+                    </div>
+                `;
+                return;
+            }
+            el.innerHTML = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>规则名称</th>
+                            <th>来源</th>
+                            <th>目标</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${proxies.map(p => `
+                            <tr>
+                                <td><strong>${p.name || '-'}</strong></td>
+                                <td>${p.sourceProtocol || 'http'}://${p.sourceHost || '*'}:${p.sourcePort || 80}</td>
+                                <td>${p.targetProtocol || 'http'}://${p.targetHost || '127.0.0.1'}:${p.targetPort || 8080}</td>
+                                <td><span class="badge ${p.enable ? 'badge-success' : 'badge-danger'}">${p.enable ? '启用' : '禁用'}</span></td>
+                                <td class="actions">
+                                    <button class="btn btn-sm btn-primary" onclick="editProxy('${p.id}')" title="编辑此规则">编辑</button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteProxy('${p.id}')" title="删除此规则">删除</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        function openAddModal() {
+            editingId = null;
+            document.getElementById('modalTitle').textContent = '添加代理规则';
+            document.getElementById('ruleName').value = '';
+            document.getElementById('sourceProtocol').value = 'http';
+            document.getElementById('sourceHost').value = '';
+            document.getElementById('sourcePort').value = '8080';
+            document.getElementById('sourceDomains').value = '';
+            document.getElementById('targetProtocol').value = 'http';
+            document.getElementById('targetHost').value = '127.0.0.1';
+            document.getElementById('targetPort').value = '8080';
+            document.getElementById('ruleEnable').checked = true;
+            document.getElementById('proxyTimeout').value = '30';
+            document.getElementById('enableHsts').checked = false;
+            document.getElementById('preserveHost').checked = false;
+            document.getElementById('proxyModal').classList.add('show');
+        }
+
+        async function editProxy(id) {
+            try {
+                const res = await request('api/proxies');
+                const proxies = await res.json();
+                const proxy = proxies.find(p => p.id === id);
+                if (proxy) {
+                    editingId = id;
+                    document.getElementById('modalTitle').textContent = '编辑代理规则';
+                    document.getElementById('ruleName').value = proxy.name || '';
+                    document.getElementById('sourceProtocol').value = proxy.sourceProtocol || 'http';
+                    document.getElementById('sourceHost').value = proxy.sourceHost || '';
+                    document.getElementById('sourcePort').value = proxy.sourcePort || '80';
+                    document.getElementById('sourceDomains').value = (proxy.domains || []).join(',');
+                    document.getElementById('targetProtocol').value = proxy.targetProtocol || 'http';
+                    document.getElementById('targetHost').value = proxy.targetHost || '127.0.0.1';
+                    document.getElementById('targetPort').value = proxy.targetPort || '8080';
+                    document.getElementById('ruleEnable').checked = proxy.enable !== false;
+                    document.getElementById('proxyTimeout').value = proxy.timeout || '30';
+                    document.getElementById('enableHsts').checked = !!proxy.hsts;
+                    document.getElementById('preserveHost').checked = !!proxy.preserveHost;
+                    document.getElementById('proxyModal').classList.add('show');
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function deleteProxy(id) {
+            if (!confirm('确定要删除此规则吗？')) return;
+            try {
+                await request('api/proxies/' + id, { method: 'DELETE' });
+                await loadProxies();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('proxyModal').classList.remove('show');
+        }
+
+        async function validateRule(name, sourceProtocol, sourcePort, targetHost, targetPort) {
+            if (!name) return '请输入规则名称';
+            if (!sourcePort) return '请输入来源端口';
+            const srcPortNum = parseInt(sourcePort, 10);
+            if (isNaN(srcPortNum) || srcPortNum < 1 || srcPortNum > 65535) return '来源端口必须在 1-65535 范围内';
+            if (!targetHost) return '请输入目标主机';
+            if (!targetPort) return '请输入目标端口';
+            const tgtPortNum = parseInt(targetPort, 10);
+            if (isNaN(tgtPortNum) || tgtPortNum < 1 || tgtPortNum > 65535) return '目标端口必须在 1-65535 范围内';
+
+            try {
+                const res = await request('api/proxies');
+                const proxies = await res.json();
+                for (const p of proxies) {
+                    if (editingId && p.id === editingId) continue;
+                    if (p.name === name) return '规则名称 "' + name + '" 已存在，请使用其他名称';
+                    const pPort = p.sourcePort || '80';
+                    const pProto = p.sourceProtocol || 'http';
+                    if (String(pPort) === String(sourcePort) && pProto === sourceProtocol) {
+                        return '来源端口 ' + sourcePort + ' (' + sourceProtocol.toUpperCase() + ') 已被规则 "' + p.name + '" 使用，每个端口的每种协议只能被一条规则监听';
+                    }
+                }
+            } catch (e) { }
+
+            return '';
+        }
+
+        async function saveProxy() {
+            const name = document.getElementById('ruleName').value.trim();
+            const sourceProtocol = document.getElementById('sourceProtocol').value;
+            const sourceHost = document.getElementById('sourceHost').value.trim();
+            const sourcePort = document.getElementById('sourcePort').value.trim();
+            const sourceDomains = document.getElementById('sourceDomains').value.split(',').map(d => d.trim()).filter(Boolean);
+            const targetProtocol = document.getElementById('targetProtocol').value;
+            const targetHost = document.getElementById('targetHost').value.trim();
+            const targetPort = document.getElementById('targetPort').value.trim();
+            const enable = document.getElementById('ruleEnable').checked;
+            const timeout = document.getElementById('proxyTimeout').value.trim();
+            const hsts = document.getElementById('enableHsts').checked;
+            const preserveHost = document.getElementById('preserveHost').checked;
+
+            const errMsg = await validateRule(name, sourceProtocol, sourcePort, targetHost, targetPort);
+            if (errMsg) {
+                alert(errMsg);
+                return;
+            }
+
+            const data = {
+                name,
+                enable,
+                domains: sourceDomains,
+                sourceProtocol,
+                sourceHost: sourceHost || '',
+                sourcePort,
+                targetProtocol,
+                targetHost,
+                targetPort,
+                timeout: timeout || '30',
+                hsts,
+                preserveHost
+            };
+
+            try {
+                let res;
+                if (editingId) {
+                    res = await request('api/proxies/' + editingId, {
+                        method: 'PUT',
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    res = await request('api/proxies', {
+                        method: 'POST',
+                        body: JSON.stringify(data)
+                    });
+                }
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.error || ('HTTP ' + res.status));
+                }
+                closeModal();
+                await loadProxies();
+            } catch (e) {
+                alert('保存失败: ' + e.message);
+            }
+        }
+
+        showMainPage();
+    </script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+[{"stepTitle": "安装向导", "items": [{"type": "tips", "helpText": "<strong>欢迎使用反向代理服务器！</strong><br><br>本应用为您提供基于域名的反向代理服务，可将外部请求按域名智能路由到内部后端服务。<br><br><strong>安装完成后：</strong><br>1. 在应用中心启动本应用<br>2. 点击桌面图标打开 Web 管理界面<br>3. 添加代理规则即可开始使用<br><br><strong>提示：</strong>如需使用 HTTPS，请先在「系统设置 → 证书管理」中添加对应域名的 SSL 证书。"}]}]

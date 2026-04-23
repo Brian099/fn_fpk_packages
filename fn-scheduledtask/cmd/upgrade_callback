@@ -1,0 +1,36 @@
+#!/bin/bash
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_DIR="$(dirname "$SCRIPT_DIR")"
+TARGET_DIR="${APP_DIR}/target"
+VAR_DIR="${APP_DIR}/var"
+
+VENV_DIR="${VAR_DIR}/venv"
+VENV_PYTHON="${VENV_DIR}/bin/python3"
+VENV_PIP="${VENV_DIR}/bin/pip"
+REQUIREMENTS="${TARGET_DIR}/server/requirements.txt"
+
+echo "Upgrading Python dependencies..."
+if [ -f "${VENV_PIP}" ]; then
+    "${VENV_PIP}" install --quiet --upgrade -r "${REQUIREMENTS}"
+else
+    mkdir -p "${VAR_DIR}"
+    python3 -m venv "${VENV_DIR}"
+    "${VENV_PIP}" install --quiet -r "${REQUIREMENTS}"
+fi
+
+# Start the service after upgrade
+echo "Starting service after upgrade..."
+if [ -x "${TRIM_APPDEST:-/var/apps/fn-scheduledtask/target}/main" ]; then
+    "${TRIM_APPDEST:-/var/apps/fn-scheduledtask/target}/main" start
+else
+    # Try alternative path
+    if [ -x "${TRIM_APPDEST:-/var/apps/fn-scheduledtask/target}/cmd/main" ]; then
+        "${TRIM_APPDEST:-/var/apps/fn-scheduledtask/target}/cmd/main" start
+    else
+        echo "Service control script not found, skipping start"
+    fi
+fi
+
+echo "fn-scheduledtask upgrade completed"
+exit 0

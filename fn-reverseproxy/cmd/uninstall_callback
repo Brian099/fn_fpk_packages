@@ -1,0 +1,19 @@
+#!/bin/bash
+
+### This script is called after the user uninstalled the application.
+
+DATA_DIR="${TRIM_PKGVAR:-/vol1/@appdata/fn-reverseproxy}"
+
+if [ "${wizard_data_action}" = "delete" ] && [ -n "${DATA_DIR}" ] && [ -d "${DATA_DIR}" ]; then
+    echo "Removing application data directory: ${DATA_DIR}"
+    rm -rf "${DATA_DIR}"
+    if [ $? -eq 0 ]; then
+        echo "Application data removed successfully."
+    else
+        echo "WARNING: Failed to remove application data directory."
+    fi
+else
+    echo "Keeping application data (wizard_data_action=${wizard_data_action})"
+fi
+
+exit 0

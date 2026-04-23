@@ -1,0 +1,16 @@
+appname               = fn-scheduledtask
+version               = 1.0.2
+display_name          = 计划任务
+desc                  = <p>计划任务管理应用，支持 Cron 表达式、间隔执行、指定时间执行以及开机/关机事件触发。</p><p>可创建 Python 函数任务和 Shell 脚本任务，满足自动化运维需求。</p>
+platform              = all
+source                = thirdparty
+
+maintainer            = laok
+maintainer_url        = https://laokhome.cn/
+distributor           = laok
+distributor_url       = https://gitee.com/laoknas/fn_fpk_packages/tree/master/fn-scheduledtask
+
+desktop_uidir         = ui
+desktop_applaunchname = fn-scheduledtask.Application
+reloadui              = yes
+

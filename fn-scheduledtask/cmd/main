@@ -1,0 +1,167 @@
+#!/bin/bash
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+LOG_FILE="${TRIM_PKGVAR}/info.log"
+PID_FILE="${TRIM_PKGVAR}/app.pid"
+SOCKET_FILE="${TRIM_PKGVAR}/scheduler.sock"
+VENV_DIR="${TRIM_PKGVAR}/venv"
+
+PYTHON_BIN="${VENV_DIR}/bin/python3"
+SERVER_DIR="${TRIM_APPDEST}/server"
+
+log_msg() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >>${LOG_FILE}
+}
+
+status() {
+    if [ -f "${PID_FILE}" ]; then
+        pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
+        if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+start_process() {
+    if status; then
+        log_msg "Process already running"
+        return 0
+    fi
+
+    log_msg "Starting process ..."
+    
+    log_msg "TRIM_PKGVAR=${TRIM_PKGVAR}"
+    log_msg "TRIM_APPDEST=${TRIM_APPDEST}"
+    log_msg "VENV_DIR=${VENV_DIR}"
+    
+    mkdir -p "${TRIM_PKGVAR}"
+    log_msg "Created/confirmed ${TRIM_PKGVAR}"
+
+    if [ ! -f "${PYTHON_BIN}" ]; then
+        log_msg "Virtual environment not found, creating it now..."
+        
+        log_msg "Checking python3 availability..."
+        if ! command -v python3 >/dev/null 2>&1; then
+            log_msg "ERROR: python3 is not available!"
+            return 1
+        fi
+        PYTHON_SYSTEM=$(command -v python3)
+        log_msg "python3 found at ${PYTHON_SYSTEM}"
+        
+        log_msg "Creating Python virtual environment..."
+        rm -rf "${VENV_DIR}" 2>/dev/null || true
+        
+        "${PYTHON_SYSTEM}" -m venv "${VENV_DIR}" 2>>"${LOG_FILE}"
+        VENV_EXIT=$?
+        if [ ${VENV_EXIT} -ne 0 ]; then
+            log_msg "Failed to create virtual environment (exit code ${VENV_EXIT})"
+            log_msg "Directory listing of ${TRIM_PKGVAR}:"
+            ls -la "${TRIM_PKGVAR}" >>"${LOG_FILE}" 2>&1
+            return 1
+        fi
+        
+        log_msg "Virtual environment directory created"
+        ls -la "${VENV_DIR}" >>"${LOG_FILE}" 2>&1
+        
+        log_msg "Installing Python dependencies..."
+        VENV_PIP="${VENV_DIR}/bin/pip"
+        REQUIREMENTS="${SERVER_DIR}/requirements.txt"
+        
+        if [ ! -f "${REQUIREMENTS}" ]; then
+            log_msg "ERROR: ${REQUIREMENTS} not found!"
+            return 1
+        fi
+        
+        "${VENV_PIP}" install --quiet -r "${REQUIREMENTS}" 2>>"${LOG_FILE}"
+        PIP_EXIT=$?
+        if [ ${PIP_EXIT} -ne 0 ]; then
+            log_msg "Failed to install dependencies (exit code ${PIP_EXIT})"
+            return 1
+        fi
+        
+        log_msg "Virtual environment created successfully"
+    fi
+
+    if [ ! -f "${PYTHON_BIN}" ]; then
+        log_msg "ERROR: ${PYTHON_BIN} still not found!"
+        log_msg "Directory listing of ${TRIM_PKGVAR}:"
+        ls -la "${TRIM_PKGVAR}" >>"${LOG_FILE}" 2>&1
+        log_msg "Directory listing of ${VENV_DIR}:"
+        ls -la "${VENV_DIR}" >>"${LOG_FILE}" 2>&1
+        return 1
+    fi
+
+    CMD="\"${PYTHON_BIN}\" \"${SERVER_DIR}/scheduler.py\" --unix-socket \"${SOCKET_FILE}\" --db \"${TRIM_PKGVAR}/scheduler.db\" --settings \"${TRIM_PKGVAR}/scheduler.settings.json\" --tasks-dir \"${TRIM_PKGVAR}/tasks\""
+    
+    log_msg "Starting with command: ${CMD}"
+    bash -c "${CMD}" >>"${LOG_FILE}" 2>&1 &
+    printf "%s" "$!" >"${PID_FILE}"
+
+    sleep 1
+    if status; then
+        log_msg "Process started successfully"
+    else
+        log_msg "Process failed to start"
+    fi
+    return 0
+}
+
+stop_process() {
+    log_msg "Stopping process ..."
+
+    if [ -f "${PID_FILE}" ]; then
+        pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
+        if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
+            kill "${pid}" 2>/dev/null
+            sleep 2
+            if kill -0 "${pid}" 2>/dev/null; then
+                kill -9 "${pid}" 2>/dev/null
+            fi
+        fi
+        rm -f "${PID_FILE}"
+    fi
+
+    rm -f "${SOCKET_FILE}"
+
+    log_msg "Process stopped"
+    return 0
+}
+
+reload_process() {
+    log_msg "Reloading process ..."
+    stop_process
+    start_process
+}
+
+case "$1" in
+start)
+    start_process
+    ;;
+stop)
+    stop_process
+    ;;
+restart)
+    stop_process
+    start_process
+    ;;
+reload)
+    reload_process
+    ;;
+status)
+    if status; then
+        echo "Running"
+        exit 0
+    else
+        echo "Not running"
+        exit 1
+    fi
+    ;;
+*)
+    echo "Usage: $0 {start|stop|restart|reload|status}"
+    exit 1
+    ;;
+esac
+
+exit 0

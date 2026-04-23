@@ -1,0 +1,15 @@
+#!/bin/bash
+
+CONF_FILE="${TRIM_PKGVAR}/proxy.conf"
+
+mkdir -p "${TRIM_PKGVAR}"
+
+cat >"${CONF_FILE}" <<EOF
+# fn-reverseproxy configuration
+# Proxy listen ports are auto-managed by rules
+# TLS certificates auto-discovered from FeiNiu OS
+# Admin API: Unix Socket only (no TCP port)
+EOF
+
+echo "Config saved to ${CONF_FILE}"
+exit 0

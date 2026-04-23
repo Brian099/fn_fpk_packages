@@ -1,0 +1,5 @@
+#!/bin/bash
+
+echo "fn-scheduledtask configuration completed"
+
+exit 0

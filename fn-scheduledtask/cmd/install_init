@@ -1,0 +1,5 @@
+#!/bin/bash
+
+echo "Initializing fn-scheduledtask installation..."
+
+exit 0

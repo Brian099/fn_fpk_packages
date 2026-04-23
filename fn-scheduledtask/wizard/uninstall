@@ -1,0 +1,33 @@
+[
+  {
+    "stepTitle": "卸载向导",
+    "items": [
+      {
+        "type": "tips",
+        "helpText": "<strong>计划任务应用卸载</strong><br><br>本向导将帮助您卸载计划任务应用。<br><br><strong>卸载选项</strong><br>• 保留数据：默认会保留任务配置、脚本和执行日志，重新安装后可恢复<br>• 删除数据：彻底删除所有任务数据<br><br><strong>注意事项</strong><br>• 卸载前请确保重要任务已备份<br>• 一旦删除数据，数据将无法恢复"
+      },
+      {
+        "type": "radio",
+        "field": "wizard_data_action",
+        "label": "数据保留选项",
+        "initValue": "keep",
+        "options": [
+          {
+            "label": "保留数据 - 重安装时可恢复！（推荐）",
+            "value": "keep"
+          },
+          {
+            "label": "删除数据 - 此操作不可恢复！",
+            "value": "delete"
+          }
+        ],
+        "rules": [
+          {
+            "required": true,
+            "message": "请选择数据保留选项"
+          }
+        ]
+      }
+    ]
+  }
+]

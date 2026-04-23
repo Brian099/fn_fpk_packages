@@ -1,0 +1,19 @@
+#!/bin/bash
+
+echo "Upgrading fn-scheduledtask..."
+
+# Stop the service before upgrade
+if [ -x "${TRIM_APPDEST:-/var/apps/fn-scheduledtask/target}/main" ]; then
+    echo "Stopping service before upgrade..."
+    "${TRIM_APPDEST:-/var/apps/fn-scheduledtask/target}/main" stop
+else
+    # Try alternative path
+    if [ -x "${TRIM_APPDEST:-/var/apps/fn-scheduledtask/target}/cmd/main" ]; then
+        echo "Stopping service before upgrade..."
+        "${TRIM_APPDEST:-/var/apps/fn-scheduledtask/target}/cmd/main" stop
+    else
+        echo "Service control script not found, skipping stop"
+    fi
+fi
+
+exit 0

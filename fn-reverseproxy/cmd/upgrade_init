@@ -1,0 +1,19 @@
+#!/bin/bash
+
+### This script is called before the user upgrades the application.
+
+# Stop the service before upgrade
+if [ -x "${TRIM_APPDEST:-/var/apps/fn-reverseproxy/target}/main" ]; then
+    echo "Stopping service before upgrade..."
+    "${TRIM_APPDEST:-/var/apps/fn-reverseproxy/target}/main" stop
+else
+    # Try alternative path
+    if [ -x "${TRIM_APPDEST:-/var/apps/fn-reverseproxy/target}/cmd/main" ]; then
+        echo "Stopping service before upgrade..."
+        "${TRIM_APPDEST:-/var/apps/fn-reverseproxy/target}/cmd/main" stop
+    else
+        echo "Service control script not found, skipping stop"
+    fi
+fi
+
+exit 0

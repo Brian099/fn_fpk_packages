@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="app.title">计划任务</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1 data-i18n="app.title">计划任务</h1>
+      <p class="subtitle" data-i18n="app.subtitle">管理定时与事件触发的任务</p>
+    </div>
+    <div class="header-actions">
+      <a href="https://gitee.com/laoknas/fn_fpk_packages/tree/master/fn-scheduledtask" target="_blank" rel="noopener" class="github-link" data-i18n="app.github">Gitee</a>
+      <div class="theme-toggle-row">
+        <select id="themeSelect" class="theme-select" aria-label="主题选择">
+          <option value="system" data-i18n="theme.system">跟随系统</option>
+          <option value="light" data-i18n="theme.light">亮模式</option>
+          <option value="dark" data-i18n="theme.dark">暗模式</option>
+        </select>
+        <select id="langSelect" class="lang-select" aria-label="语言选择">
+          <option value="zh-CN">中文</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      <button id="btnSettings" class="btn ghost" data-i18n="btn.settings">设置</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel table-panel">
+      <div class="panel-toolbar toolbar">
+        <button id="btnCreate" class="btn primary" data-i18n="btn.create">新建</button>
+        <button id="btnEdit" class="btn" data-i18n="btn.edit" disabled>编辑</button>
+        <button id="btnDelete" class="btn danger" data-i18n="btn.delete" disabled>删除</button>
+        <button id="btnRun" class="btn" data-i18n="btn.run" disabled>立即运行</button>
+        <button id="btnStop" class="btn danger" data-i18n="btn.stop" disabled>终止</button>
+        <button id="btnToggle" class="btn" data-i18n="btn.toggle" disabled>启用/停用</button>
+        <button id="btnResults" class="btn" data-i18n="btn.results" disabled>执行结果</button>
+        <button id="btnScripts" class="btn" data-i18n="btn.scripts">脚本管理</button>
+      </div>
+
+      <div class="table-wrapper">
+        <table id="taskTable">
+          <thead>
+            <tr>
+              <th data-i18n="table.enabled" style="width:60px">启用</th>
+              <th data-i18n="table.name">任务名称</th>
+              <th data-i18n="table.next_run">下次运行</th>
+              <th data-i18n="table.trigger">触发类型</th>
+              <th data-i18n="table.latest_status">任务类型</th>
+              <th id="accountTableHeader" data-i18n="table.account">账号</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div id="emptyState" class="empty hidden" data-i18n="empty.no_tasks">暂无任务，点击"新建"开始配置。</div>
+      </div>
+    </section>
+  </main>
+
+  <div id="taskModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="taskModalTitle" data-i18n="modal.task.new">新建任务</h2>
+        <button class="btn ghost" data-close>&times;</button>
+      </div>
+      <form id="taskForm">
+        <input type="hidden" name="task_id" id="task_id" />
+        <div class="form-grid">
+          <div>
+            <label data-i18n="field.name">任务名称</label>
+            <input type="text" id="task_name" name="name" required maxlength="64" />
+          </div>
+          <div>
+            <label data-i18n="field.trigger_type">触发类型</label>
+            <select id="trigger_type" name="trigger_type">
+              <option value="cron" data-i18n="trigger.schedule">定时 (Cron)</option>
+              <option value="interval" data-i18n="trigger.interval">间隔执行</option>
+              <option value="date" data-i18n="trigger.date">指定时间</option>
+              <option value="boot" data-i18n="trigger.boot">开机时</option>
+              <option value="shutdown" data-i18n="trigger.shutdown">关机时</option>
+            </select>
+          </div>
+          <div>
+            <label data-i18n="field.task_type">任务类型</label>
+            <select id="task_type" name="task_type">
+              <option value="shell" data-i18n="task_type.shell">Shell 脚本</option>
+              <option value="python" data-i18n="task_type.python">Python 函数</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-section" id="accountSection">
+          <label>
+            <span data-i18n="field.account">用户账号</span>
+            <div class="account-wrapper">
+              <select name="account" id="accountSelect"></select>
+              <button type="button" id="btnReloadAccounts" class="btn ghost small" data-i18n="btn.refresh">刷新</button>
+            </div>
+            <small id="accountStatus" class="muted account-status-text" data-i18n="field.account_hint">Linux环境仅可选择系统组的账号；Windows环境默认使用当前登录账号</small>
+          </label>
+        </div>
+
+        <div id="cron_fields" class="form-section trigger-field">
+          <label data-i18n="field.cron">Cron 表达式 (分 时 日 月 周)</label>
+          <div class="cron-input-wrapper">
+            <input type="text" id="cron_minute" placeholder="*" />
+            <input type="text" id="cron_hour" placeholder="*" />
+            <input type="text" id="cron_day" placeholder="*" />
+            <input type="text" id="cron_month" placeholder="*" />
+            <input type="text" id="cron_day_of_week" placeholder="*" />
+            <button type="button" id="btnCronGenerator" class="btn ghost small" data-i18n="btn.cron_generator">生成器</button>
+          </div>
+          <small data-i18n="field.cron_hint">标准 5 字段 Cron，分钟 小时 日 月 周（周字段 0=周一）</small>
+        </div>
+
+        <div id="interval_fields" class="form-section trigger-field hidden">
+          <label data-i18n="field.interval">间隔（秒）</label>
+          <input type="number" id="interval_seconds" value="60" min="1" />
+        </div>
+
+        <div id="date_fields" class="form-section trigger-field hidden">
+          <label data-i18n="field.run_date">执行时间</label>
+          <input type="datetime-local" id="run_date" />
+        </div>
+
+        <div id="python_field" class="form-section task-field hidden">
+          <label data-i18n="field.python_func">Python 函数 (格式: module.func)</label>
+          <input type="text" id="python_func" placeholder="task_methods.hello_world" />
+          <small>示例: task_methods.hello_world 或 mymodule.myfunction</small>
+        </div>
+
+        <div id="shell_field" class="form-section task-field">
+          <label data-i18n="field.script">Shell 脚本内容</label>
+          <textarea id="shell_script" rows="6" placeholder="#!/bin/bash
+echo 'Hello, World!'"></textarea>
+        </div>
+
+        <div class="form-section">
+          <div class="inline-label">
+            <span data-i18n="field.enabled">启用任务</span>
+            <label class="switch">
+              <input type="checkbox" id="enabled" name="enabled" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <div></div>
+          <div>
+            <button type="button" class="btn" data-close data-i18n="btn.cancel">取消</button>
+            <button type="submit" class="btn primary" data-i18n="btn.save">保存</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="resultModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content large">
+      <div class="modal-header">
+        <div>
+          <h2 data-i18n="modal.results.title">执行结果</h2>
+          <p id="resultSubtitle" class="subtitle"></p>
+        </div>
+        <div class="modal-header-actions">
+          <button id="btnClearResults" class="btn ghost" data-i18n="btn.clear">清空</button>
+          <button class="btn ghost" data-close>&times;</button>
+        </div>
+      </div>
+      <div class="result-list" id="resultList"></div>
+    </div>
+  </div>
+
+  <div id="settingsModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h2 data-i18n="modal.settings.title">运行设置</h2>
+          <p class="subtitle" data-i18n="modal.settings.subtitle">调整结果保留与执行超时等全局参数</p>
+        </div>
+        <button class="btn ghost" data-close>&times;</button>
+      </div>
+      <form id="settingsForm" class="settings-form">
+        <div class="settings-row">
+          <label data-i18n="settings.task_timeout">任务超时（秒）</label>
+          <input type="number" id="settings_task_timeout" min="0" value="900" />
+        </div>
+        <div class="settings-row">
+          <label data-i18n="settings.result_retention">结果保留条数</label>
+          <input type="number" id="settings_result_retention" min="0" value="200" />
+        </div>
+        <div class="settings-row">
+          <label data-i18n="settings.result_log_preview">日志预览字符数</label>
+          <input type="number" id="settings_result_log_preview" min="256" value="4000" />
+        </div>
+        <div class="modal-actions">
+          <div></div>
+          <div>
+            <button type="button" class="btn" data-close data-i18n="btn.cancel">取消</button>
+            <button type="submit" class="btn primary" data-i18n="btn.save">保存</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="scriptModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content large">
+      <div class="modal-header">
+        <div>
+          <h2 data-i18n="modal.scripts.title">脚本管理</h2>
+          <p class="subtitle" data-i18n="modal.scripts.subtitle">管理 Python 和 Shell 脚本文件</p>
+        </div>
+        <button class="btn ghost" data-close>&times;</button>
+      </div>
+      <div class="script-manager">
+        <div class="script-sidebar">
+          <div class="script-sidebar-header">
+            <button id="btnNewPython" class="btn primary" data-i18n="btn.new_python">新建 .py</button>
+            <button id="btnNewShell" class="btn" data-i18n="btn.new_shell">新建 .sh</button>
+            <button id="btnRefreshScripts" class="btn ghost" data-i18n="btn.refresh_scripts">刷新</button>
+          </div>
+          <div id="scriptList" class="script-list"></div>
+        </div>
+        <div class="script-editor">
+          <div class="script-editor-header">
+            <input type="text" id="scriptFilename" data-i18n-placeholder="field.filename" placeholder="文件名" />
+            <div class="script-editor-actions">
+              <button id="btnSaveScript" class="btn primary" data-i18n="btn.save">保存</button>
+              <button id="btnDeleteScript" class="btn danger" data-i18n="btn.delete" disabled>删除</button>
+            </div>
+          </div>
+          <textarea id="scriptContent" class="script-textarea" data-i18n-placeholder="field.script_content" placeholder="脚本内容..."></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="cronModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h2 data-i18n="cron.generator_title">Cron 生成器</h2>
+          <p class="subtitle" data-i18n="cron.generator_subtitle">通过选择常见规则快速生成 Cron 表达式</p>
+        </div>
+        <button class="btn ghost" data-close>&times;</button>
+      </div>
+      <form id="cronForm">
+        <div class="cron-field-list">
+          <div class="cron-field">
+            <label>
+              <span data-i18n="cron.field.minute">分钟</span>
+              <select data-cron-field="minute">
+                <option value="*" data-i18n="cron.opt.minute.every">每分钟 *</option>
+                <option value="0" data-i18n="cron.opt.minute.zero">整点 0</option>
+                <option value="*/5" data-i18n="cron.opt.minute.5">每 5 分钟 */5</option>
+                <option value="*/10" data-i18n="cron.opt.minute.10">每 10 分钟 */10</option>
+                <option value="*/15" data-i18n="cron.opt.minute.15">每 15 分钟 */15</option>
+                <option value="custom" data-i18n="cron.opt.custom">自定义</option>
+              </select>
+            </label>
+            <input type="text" class="cron-custom-input hidden" data-cron-custom="minute" placeholder="例如 0,15,30,45" data-i18n-attr="placeholder" />
+          </div>
+          <div class="cron-field">
+            <label>
+              <span data-i18n="cron.field.hour">小时</span>
+              <select data-cron-field="hour">
+                <option value="*" data-i18n="cron.opt.hour.every">每小时 *</option>
+                <option value="*/2" data-i18n="cron.opt.hour.2">每 2 小时 */2</option>
+                <option value="*/6" data-i18n="cron.opt.hour.6">每 6 小时 */6</option>
+                <option value="*/12" data-i18n="cron.opt.hour.12">每 12 小时 */12</option>
+                <option value="0" data-i18n="cron.opt.hour.midnight">每天 0 点</option>
+                <option value="12" data-i18n="cron.opt.hour.noon">每天 12 点</option>
+                <option value="custom" data-i18n="cron.opt.custom">自定义</option>
+              </select>
+            </label>
+            <input type="text" class="cron-custom-input hidden" data-cron-custom="hour" placeholder="例如 0,6,12,18" data-i18n-attr="placeholder" />
+          </div>
+          <div class="cron-field">
+            <label>
+              <span data-i18n="cron.field.day">日期（天）</span>
+              <select data-cron-field="day">
+                <option value="*" data-i18n="cron.opt.day.every">每天 *</option>
+                <option value="1" data-i18n="cron.opt.day.1">每月 1 日</option>
+                <option value="15" data-i18n="cron.opt.day.15">每月 15 日</option>
+                <option value="1-5" data-i18n="cron.opt.day.1_5">每月 1-5 日</option>
+                <option value="custom" data-i18n="cron.opt.custom">自定义</option>
+              </select>
+            </label>
+            <input type="text" class="cron-custom-input hidden" data-cron-custom="day" placeholder="例如 1-5 或 1,15" data-i18n-attr="placeholder" />
+          </div>
+          <div class="cron-field">
+            <label>
+              <span data-i18n="cron.field.month">月份</span>
+              <select data-cron-field="month">
+                <option value="*" data-i18n="cron.opt.month.every">每月 *</option>
+                <option value="*/3" data-i18n="cron.opt.month.quarter">每季度 */3</option>
+                <option value="1" data-i18n="cron.opt.month.jan">1 月</option>
+                <option value="6" data-i18n="cron.opt.month.jun">6 月</option>
+                <option value="12" data-i18n="cron.opt.month.dec">12 月</option>
+                <option value="custom" data-i18n="cron.opt.custom">自定义</option>
+              </select>
+            </label>
+            <input type="text" class="cron-custom-input hidden" data-cron-custom="month" placeholder="例如 3,6,9,12" data-i18n-attr="placeholder" />
+          </div>
+          <div class="cron-field">
+            <label>
+              <span data-i18n="cron.field.weekday">星期（0=周一）</span>
+              <select data-cron-field="weekday">
+                <option value="*" data-i18n="cron.opt.weekday.every">每周 *</option>
+                <option value="0-4" data-i18n="cron.opt.weekday.workdays">工作日 0-4</option>
+                <option value="0" data-i18n="cron.opt.weekday.mon">周一 0</option>
+                <option value="4" data-i18n="cron.opt.weekday.fri">周五 4</option>
+                <option value="5" data-i18n="cron.opt.weekday.sat">周六 5</option>
+                <option value="6" data-i18n="cron.opt.weekday.sun">周日 6</option>
+                <option value="custom" data-i18n="cron.opt.custom">自定义</option>
+              </select>
+            </label>
+            <input type="text" class="cron-custom-input hidden" data-cron-custom="weekday" placeholder="例如 0,2,4" data-i18n-attr="placeholder" />
+          </div>
+        </div>
+        <div class="cron-preview">
+          <div class="cron-preview-row">
+            <div>
+              <span data-i18n="cron.current_expression">当前表达式：</span>
+              <code id="cronPreview">* * * * *</code>
+            </div>
+            <div id="cronNextTimes" class="muted cron-next-times">
+            </div>
+          </div>
+        </div>
+        <small class="muted" data-i18n="cron.hint">顺序：分钟 小时 日 月 周；自定义字段可使用数字、*、/、,、-，为空时默认 *</small>
+        <div class="modal-actions">
+          <button type="button" class="btn ghost" data-close data-i18n="btn.cancel">取消</button>
+          <button type="button" id="btnApplyCron" class="btn primary" data-i18n="btn.apply_cron">填入 Cron</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="i18n.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

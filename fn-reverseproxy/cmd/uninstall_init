@@ -1,0 +1,19 @@
+#!/bin/bash
+
+### This script is called before the user uninstalls the application.
+
+# Stop the service before uninstall
+if [ -x "${TRIM_APPDEST:-/var/apps/fn-reverseproxy/target}/main" ]; then
+    echo "Stopping service before uninstall..."
+    "${TRIM_APPDEST:-/var/apps/fn-reverseproxy/target}/main" stop
+else
+    # Try alternative path
+    if [ -x "${TRIM_APPDEST:-/var/apps/fn-reverseproxy/target}/cmd/main" ]; then
+        echo "Stopping service before uninstall..."
+        "${TRIM_APPDEST:-/var/apps/fn-reverseproxy/target}/cmd/main" stop
+    else
+        echo "Service control script not found, skipping stop"
+    fi
+fi
+
+exit 0

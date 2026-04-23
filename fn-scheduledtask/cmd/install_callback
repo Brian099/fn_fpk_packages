@@ -1,0 +1,16 @@
+#!/bin/bash
+
+VENV_DIR="${TRIM_PKGVAR}/venv"
+VENV_PYTHON="${VENV_DIR}/bin/python3"
+VENV_PIP="${VENV_DIR}/bin/pip"
+REQUIREMENTS="${TRIM_APPDEST}/server/requirements.txt"
+
+echo "Creating Python virtual environment..."
+mkdir -p "${TRIM_PKGVAR}"
+python3 -m venv "${VENV_DIR}"
+
+echo "Installing Python dependencies from requirements.txt..."
+"${VENV_PIP}" install --quiet -r "${REQUIREMENTS}"
+
+echo "fn-scheduledtask installation completed"
+exit 0

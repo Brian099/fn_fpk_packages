@@ -1,0 +1,20 @@
+#!/bin/bash
+
+chmod +x ${TRIM_APPDEST}/ui/*.cgi 2>/dev/null || true
+chmod +x ${TRIM_APPDEST}/www/*.cgi 2>/dev/null || true
+
+CONF_FILE="${TRIM_PKGVAR}/proxy.conf"
+
+mkdir -p "${TRIM_PKGVAR}"
+
+if [ ! -f "${CONF_FILE}" ]; then
+    cat >"${CONF_FILE}" <<'EOF'
+# fn-reverseproxy configuration
+# Proxy listen ports are auto-managed by rules
+# TLS certificates auto-discovered from FeiNiu OS
+# Admin API: Unix Socket only (no TCP port)
+EOF
+    echo "Default config created: ${CONF_FILE}"
+fi
+
+exit 0
