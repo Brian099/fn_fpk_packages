@@ -13,9 +13,6 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  REPO: ${{ github.repository }}
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -33,6 +30,7 @@ jobs:
 
       - name: Build
         run: |
+          REPO="${{ github.repository }}"
           TAG=$(date +"%Y.%m.%d-%H%M")
           echo "TAG=${TAG}" >> $GITHUB_ENV
 
@@ -42,12 +40,13 @@ jobs:
           echo "| 图标 | 应用名称 | 版本 | 平台 | 大小 | 描述 |" > apps-list.md
           echo "| :---: | :--- | :--- | :--- | :--- | :--- |" >> apps-list.md
 
-          mkdir -p metadata
+          APPS=()
           for APP in fn-*; do
             [ -f "${APP}/norelease" ] && continue
             [ -f "${APP}/manifest" ] || continue
             echo "Building ${APP} ..."
 
+            # ./fnpack create ${APP} --without-ui true  # 如果不需要 UI, 可以启用此行
             ./fnpack build --directory ${APP}
 
             APPNAME=$(grep -E '^appname[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
@@ -58,110 +57,32 @@ jobs:
 
             mv -f "${APPNAME}.fpk" "${APPNAME}_v${VERSION}.fpk"
 
-            ICON_URL="https://github.com/${REPO}/raw/main/${APP}/ICON.PNG"
+            ICON_URL="https://github.com/${{ github.repository }}/raw/main/${APP}/ICON.PNG"
             SIZE=$(stat -c%s "${APPNAME}_v${VERSION}.fpk" 2>/dev/null | awk '{printf "%.2f MB",$1/1024/1024}')
 
             echo "| <img src=\"${ICON_URL}\" width=\"48\" height=\"48\"> | ${APPNAME} | v${VERSION} | ${PLATFORM} | ${SIZE} | ${DESC} |" >> apps-list.md
 
-            # Extract metadata for fnpack.json
-            SIZE_NUM=$(stat -c%s "${APPNAME}_v${VERSION}.fpk" 2>/dev/null | awk '{printf "%.2f",$1/1024/1024}')
+            # For fnpack.json
+            SIZE_NUM=$(stat -c%s "${APPNAME}_v${VERSION}.fpk" 2>/dev/null | awk '{printf "%10.3f",$1/1024/1024}')
             NAME=$(grep -E '^display_name[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
             TYPE=$(grep -E '^install_type[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
             MAINTAINER=$(grep -E '^maintainer[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
             MAINTAINER_URL=$(grep -E '^maintainer_url[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
-            DISTRIBUTOR=$(grep -E '^distributor[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
-            DISTRIBUTOR_URL=$(grep -E '^distributor_url[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
             [ -z "$MAINTAINER" ] && MAINTAINER="Ing"
             [ -z "$MAINTAINER_URL" ] && MAINTAINER_URL="https://github.com/${REPO}"
             LABELS="工具"
             [ -f "$APP/labels.txt" ] && LABELS=$(cat "$APP/labels.txt" | xargs)
-
-            if [ "$TYPE" = "root" ]; then
-                INSTALL_TYPE="系统空间"
-            else
-                INSTALL_TYPE="用户空间"
-            fi
             
-            # Save metadata to individual JSON
-            jq -n --arg app "$APPNAME" \
-                  --arg name "$NAME" \
-                  --arg desc "$DESC" \
-                  --arg labs "$LABELS" \
-                  --arg ver "V${VERSION}" \
-                  --arg author "$MAINTAINER" \
-                  --arg author_url "$MAINTAINER_URL" \
-                  --arg dist "$DISTRIBUTOR" \
-                  --arg dist_url "$DISTRIBUTOR_URL" \
-                  --arg type "$INSTALL_TYPE" \
-                  --arg size "$SIZE_NUM" \
-                  --arg platform "$PLATFORM" \
-                  --arg file "${APPNAME}_v${VERSION}.fpk" \
-                  --arg bug "https://github.com/${REPO}/issues" \
-                  '{$app: {display_name: $name, version: $ver, desc: $desc, labels: $labs, install_type: $type, size: $size, platform: $platform, author: $author, author_url: $author_url, distributor: $dist, distributor_url: $dist_url, bug_report_url: $bug, filename: $file}}' > "metadata/${APPNAME}.json"
+            APPS+=("\"${APP}\": {\"display_name\": \"${NAME}\", \"desc\": \"${DESC}\", \"labels\": \"${LABELS}\", \"version\": \"${VERSION}\", \"download_url\": \"https://github.com/${{ github.repository }}/releases/download/${TAG}/${APPNAME}_v${VERSION}.fpk\", \"author\": \"${MAINTAINER}\", \"author_url\": \"${MAINTAINER_URL}\", \"bug_report_url\": \"https://github.com/${{ github.repository }}/issues\", \"install_type\": \"${TYPE}\", \"size\": \"${SIZE_NUM}\", \"history\": {\"v${VERSION}\": \"Initial release of ${APPNAME} package.\"}}")
           done
 
           echo "" >> apps-list.md
           echo "![](https://img.shields.io/github/downloads/${REPO}/${TAG}/total)" >> apps-list.md
 
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: fn-apps
-          path: "*.fpk"
-          retention-days: 5
-
-      - name: Release
-        if: success() && !cancelled()
-        uses: ncipollo/release-action@v1
-        with:
-          token: ${{ secrets.RELEASE }}
-          tag: ${{ env.TAG }}
-          artifacts: "*.fpk"
-          bodyFile: "apps-list.md"
-
-      - name: Update Metadata and Push
-        if: success() && !cancelled()
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "Fetching release asset URLs for tag: ${TAG}..."
-          
-          # 增加重试逻辑，等待 Release 资源就绪
-          MAX_RETRIES=5
-          RETRY_COUNT=0
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            ASSETS_JSON=$(gh release view "${TAG}" --repo "${REPO}" --json assets --jq '.assets' 2>/dev/null || echo "[]")
-            ASSET_COUNT=$(echo "$ASSETS_JSON" | jq 'length')
-            if [ "$ASSET_COUNT" -gt 0 ]; then
-              echo "Found $ASSET_COUNT assets in release."
-              echo "Asset names: $(echo "$ASSETS_JSON" | jq -r '.[].name' | xargs)"
-              break
-            fi
-            echo "Assets not ready yet, retrying in 10s... ($((RETRY_COUNT+1))/$MAX_RETRIES)"
-            sleep 10
-            RETRY_COUNT=$((RETRY_COUNT+1))
-          done
-          
-          if [ ! -f fnpack.json ]; then echo "{}" > fnpack.json; fi
-
-          UPDATED=false
-          for meta in metadata/*.json; do
-            APPNAME=$(basename "$meta" .json)
-            FILENAME=$(jq -r --arg app "$APPNAME" '.[$app].filename' "$meta")
-            echo "Searching for $APPNAME asset: $FILENAME"
-            DL_URL=$(echo "$ASSETS_JSON" | jq -r --arg file "$FILENAME" '.[] | select(.name == $file) | .browserDownloadUrl')
-            
-            if [ -n "$DL_URL" ] && [ "$DL_URL" != "null" ]; then
-              echo "Found URL for $APPNAME: $DL_URL"
-              # 更新下载地址并移除临时文件名
-              jq --arg app "$APPNAME" --arg dl "$DL_URL" '.[$app].download_url = $dl | del(.[$app].filename)' "$meta" > "${meta}.tmp" && mv "${meta}.tmp" "$meta"
-              # 增量更新到主 fnpack.json
-              jq -s '.[0] * .[1]' fnpack.json "$meta" > fnpack.json.tmp && mv fnpack.json.tmp fnpack.json
-              UPDATED=true
-            else
-              echo "::warning:: Download URL not found for $FILENAME"
-            fi
-          done
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt update >/dev/null 2>&1 && sudo apt install -y jq >/dev/null 2>&1
+          fi
+          echo {$(IFS=,; echo "${APPS[*]}")} | jq . >fnpack.json
 
           # Update README.md
           python3 - << 'EOF'
@@ -179,64 +100,140 @@ jobs:
                   new_readme = parts_start[0] + start_marker + '\n' + apps_list + '\n' + end_marker + parts_end[1]
                   with open('README.md', 'w', encoding='utf-8') as f:
                       f.write(new_readme)
-                  print("README.md updated.")
           EOF
 
-          # Commit and Push (Robust way)
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
-          
-          git add -f fnpack.json README.md
-          if ! git diff-index --quiet HEAD; then
-            git commit -m "chore: update metadata and readme [skip ci]"
-            git pull --rebase origin main
-            git push origin main
-            echo "Successfully pushed to current repository."
-          else
-            echo "No changes in metadata or README."
+      - name: Check and Push
+        if: success()
+        run: |
+          echo "Git push ..."
+          # git checkout main
+          git pull
+          status=$(git status -s | grep -E "fnpack.json|README.md" | awk '{printf " %s", $2}')
+          if [ -n "${status}" ]; then
+            git add ${status}
+            git commit -m "update $(date '+%Y-%m-%d %H:%M:%S')"
+            git push -f
           fi
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: fn-apps
+          path: "*.fpk"
+          retention-days: 5
+
+      - name: Release
+        if: success() && !cancelled()
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.RELEASE }}
+          tag: ${{ env.TAG }}
+          artifacts: "*.fpk"
+          bodyFile: "apps-list.md"
 
       - name: Upload to FnDepot Repository
         if: success() && !cancelled()
         run: |
-          echo "Syncing to FnDepot repository..."
+          echo "Uploading fpk files to FnDepot repository..."
+
+          # 设置 Git 配置
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
-          
+          REPO="${{ github.repository }}"
+
+          # 克隆目标仓库（使用 RELEASE token）
           git clone "https://${{ secrets.RELEASE }}@github.com/Brian099/FnDepot.git" fndepot-repo
           cd fndepot-repo
-          
-          # 同步图标
-          for meta in ../metadata/*.json; do
-            APPNAME=$(basename "$meta" .json)
-            SOURCE_DIR="../fn-$APPNAME"
-            if [ ! -d "$SOURCE_DIR" ]; then
-              for DIR in ../fn-*; do
-                if [ -f "$DIR/manifest" ] && grep -q "^appname.*=.*$APPNAME" "$DIR/manifest"; then
-                  SOURCE_DIR="$DIR"
-                  break
-                fi
-              done
-            fi
-            
-            if [ -d "$SOURCE_DIR" ]; then
-              mkdir -p "$APPNAME"
-              if [ -f "$SOURCE_DIR/ICON.PNG" ]; then
-                cp "$SOURCE_DIR/ICON.PNG" "$APPNAME/ICON.PNG"
+
+          # 处理每个 fpk 文件
+          for FPK_FILE in ../*.fpk; do
+            if [ -f "$FPK_FILE" ]; then
+              # 从文件名提取应用名称和版本号
+              # 支持两种格式：webops_v1.0.0.fpk 和 webops-v1.0.0.fpk
+              BASENAME=$(basename "$FPK_FILE" .fpk)
+              APPNAME="$BASENAME"
+              VERSION=""
+
+              if [[ "$BASENAME" =~ ^(.+)_v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+                APPNAME="${BASH_REMATCH[1]}"
+                VERSION="${BASH_REMATCH[2]}"
+              elif [[ "$BASENAME" =~ ^(.+)-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+                APPNAME="${BASH_REMATCH[1]}"
+                VERSION="${BASH_REMATCH[2]}"
               fi
+
+              echo "Processing: $BASENAME.fpk -> $APPNAME/$APPNAME.fpk"
+
+              # 创建应用目录（如果不存在）
+              mkdir -p "$APPNAME"
+
+                  # 寻找源目录以获取更多信息
+                  SOURCE_DIR="../fn-$APPNAME"
+                  if [ ! -d "$SOURCE_DIR" ]; then
+                    for DIR in ../fn-*; do
+                      if [ -f "$DIR/manifest" ] && grep -q "^appname.*=.*$APPNAME" "$DIR/manifest"; then
+                        SOURCE_DIR="$DIR"
+                        break
+                      fi
+                    done
+                  fi
+
+                  # 提取元数据
+                  MANIFEST="$SOURCE_DIR/manifest"
+                  DISPLAY_NAME=$(grep -E '^display_name[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  DESC=$(grep -E '^desc[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  MAINTAINER=$(grep -E '^maintainer[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  MAINTAINER_URL=$(grep -E '^maintainer_url[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  DISTRIBUTOR=$(grep -E '^distributor[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  DISTRIBUTOR_URL=$(grep -E '^distributor_url[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  RAW_TYPE=$(grep -E '^install_type[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  PLATFORM=$(grep -E '^platform[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  [ -z "$PLATFORM" ] && PLATFORM="x86"
+                  
+                  LABELS="工具"
+                  [ -f "$SOURCE_DIR/labels.txt" ] && LABELS=$(cat "$SOURCE_DIR/labels.txt" | xargs)
+                  
+                  if [ "$RAW_TYPE" = "root" ]; then
+                      INSTALL_TYPE="系统空间"
+                  else
+                      INSTALL_TYPE="用户空间"
+                  fi
+                  
+                  SIZE=$(stat -c%s "$FPK_FILE" | awk '{printf "%.2f",$1/1024/1024}')
+
+                  # 同步图标
+                  if [ -f "$SOURCE_DIR/ICON.PNG" ]; then
+                    cp "$SOURCE_DIR/ICON.PNG" "$APPNAME/ICON.PNG"
+                    echo "Copied ICON.PNG for $APPNAME"
+                  fi
+
+                  # 同步更新根目录 fnpack.json 中多个字段（如果不存在则新增）
+                  jq --arg app "$APPNAME" \
+                     --arg name "$DISPLAY_NAME" \
+                     --arg ver "V${VERSION}" \
+                     --arg desc "$DESC" \
+                     --arg labs "$LABELS" \
+                     --arg type "$INSTALL_TYPE" \
+                     --arg size "$SIZE" \
+                     --arg author "$MAINTAINER" \
+                     --arg author_url "$MAINTAINER_URL" \
+                     --arg dist "$DISTRIBUTOR" \
+                     --arg dist_url "$DISTRIBUTOR_URL" \
+                     --arg plat "$PLATFORM" \
+                     --arg bug "https://github.com/${REPO}/issues" \
+                     --arg dl "https://github.com/${REPO}/releases/download/${TAG}/${BASENAME}.fpk" \
+                     '.[$app].display_name = $name | .[$app].version = $ver | .[$app].desc = $desc | .[$app].labels = $labs | .[$app].install_type = $type | .[$app].size = $size | .[$app].author = $author | .[$app].author_url = $author_url | .[$app].distributor = $dist | .[$app].distributor_url = $dist_url | .[$app].platform = $plat | .[$app].bug_report_url = $bug | .[$app].download_url = $dl' \
+                     fnpack.json > fnpack.json.tmp && mv fnpack.json.tmp fnpack.json
+                  echo "Updated or added fnpack.json metadata for $APPNAME"
             fi
           done
-          
-          # 更新 FnDepot 的 fnpack.json (增量合并)
-          echo "Merging fnpack.json..."
-          jq -s '.[0] * .[1]' fnpack.json ../fnpack.json > fnpack.json.tmp && mv fnpack.json.tmp fnpack.json
-          
-          git add -A
-          if ! git diff-index --quiet HEAD; then
-            echo "Committing changes to FnDepot..."
-            git commit -m "Update from ${{ github.repository }} - ${{ env.TAG }}"
-            git push origin main
-            echo "Successfully uploaded to FnDepot repository."
+
+          # 提交并推送到目标仓库
+          git add .
+          if git diff-index --quiet HEAD; then
+            echo "No changes to commit"
           else
-            echo "No changes for FnDepot repository."
+            git commit -m "Update fpk files from ${{ github.repository }} - ${{ env.TAG }}"
+            git push origin main
+            echo "Successfully uploaded to FnDepot repository"
           fi
