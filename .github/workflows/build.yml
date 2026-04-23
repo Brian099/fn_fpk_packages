@@ -166,11 +166,6 @@ jobs:
               # 创建应用目录（如果不存在）
               mkdir -p "$APPNAME"
 
-              # 复制文件到目标目录并重命名为 appname.fpk
-              cp "$FPK_FILE" "$APPNAME/$APPNAME.fpk"
-
-              echo "Copied $BASENAME.fpk to $APPNAME/$APPNAME.fpk"
-
                   # 寻找源目录以获取更多信息
                   SOURCE_DIR="../fn-$APPNAME"
                   if [ ! -d "$SOURCE_DIR" ]; then
@@ -225,7 +220,8 @@ jobs:
                      --arg dist_url "$DISTRIBUTOR_URL" \
                      --arg plat "$PLATFORM" \
                      --arg bug "https://github.com/${REPO}/issues" \
-                     '.[$app].display_name = $name | .[$app].version = $ver | .[$app].desc = $desc | .[$app].labels = $labs | .[$app].install_type = $type | .[$app].size = $size | .[$app].author = $author | .[$app].author_url = $author_url | .[$app].distributor = $dist | .[$app].distributor_url = $dist_url | .[$app].platform = $plat | .[$app].bug_report_url = $bug' \
+                     --arg dl "https://github.com/${REPO}/releases/download/${TAG}/${BASENAME}.fpk" \
+                     '.[$app].display_name = $name | .[$app].version = $ver | .[$app].desc = $desc | .[$app].labels = $labs | .[$app].install_type = $type | .[$app].size = $size | .[$app].author = $author | .[$app].author_url = $author_url | .[$app].distributor = $dist | .[$app].distributor_url = $dist_url | .[$app].platform = $plat | .[$app].bug_report_url = $bug | .[$app].download_url = $dl' \
                      fnpack.json > fnpack.json.tmp && mv fnpack.json.tmp fnpack.json
                   echo "Updated or added fnpack.json metadata for $APPNAME"
             fi
