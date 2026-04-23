@@ -124,24 +124,38 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Fetching release asset URLs..."
-          ASSETS_JSON=$(gh release view "${TAG}" --repo "${REPO}" --json assets --jq '.assets')
+          echo "Fetching release asset URLs for tag: ${TAG}..."
+          
+          # 增加重试逻辑，等待 Release 资源就绪
+          MAX_RETRIES=5
+          RETRY_COUNT=0
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            ASSETS_JSON=$(gh release view "${TAG}" --repo "${REPO}" --json assets --jq '.assets' 2>/dev/null || echo "[]")
+            ASSET_COUNT=$(echo "$ASSETS_JSON" | jq 'length')
+            if [ "$ASSET_COUNT" -gt 0 ]; then
+              echo "Found $ASSET_COUNT assets."
+              break
+            fi
+            echo "Assets not ready yet, retrying in 10s... ($((RETRY_COUNT+1))/$MAX_RETRIES)"
+            sleep 10
+            RETRY_COUNT=$((RETRY_COUNT+1))
+          done
           
           if [ ! -f fnpack.json ]; then echo "{}" > fnpack.json; fi
 
+          UPDATED=false
           for meta in metadata/*.json; do
             APPNAME=$(basename "$meta" .json)
             FILENAME=$(jq -r --arg app "$APPNAME" '.[$app].filename' "$meta")
             DL_URL=$(echo "$ASSETS_JSON" | jq -r --arg file "$FILENAME" '.[] | select(.name == $file) | .browserDownloadUrl')
             
             if [ -n "$DL_URL" ] && [ "$DL_URL" != "null" ]; then
-              echo "Found URL for $APPNAME: $DL_URL"
-              # 更新下载地址并移除临时文件名
+              echo "Updating $APPNAME with URL: $DL_URL"
               jq --arg app "$APPNAME" --arg dl "$DL_URL" '.[$app].download_url = $dl | del(.[$app].filename)' "$meta" > "${meta}.tmp" && mv "${meta}.tmp" "$meta"
-              # 增量更新到主 fnpack.json
               jq -s '.[0] * .[1]' fnpack.json "$meta" > fnpack.json.tmp && mv fnpack.json.tmp fnpack.json
+              UPDATED=true
             else
-              echo "Warning: Download URL not found for $FILENAME"
+              echo "::warning:: Download URL not found for $FILENAME"
             fi
           done
 
@@ -161,23 +175,27 @@ jobs:
                   new_readme = parts_start[0] + start_marker + '\n' + apps_list + '\n' + end_marker + parts_end[1]
                   with open('README.md', 'w', encoding='utf-8') as f:
                       f.write(new_readme)
+                  print("README.md updated.")
           EOF
 
-          # Commit and Push
+          # Commit and Push (Robust way)
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
-          git pull
-          status=$(git status -s | grep -E "fnpack.json|README.md" | awk '{printf " %s", $2}')
-          if [ -n "${status}" ]; then
-            git add ${status}
-            git commit -m "update metadata and readme $(date '+%Y-%m-%d %H:%M:%S')"
-            git push
+          
+          git add fnpack.json README.md
+          if ! git diff-index --quiet HEAD; then
+            git commit -m "chore: update metadata and readme [skip ci]"
+            git pull --rebase origin main
+            git push origin main
+            echo "Successfully pushed to current repository."
+          else
+            echo "No changes in metadata or README."
           fi
 
       - name: Upload to FnDepot Repository
         if: success() && !cancelled()
         run: |
-          echo "Uploading to FnDepot repository..."
+          echo "Syncing to FnDepot repository..."
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
           
@@ -197,17 +215,24 @@ jobs:
               done
             fi
             
-            mkdir -p "$APPNAME"
-            if [ -f "$SOURCE_DIR/ICON.PNG" ]; then
-              cp "$SOURCE_DIR/ICON.PNG" "$APPNAME/ICON.PNG"
+            if [ -d "$SOURCE_DIR" ]; then
+              mkdir -p "$APPNAME"
+              if [ -f "$SOURCE_DIR/ICON.PNG" ]; then
+                cp "$SOURCE_DIR/ICON.PNG" "$APPNAME/ICON.PNG"
+              fi
             fi
           done
           
           # 更新 FnDepot 的 fnpack.json (增量合并)
+          echo "Merging fnpack.json..."
           jq -s '.[0] * .[1]' fnpack.json ../fnpack.json > fnpack.json.tmp && mv fnpack.json.tmp fnpack.json
           
           git add .
           if ! git diff-index --quiet HEAD; then
+            echo "Committing changes to FnDepot..."
             git commit -m "Update from ${{ github.repository }} - ${{ env.TAG }}"
             git push origin main
+            echo "Successfully uploaded to FnDepot repository."
+          else
+            echo "No changes for FnDepot repository."
           fi
