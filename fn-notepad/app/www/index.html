@@ -14,7 +14,7 @@
     <aside class="sidebar">
         <div class="sidebar-header">
             <i data-lucide="sticky-note"></i>
-            <span>便签记事本</span>
+            <span data-i18n="app_title">便签记事本</span>
         </div>
         <nav>
             <div class="nav-item active" onclick="filterNotes('all', event)">
@@ -46,7 +46,7 @@
         <header class="top-bar">
             <div class="search-bar">
                 <i data-lucide="search" style="width:18px; opacity:0.5;"></i>
-                <input type="text" placeholder="搜索便签..." id="searchInput">
+                <input type="text" data-i18n="search_placeholder" placeholder="搜索便签..." id="searchInput">
             </div>
             <div class="user-actions">
                 <button id="batchSelectBtn" class="btn-icon-text" onclick="toggleBatchMode()">
@@ -59,7 +59,7 @@
         <!-- New Selection Bar -->
         <div id="selectionBar" class="selection-overlay">
             <div class="selection-info">
-                <button class="btn-icon" onclick="toggleBatchMode()" title="退出选择">
+                <button class="btn-icon" onclick="toggleBatchMode()" data-i18n="btn_exit_batch" title="退出选择">
                     <i data-lucide="x"></i>
                 </button>
                 <span id="selectionCountText">已选中 0 项</span>
@@ -121,9 +121,14 @@
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
                 <input type="text" id="modalTitle" data-i18n="modal_placeholder_title" placeholder="标题"
                     style="width:90%; font-size:24px; font-weight:600; border:none; background:transparent; outline:none; color:var(--text-color);">
-                <span onclick="togglePin()" style="cursor:pointer; display:flex; align-items:center; justify-content:center;">
-                    <i data-lucide="pin" id="modalPin" style="width:24px; height:24px; color:var(--text-color); opacity:0.3;"></i>
-                </span>
+                <div style="display:flex; align-items:center; gap:15px;">
+                    <span onclick="toggleNotePrivacy()" id="modalLockBtn" style="cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                        <i data-lucide="lock" id="modalLock" style="width:24px; height:24px; color:var(--text-color); opacity:0.3;"></i>
+                    </span>
+                    <span onclick="togglePin()" style="cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                        <i data-lucide="pin" id="modalPin" style="width:24px; height:24px; color:var(--text-color); opacity:0.3;"></i>
+                    </span>
+                </div>
             </div>
             <div class="modal-separator"></div>
             <textarea id="modalContent" data-i18n="modal_placeholder_content" placeholder="开始记录..."
@@ -157,6 +162,21 @@
                     <button class="btn btn-outline" onclick="closeModal()" data-i18n="modal_btn_cancel">取消</button>
                     <button class="btn btn-primary" onclick="saveNote()" data-i18n="modal_btn_save">保存</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Prompt Modal -->
+    <div id="passwordModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); backdrop-filter:blur(10px); z-index:3000; justify-content:center; align-items:center;">
+        <div class="modal-container" style="background:var(--card-bg); backdrop-filter:var(--blur); width:90%; max-width:400px; border-radius:16px; padding:30px; box-shadow:var(--shadow); border:1px solid var(--glass-border);">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:20px;">
+                <i data-lucide="lock" style="width:24px; color:var(--primary-color);"></i>
+                <h3 id="passwordModalTitle" style="font-size:18px; margin:0;">请输入卡片密码</h3>
+            </div>
+            <input type="password" id="notePasswordField" data-i18n="password_placeholder" placeholder="密码" style="width:100%; padding:12px; border-radius:8px; border:1px solid var(--border-color); background:transparent; color:var(--text-color); outline:none; font-size:16px; margin-bottom:20px;">
+            <div style="display:flex; gap:12px; justify-content:flex-end;">
+                <button class="btn btn-outline" onclick="closePasswordModal()" data-i18n="modal_btn_cancel">取消</button>
+                <button class="btn btn-primary" id="passwordConfirmBtn" data-i18n="password_btn_confirm">确定</button>
             </div>
         </div>
     </div>

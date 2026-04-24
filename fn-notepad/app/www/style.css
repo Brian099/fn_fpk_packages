@@ -794,9 +794,45 @@ body {
     background: rgba(0, 0, 0, 0.02);
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-    width: 6px;
+/* Private Note Styling */
+.note-card.private .note-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    opacity: 0.6;
+    text-align: center;
+}
+
+.note-card.private .note-content .lock-text {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.note-card.private .note-content i {
+    width: 48px;
+    height: 48px;
+    color: var(--primary-color);
+}
+
+#passwordModal {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+#passwordModal.show {
+    opacity: 1;
+    display: flex !important;
+}
+
+#passwordModal > div {
+    transform: translateY(20px);
+    transition: transform 0.3s ease;
+}
+
+#passwordModal.show > div {
+    transform: translateY(0);
 }
 ::-webkit-scrollbar-track {
     background: transparent;

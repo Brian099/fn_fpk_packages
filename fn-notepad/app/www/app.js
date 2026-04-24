@@ -10,6 +10,9 @@ let currentLang = localStorage.getItem('fn_notepad_lang') || 'zh';
 let isBatchMode = false;
 let selectedNotes = new Set();
 let lastSelectedId = null;
+let unlockedContentCache = new Map(); // Session cache for unlocked notes
+let isNotePrivate = false;
+let notePassword = "";
 
 // Pagination state
 let serverOffset = 0;
@@ -19,6 +22,7 @@ const PAGE_SIZE = 5;
 
 const translations = {
     zh: {
+        app_title: '便签记事本',
         nav_all: '全部便签',
         nav_pinned: '已置顶',
         nav_reminder: '提醒事项',
@@ -42,9 +46,25 @@ const translations = {
         import_error: '导入失败，请确保文件格式正确。',
         no_title: '无标题',
         select_all: '全选',
-        deselect_all: '取消全选'
+        deselect_all: '取消全选',
+        lock_note: '加密便签',
+        unlock_note: '取消加密',
+        enter_password: '请输入卡片密码',
+        password_wrong: '密码错误',
+        set_password: '设置访问密码',
+        password_btn_confirm: '确定',
+        backup_password_prompt: '请设置备份加密密码 (必填)',
+        backup_password_import: '此备份文件已加密，请输入密码',
+        password_required: '请设置密码以保护您的备份数据',
+        note_encrypted: '此便签已加密',
+        search_placeholder: '搜索便签...',
+        btn_exit_batch: '退出选择',
+        selection_count: '已选中 {count} 项',
+        select_all_group: '全选该日',
+        password_placeholder: '密码'
     },
     en: {
+        app_title: 'NotePad',
         nav_all: 'All Notes',
         nav_pinned: 'Pinned',
         nav_reminder: 'Reminders',
@@ -68,7 +88,22 @@ const translations = {
         import_error: 'Import failed, please ensure the file format is correct.',
         no_title: 'No Title',
         select_all: 'Select All',
-        deselect_all: 'Deselect All'
+        deselect_all: 'Deselect All',
+        lock_note: 'Lock Note',
+        unlock_note: 'Unlock Note',
+        enter_password: 'Enter Card Password',
+        password_wrong: 'Incorrect password',
+        set_password: 'Set Access Password',
+        password_btn_confirm: 'Confirm',
+        backup_password_prompt: 'Set backup password (required)',
+        backup_password_import: 'This backup is encrypted, please enter password',
+        password_required: 'Please set a password to protect your backup data',
+        note_encrypted: 'This note is encrypted',
+        search_placeholder: 'Search notes...',
+        btn_exit_batch: 'Exit Selection',
+        selection_count: 'Selected {count} items',
+        select_all_group: 'Select All for this day',
+        password_placeholder: 'Password'
     }
 };
 
@@ -131,7 +166,7 @@ function updateSelectionUI() {
     }
     
     if (selectionCountText) {
-        selectionCountText.textContent = `已选中 ${selectedNotes.size} 项`;
+        selectionCountText.textContent = translations[currentLang].selection_count.replace('{count}', selectedNotes.size);
     }
 }
 
@@ -219,33 +254,48 @@ function applyTranslations() {
         if (t[key]) {
             if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
                 el.placeholder = t[key];
-            } else {
+            }
+            if (el.hasAttribute('title')) {
+                el.title = t[key];
+            }
+            // Update text content only if the element has no child elements (like icons)
+            if (el.children.length === 0 && el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') {
                 el.textContent = t[key];
             }
         }
     });
     const langSelect = document.getElementById('langSelect');
     if (langSelect) langSelect.value = currentLang;
+    
+    // Update dynamic UI elements
+    updateSelectionUI();
     renderNotesDisplay();
 }
 
 // Data Management
 async function exportNotes() {
-    try {
-        const response = await fetch('api/export-notes');
-        if (response.ok) {
-            const notesData = await response.json();
-            const dataStr = JSON.stringify(notesData, null, 2);
-            const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-            const exportFileDefaultName = `fn_notepad_backup_${new Date().toISOString().split('T')[0]}.json`;
-            const linkElement = document.createElement('a');
-            linkElement.setAttribute('href', dataUri);
-            linkElement.setAttribute('download', exportFileDefaultName);
-            linkElement.click();
+    window.showPasswordPrompt(translations[currentLang].backup_password_prompt, async (password) => {
+        if (!password) {
+            alert(translations[currentLang].password_required);
+            return;
         }
-    } catch (e) {
-        console.error('Export failed:', e);
-    }
+        try {
+            window.closePasswordModal();
+            const response = await fetch(`api/export-notes?password=${encodeURIComponent(password)}`);
+            if (response.ok) {
+                const backupData = await response.json();
+                const dataStr = JSON.stringify(backupData, null, 2);
+                const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+                const exportFileDefaultName = `fn_notepad_backup_${new Date().toISOString().split('T')[0]}.json`;
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', dataUri);
+                linkElement.setAttribute('download', exportFileDefaultName);
+                linkElement.click();
+            }
+        } catch (e) {
+            console.error('Export failed:', e);
+        }
+    });
 }
 
 function importNotes(event) {
@@ -255,17 +305,31 @@ function importNotes(event) {
     const reader = new FileReader();
     reader.onload = async (e) => {
         try {
-            const importedNotes = JSON.parse(e.target.result);
-            if (Array.isArray(importedNotes)) {
-                const response = await fetch('api/save-notes', {
+            const backupFile = JSON.parse(e.target.result);
+            
+            const doImport = async (password = "") => {
+                const response = await fetch(`api/save-notes?password=${encodeURIComponent(password)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(importedNotes)
+                    body: JSON.stringify(backupFile)
                 });
                 if (response.ok) {
                     refreshNotes();
                     alert(translations[currentLang].import_success);
+                    if (password) window.closePasswordModal();
+                } else if (response.status === 401) {
+                    alert(translations[currentLang].password_wrong);
+                } else {
+                    alert(translations[currentLang].import_error);
                 }
+            };
+
+            if (backupFile.isEncrypted) {
+                window.showPasswordPrompt(translations[currentLang].backup_password_import, (password) => {
+                    doImport(password);
+                });
+            } else {
+                doImport();
             }
         } catch (err) {
             alert(translations[currentLang].import_error);
@@ -287,6 +351,32 @@ function updateModalPin() {
         currentModalPin.style.color = isPinned ? 'var(--primary-color)' : 'var(--text-color)';
     }
 }
+
+// Password Modal Helpers
+window.closePasswordModal = () => {
+    const modal = document.getElementById('passwordModal');
+    modal.classList.remove('show');
+    setTimeout(() => modal.style.display = 'none', 300);
+    document.getElementById('notePasswordField').value = '';
+};
+
+window.showPasswordPrompt = (title, onConfirm) => {
+    const modal = document.getElementById('passwordModal');
+    const titleEl = document.getElementById('passwordModalTitle');
+    const confirmBtn = document.getElementById('passwordConfirmBtn');
+    
+    titleEl.textContent = title || translations[currentLang].enter_password;
+    modal.style.display = 'flex';
+    setTimeout(() => modal.classList.add('show'), 10);
+    document.getElementById('notePasswordField').focus();
+    
+    confirmBtn.onclick = () => {
+        const password = document.getElementById('notePasswordField').value;
+        if (password) {
+            onConfirm(password);
+        }
+    };
+};
 
 // Render Notes
 let lastRenderedDate = null;
@@ -364,7 +454,7 @@ function renderNotes(notesToRender, append = false) {
                     const iconColor = allSelected ? 'var(--primary-color)' : 'var(--text-color)';
                     const opacity = allSelected ? '1' : '0.3';
                     headerContent += `<div style="display:flex; align-items:center; gap:8px;">
-                        <span style="font-size:12px; opacity:0.5; font-weight:normal;">全选该日</span>
+                        <span style="font-size:12px; opacity:0.5; font-weight:normal;">${translations[currentLang].select_all_group}</span>
                         <i data-lucide="${icon}" style="width:20px; height:20px; color:${iconColor}; opacity:${opacity};"></i>
                     </div>`;
                 }
@@ -429,19 +519,29 @@ function createNoteCard(note) {
     }
 
     // Use marked for content rendering if available
-    const rawContent = note.content;
-    const renderedContent = typeof marked !== 'undefined' ? marked.parse(rawContent) : rawContent.replace(/\n/g, '<br>');
+    let rawContent = note.content;
+    const isPrivate = note.isPrivate && !unlockedContentCache.has(note.id);
+    
+    if (isPrivate) {
+        card.classList.add('private');
+        rawContent = '';
+    }
+
+    const renderedContent = isPrivate 
+        ? `<i data-lucide="lock"></i><div class="lock-text">${translations[currentLang].note_encrypted}</div>` 
+        : (typeof marked !== 'undefined' ? marked.parse(rawContent) : rawContent.replace(/\n/g, '<br>'));
 
     card.innerHTML = `
         ${checkboxHtml}
         <div class="note-title" title="${(note.title || translations[currentLang].no_title).replace(/"/g, '&quot;')}">${note.title || translations[currentLang].no_title}</div>
-        <div class="note-content markdown-body" title="${rawContent.replace(/"/g, '&quot;')}">${renderedContent}</div>
+        <div class="note-content markdown-body" title="${isPrivate ? '' : rawContent.replace(/"/g, '&quot;')}">${renderedContent}</div>
         <div class="note-footer">
             <div style="display:flex; flex-direction:column; gap:4px;">
                 <span>${new Date(note.updatedAt).toLocaleDateString()}</span>
                 ${note.reminder ? `<span style="color:#d32f2f;"><i data-lucide="bell" style="width:10px; height:10px; display:inline-block; vertical-align:middle;"></i> ${new Date(note.reminder).toLocaleString()}</span>` : ''}
             </div>
             <div style="display:flex; gap: 8px; align-items:center;">
+                ${note.isPrivate ? '<i data-lucide="lock" style="width:14px; height:14px; color:var(--primary-color); opacity:0.8;"></i>' : ''}
                 ${note.pinned ? '<i data-lucide="pin" style="width:14px; height:14px; color:var(--primary-color);"></i>' : ''}
                 ${!isBatchMode ? `<i data-lucide="trash-2" class="delete-icon" style="width:14px; height:14px; color:#d32f2f; cursor:pointer;" onclick="window.deleteSingleNote(event, ${note.id})"></i>` : ''}
             </div>
@@ -500,6 +600,15 @@ function openModal() {
     setTimeout(() => noteModal.classList.add('show'), 10);
     updateColorPicker();
     updateModalPin();
+    updateModalLock();
+}
+
+function updateModalLock() {
+    const lockIcon = document.getElementById('modalLock');
+    if (lockIcon) {
+        lockIcon.style.opacity = isNotePrivate ? '1' : '0.3';
+        lockIcon.style.color = isNotePrivate ? 'var(--primary-color)' : 'var(--text-color)';
+    }
 }
 
 addNoteBtn.onclick = () => {
@@ -509,11 +618,24 @@ addNoteBtn.onclick = () => {
     modalReminder.value = '';
     selectedColor = 'yellow';
     isPinned = false;
+    isNotePrivate = false;
+    notePassword = "";
     openModal();
 };
 
 function closeModal() {
     noteModal.classList.remove('show');
+    
+    // Re-lock the note if it's private to ensure it's masked in the grid
+    if (currentEditingId && isNotePrivate) {
+        unlockedContentCache.delete(currentEditingId);
+        const note = notes.find(n => n.id === currentEditingId);
+        if (note) {
+            note.content = ""; // Mask content in local state
+        }
+        renderNotesDisplay();
+    }
+
     setTimeout(() => {
         noteModal.style.display = 'none';
     }, 300);
@@ -551,6 +673,8 @@ async function saveNote() {
         reminder,
         color: selectedColor,
         pinned: isPinned,
+        isPrivate: isNotePrivate,
+        password: notePassword,
         updatedAt: Date.now()
     };
 
@@ -565,7 +689,10 @@ async function saveNote() {
         notes.unshift(noteData);
     }
 
-    // 3. Immediate UI Feedback
+    // 3. Prepare payload before closeModal can mask the content
+    const payload = JSON.stringify(noteData);
+
+    // 4. Immediate UI Feedback
     renderNotesDisplay();
     closeModal();
 
@@ -573,7 +700,7 @@ async function saveNote() {
         const response = await fetch('api/save-note', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(noteData)
+            body: payload
         });
         
         if (!response.ok) {
@@ -595,14 +722,107 @@ function editNote(id) {
     const note = notes.find(n => n.id === id);
     if (!note) return;
 
-    currentEditingId = id;
+    if (note.isPrivate && !unlockedContentCache.has(id)) {
+        window.showPasswordPrompt(translations[currentLang].enter_password, async (password) => {
+            try {
+                const response = await fetch('api/verify-note', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, password })
+                });
+                if (response.ok) {
+                    const fullNote = await response.json();
+                    unlockedContentCache.set(id, fullNote.content);
+                    // Update the note in local list
+                    const idx = notes.findIndex(n => n.id === id);
+                    notes[idx].content = fullNote.content;
+                    window.closePasswordModal();
+                    openEditModal(note);
+                } else {
+                    alert(translations[currentLang].password_wrong);
+                }
+            } catch (e) {
+                console.error('Verify failed:', e);
+            }
+        });
+    } else {
+        openEditModal(note);
+    }
+}
+
+function openEditModal(note) {
+    currentEditingId = note.id;
     modalTitle.value = note.title;
-    modalContent.value = note.content;
+    modalContent.value = note.isPrivate ? (unlockedContentCache.get(note.id) || "") : note.content;
     modalReminder.value = note.reminder || '';
     selectedColor = note.color;
     isPinned = note.pinned || false;
+    isNotePrivate = note.isPrivate || false;
+    notePassword = note.password || "";
     openModal();
 }
+
+window.toggleNotePrivacy = () => {
+    const note = notes.find(n => n.id === currentEditingId);
+    
+    if (!currentEditingId || !note) {
+        // Handle new notes: just toggle local state
+        if (isNotePrivate) {
+            isNotePrivate = false;
+            notePassword = "";
+            updateModalLock();
+        } else {
+            window.showPasswordPrompt(translations[currentLang].set_password, (password) => {
+                isNotePrivate = true;
+                notePassword = password;
+                window.closePasswordModal();
+                updateModalLock();
+            });
+        }
+        return;
+    }
+
+    if (isNotePrivate) {
+        // Unlock (make public)
+        window.showPasswordPrompt(translations[currentLang].enter_password, async (password) => {
+            const response = await fetch('api/save-note', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...note, isPrivate: false, password: "" })
+            });
+            if (response.ok) {
+                isNotePrivate = false;
+                notePassword = "";
+                note.isPrivate = false;
+                note.password = "";
+                window.closePasswordModal();
+                updateModalLock();
+                renderNotesDisplay();
+            } else {
+                alert(translations[currentLang].password_wrong);
+            }
+        });
+    } else {
+        // Lock
+        window.showPasswordPrompt(translations[currentLang].set_password, async (password) => {
+            const response = await fetch('api/lock-note', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: note.id, password })
+            });
+            if (response.ok) {
+                isNotePrivate = true;
+                notePassword = password;
+                note.isPrivate = true;
+                note.password = password;
+                unlockedContentCache.set(note.id, note.content);
+                window.closePasswordModal();
+                updateModalLock();
+                renderNotesDisplay();
+            }
+        });
+    }
+};
 
 // Search Functionality
 let searchTimeout = null;
