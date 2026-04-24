@@ -20,6 +20,77 @@ let hasMoreOnServer = true;
 let isFetching = false;
 const PAGE_SIZE = 5;
 
+let externalAuth = localStorage.getItem('fn_external_auth') || '';
+
+async function authFetch(url, options = {}) {
+    if (externalAuth) {
+        options.headers = options.headers || {};
+        options.headers['Authorization'] = 'Basic ' + externalAuth;
+    }
+    
+    try {
+        const response = await fetch(url, options);
+        if (response.status === 401) {
+            // If unauthorized, clear invalid credentials and show login
+            if (externalAuth) {
+                localStorage.removeItem('fn_external_auth');
+                externalAuth = '';
+                showToast(translations[currentLang].password_wrong, 'error');
+            }
+            showExternalLogin();
+            return null;
+        }
+        return response;
+    } catch (e) {
+        console.error('Network error:', e);
+        showToast(translations[currentLang].network_error, 'error');
+        return null;
+    }
+}
+
+window.showExternalLogin = () => {
+    const modal = document.getElementById('externalLoginModal');
+    if (modal) {
+        modal.classList.add('show');
+        document.body.classList.add('login-mode');
+        lucide.createIcons();
+    }
+};
+
+window.performExternalLogin = async () => {
+    const user = document.getElementById('extLoginUser').value;
+    const pass = document.getElementById('extLoginPass').value;
+    
+    if (!user || !pass) return;
+    
+    externalAuth = btoa(user + ':' + pass);
+    localStorage.setItem('fn_external_auth', externalAuth);
+    
+    // Try to reload settings to verify
+    const response = await authFetch('api/get-settings');
+    if (response && response.ok) {
+        document.getElementById('externalLoginModal').classList.remove('show');
+        document.body.classList.remove('login-mode');
+        document.body.classList.remove('app-loading');
+        
+        const settings = await response.json();
+        if (settings.is_external) {
+            const logoutBtn = document.getElementById('logoutNavItem');
+            if (logoutBtn) logoutBtn.style.display = 'flex';
+        }
+        refreshNotes();
+    } else {
+        // authFetch already handles clearing and showing toast if 401
+        // But we might want to stay in login mode
+    }
+};
+
+window.performLogout = () => {
+    localStorage.removeItem('fn_external_auth');
+    externalAuth = '';
+    location.reload();
+};
+
 const translations = {
     zh: {
         app_title: '便签记事本',
@@ -61,7 +132,29 @@ const translations = {
         btn_exit_batch: '退出选择',
         selection_count: '已选中 {count} 项',
         select_all_group: '全选该日',
-        password_placeholder: '密码'
+        password_placeholder: '密码',
+        external_access_title: '外部访问',
+        external_access_desc: '允许通过特定端口从局域网或公网访问便签。',
+        external_access_enable: '启用外部访问',
+        external_access_port: '访问端口',
+        btn_save_settings: '应用',
+        port_occupied: '端口 {port} 已被占用，请更换。',
+        settings_applied: '设置已应用',
+        invalid_port: '请输入有效的端口号 (1-65535)',
+        confirm_title: '确认操作',
+        delete_success: '便签已删除',
+        delete_failed: '删除失败',
+        batch_delete_success: '项已删除',
+        save_failed: '保存设置失败',
+        network_error: '网络错误，请稍后重试',
+        external_access_user: '访问账号',
+        external_access_pass: '访问密码',
+        login_title: '安全登录',
+        login_desc: '请输入外网访问账号和密码',
+        login_user_placeholder: '用户名',
+        login_pass_placeholder: '密码',
+        login_btn: '登录',
+        nav_logout: '退出登录'
     },
     en: {
         app_title: 'NotePad',
@@ -103,7 +196,29 @@ const translations = {
         btn_exit_batch: 'Exit Selection',
         selection_count: 'Selected {count} items',
         select_all_group: 'Select All for this day',
-        password_placeholder: 'Password'
+        password_placeholder: 'Password',
+        external_access_title: 'External Access',
+        external_access_desc: 'Allow access to notes from LAN or public network via a specific port.',
+        external_access_enable: 'Enable External Access',
+        external_access_port: 'Access Port',
+        btn_save_settings: 'Apply',
+        port_occupied: 'Port {port} is already in use, please choose another.',
+        settings_applied: 'Settings applied',
+        invalid_port: 'Please enter a valid port (1-65535)',
+        confirm_title: 'Confirm',
+        delete_success: 'Note deleted',
+        delete_failed: 'Delete failed',
+        batch_delete_success: 'items deleted',
+        save_failed: 'Failed to save settings',
+        network_error: 'Network error, please try again',
+        external_access_user: 'External Username',
+        external_access_pass: 'External Password',
+        login_title: 'Secure Login',
+        login_desc: 'Please enter your external access credentials',
+        login_user_placeholder: 'Username',
+        login_pass_placeholder: 'Password',
+        login_btn: 'Login',
+        nav_logout: 'Logout'
     }
 };
 
@@ -206,38 +321,52 @@ window.toggleNoteSelection = (e, id) => {
 
 window.deleteSelected = async () => {
     if (selectedNotes.size === 0) return;
-    if (confirm(translations[currentLang].confirm_batch_delete)) {
-        const ids = Array.from(selectedNotes);
-        try {
-            const response = await fetch('api/batch-delete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(ids)
-            });
-            if (response.ok) {
-                notes = notes.filter(n => !selectedNotes.has(n.id));
-                window.toggleBatchMode();
-                renderNotesDisplay();
+    
+    showConfirmModal(
+        translations[currentLang].confirm_title,
+        translations[currentLang].confirm_batch_delete,
+        async () => {
+            const ids = Array.from(selectedNotes);
+            try {
+                const response = await authFetch('api/batch-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(ids)
+                });
+                if (response && response.ok) {
+                    notes = notes.filter(n => !selectedNotes.has(n.id));
+                    window.toggleBatchMode();
+                    renderNotesDisplay();
+                    showToast(translations[currentLang].selection_count.replace('{count}', ids.length) + ' ' + translations[currentLang].batch_delete_success, 'success');
+                }
+            } catch (e) {
+                console.error('Batch delete failed:', e);
+                showToast(translations[currentLang].delete_failed, 'error');
             }
-        } catch (e) {
-            console.error('Batch delete failed:', e);
         }
-    }
+    );
 };
 
 window.deleteSingleNote = async (e, id) => {
     e.stopPropagation();
-    if (confirm(translations[currentLang].confirm_delete)) {
-        try {
-            const response = await fetch(`api/delete-note?id=${id}`);
-            if (response.ok) {
-                notes = notes.filter(n => n.id !== id);
-                renderNotesDisplay();
+    
+    showConfirmModal(
+        translations[currentLang].confirm_title,
+        translations[currentLang].confirm_delete,
+        async () => {
+            try {
+                const response = await authFetch(`api/delete-note?id=${id}`);
+                if (response && response.ok) {
+                    notes = notes.filter(n => n.id !== id);
+                    renderNotesDisplay();
+                    showToast(translations[currentLang].delete_success, 'success');
+                }
+            } catch (e) {
+                console.error('Delete failed:', e);
+                showToast(translations[currentLang].delete_failed, 'error');
             }
-        } catch (e) {
-            console.error('Delete failed:', e);
         }
-    }
+    );
 };
 
 // i18n
@@ -281,8 +410,8 @@ async function exportNotes() {
         }
         try {
             window.closePasswordModal();
-            const response = await fetch(`api/export-notes?password=${encodeURIComponent(password)}`);
-            if (response.ok) {
+            const response = await authFetch(`api/export-notes?password=${encodeURIComponent(password)}`);
+            if (response && response.ok) {
                 const backupData = await response.json();
                 const dataStr = JSON.stringify(backupData, null, 2);
                 const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
@@ -308,19 +437,19 @@ function importNotes(event) {
             const backupFile = JSON.parse(e.target.result);
             
             const doImport = async (password = "") => {
-                const response = await fetch(`api/save-notes?password=${encodeURIComponent(password)}`, {
+                const response = await authFetch(`api/save-notes?password=${encodeURIComponent(password)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(backupFile)
                 });
-                if (response.ok) {
+                if (response && response.ok) {
                     refreshNotes();
-                    alert(translations[currentLang].import_success);
+                    showToast(translations[currentLang].import_success, 'success');
                     if (password) window.closePasswordModal();
                 } else if (response.status === 401) {
-                    alert(translations[currentLang].password_wrong);
+                    showToast(translations[currentLang].password_wrong, 'error');
                 } else {
-                    alert(translations[currentLang].import_error);
+                    showToast(translations[currentLang].import_error, 'error');
                 }
             };
 
@@ -337,6 +466,129 @@ function importNotes(event) {
     };
     reader.readAsText(file);
 }
+
+// Toast Notifications
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    
+    let icon = 'info';
+    if (type === 'success') icon = 'check-circle';
+    if (type === 'error') icon = 'alert-circle';
+    
+    toast.innerHTML = `
+        <i data-lucide="${icon}"></i>
+        <span>${message}</span>
+    `;
+    
+    container.appendChild(toast);
+    lucide.createIcons();
+    
+    // Trigger animation
+    setTimeout(() => toast.classList.add('show'), 10);
+    
+    // Auto-remove
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 400);
+    }, 3000);
+}
+
+// External Access Settings
+async function loadExternalSettings() {
+    try {
+        const response = await authFetch('api/get-settings');
+        if (response && response.ok) {
+            const settings = await response.json();
+            const toggle = document.getElementById('externalAccessToggle');
+            const portInput = document.getElementById('externalAccessPort');
+            const portSettings = document.getElementById('portSettings');
+            
+            if (toggle) toggle.checked = settings.external_access_enabled;
+            if (portInput) {
+                portInput.value = settings.external_access_port || '8080';
+                portInput.disabled = settings.external_access_enabled;
+            }
+            
+            const userInput = document.getElementById('externalAccessUser');
+            const passInput = document.getElementById('externalAccessPass');
+            if (userInput) userInput.value = settings.external_access_username || '';
+            if (passInput) passInput.value = settings.external_access_password || '';
+            
+            const extSection = document.getElementById('externalAccessSection');
+            const backupSection = document.getElementById('backupSection');
+            const logoutBtn = document.getElementById('logoutNavItem');
+
+            // Update UI based on access mode
+            if (settings.is_external) {
+                if (extSection) extSection.style.display = 'none';
+                if (backupSection) backupSection.style.display = 'none';
+                if (logoutBtn) logoutBtn.style.display = 'flex';
+            } else {
+                if (extSection) extSection.style.display = 'block';
+                if (backupSection) backupSection.style.display = 'block';
+                if (logoutBtn) logoutBtn.style.display = 'none';
+            }
+            
+            return settings.is_external;
+        }
+    } catch (e) {
+        console.error('Failed to load settings:', e);
+    }
+    return null; // Return null to indicate load failure (likely auth)
+}
+
+window.saveExternalSettings = async () => {
+    const toggle = document.getElementById('externalAccessToggle');
+    const portInput = document.getElementById('externalAccessPort');
+    
+    if (!toggle || !portInput) return;
+    
+    const enabled = toggle.checked;
+    const port = portInput.value;
+    
+    if (enabled && (!port || port < 1 || port > 65535)) {
+        showToast(translations[currentLang].invalid_port, 'error');
+        toggle.checked = false;
+        return;
+    }
+    
+    // Optimistically update disabled state
+    portInput.disabled = enabled;
+    
+    try {
+        const response = await authFetch('api/save-settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                external_access_enabled: enabled,
+                external_access_port: port,
+                external_access_username: document.getElementById('externalAccessUser').value,
+                external_access_password: document.getElementById('externalAccessPass').value
+            })
+        });
+        
+        if (response.ok) {
+            showToast(translations[currentLang].settings_applied, 'success');
+        } else {
+            if (response.status === 409) {
+                showToast(translations[currentLang].port_occupied.replace('{port}', port), 'error');
+            } else {
+                showToast(translations[currentLang].save_failed, 'error');
+            }
+            // Rollback
+            toggle.checked = !enabled;
+            portInput.disabled = !enabled;
+        }
+    } catch (e) {
+        console.error('Save settings failed:', e);
+        showToast(translations[currentLang].network_error, 'error');
+        // Rollback
+        toggle.checked = !enabled;
+        portInput.disabled = !enabled;
+    }
+};
 
 // Toggle Pin in Modal
 window.togglePin = () => {
@@ -378,6 +630,32 @@ window.showPasswordPrompt = (title, onConfirm) => {
     };
 };
 
+// Confirmation Modal Helper
+window.showConfirmModal = (title, message, onConfirm) => {
+    const modal = document.getElementById('confirmModal');
+    const titleEl = document.getElementById('confirmModalTitle');
+    const messageEl = document.getElementById('confirmModalMessage');
+    const cancelBtn = document.getElementById('confirmCancelBtn');
+    const confirmBtn = document.getElementById('confirmConfirmBtn');
+    
+    titleEl.textContent = title || translations[currentLang].confirm_title;
+    messageEl.textContent = message;
+    
+    modal.style.display = 'flex';
+    setTimeout(() => modal.classList.add('show'), 10);
+    
+    const close = () => {
+        modal.classList.remove('show');
+        setTimeout(() => modal.style.display = 'none', 300);
+    };
+    
+    cancelBtn.onclick = close;
+    confirmBtn.onclick = () => {
+        close();
+        onConfirm();
+    };
+};
+
 // Render Notes
 let lastRenderedDate = null;
 
@@ -403,9 +681,21 @@ async function refreshNotes() {
     
     if (currentFilter === 'settings') {
         notesGrid.style.display = 'none';
+        addNoteBtn.style.display = 'none';
+        
+        // Hide sensitive sections immediately if we have externalAuth to reduce flash
+        if (externalAuth) {
+            const extSection = document.getElementById('externalAccessSection');
+            const backupSection = document.getElementById('backupSection');
+            if (extSection) extSection.style.display = 'none';
+            if (backupSection) backupSection.style.display = 'none';
+        }
+
+        await loadExternalSettings();
+        
         settingsPanel.style.display = 'flex';
         settingsPanel.style.flexDirection = 'column';
-        addNoteBtn.style.display = 'none';
+        settingsPanel.style.flex = '1';
         return;
     } else {
         notesGrid.style.display = 'grid';
@@ -559,8 +849,8 @@ async function loadMoreNotes() {
     const url = `api/get-notes?offset=${serverOffset}&limit=${PAGE_SIZE}&query=${encodeURIComponent(query)}&filter=${currentFilter}`;
 
     try {
-        const response = await fetch(url);
-        if (response.ok) {
+        const response = await authFetch(url);
+        if (response && response.ok) {
             const data = await response.json();
             if (Array.isArray(data)) {
                 if (data.length < PAGE_SIZE) {
@@ -697,7 +987,7 @@ async function saveNote() {
     closeModal();
 
     try {
-        const response = await fetch('api/save-note', {
+        const response = await authFetch('api/save-note', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: payload
@@ -725,7 +1015,7 @@ function editNote(id) {
     if (note.isPrivate && !unlockedContentCache.has(id)) {
         window.showPasswordPrompt(translations[currentLang].enter_password, async (password) => {
             try {
-                const response = await fetch('api/verify-note', {
+                const response = await authFetch('api/verify-note', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id, password })
@@ -739,7 +1029,7 @@ function editNote(id) {
                     window.closePasswordModal();
                     openEditModal(note);
                 } else {
-                    alert(translations[currentLang].password_wrong);
+                    showToast(translations[currentLang].password_wrong, 'error');
                 }
             } catch (e) {
                 console.error('Verify failed:', e);
@@ -785,7 +1075,7 @@ window.toggleNotePrivacy = () => {
     if (isNotePrivate) {
         // Unlock (make public)
         window.showPasswordPrompt(translations[currentLang].enter_password, async (password) => {
-            const response = await fetch('api/save-note', {
+            const response = await authFetch('api/save-note', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...note, isPrivate: false, password: "" })
@@ -799,13 +1089,13 @@ window.toggleNotePrivacy = () => {
                 updateModalLock();
                 renderNotesDisplay();
             } else {
-                alert(translations[currentLang].password_wrong);
+                showToast(translations[currentLang].password_wrong, 'error');
             }
         });
     } else {
         // Lock
         window.showPasswordPrompt(translations[currentLang].set_password, async (password) => {
-            const response = await fetch('api/lock-note', {
+            const response = await authFetch('api/lock-note', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: note.id, password })
@@ -886,7 +1176,17 @@ document.addEventListener('click', (e) => {
 
 // Initial Render
 applyTranslations();
-refreshNotes();
+loadExternalSettings().then((isExternal) => {
+    // Only continue if we successfully loaded settings (and thus are authorized)
+    // If authFetch encountered a 401, it would have shown the login modal and returned null
+    if (isExternal !== undefined && isExternal !== null) {
+        document.body.classList.remove('app-loading');
+        refreshNotes();
+    } else {
+        // We stay in app-loading/login-mode
+        console.log('Authorization required or failed');
+    }
+});
 checkNotificationPermission();
 
 // Mouse Area Selection (Box Select)

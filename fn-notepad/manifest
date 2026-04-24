@@ -1,5 +1,5 @@
 appname               = notepad
-version               = 1.0.3
+version               = 1.0.4
 display_name          = 便签记事本
 desc                  = <p>便签记事本是一款简约记事本应用。</p><ul><li>支持毛玻璃质感，美观大方</li><li>支持颜色分类，快速记录</li><li>支持按日期管理备忘事项</li></ul>
 platform              = all

@@ -60,7 +60,7 @@ status() {
 }
 
 build_cmd() {
-    printf '%s' "\"${BINARY}\" --unix-socket \"${SOCKET_FILE}\" --data-dir \"${TRIM_PKGVAR}/data\""
+    printf '%s' "\"${BINARY}\" --unix-socket \"${SOCKET_FILE}\" --data-dir \"${TRIM_PKGVAR}/data\" --www-dir \"${TRIM_APPDEST}/www\""
 }
 
 start_process() {

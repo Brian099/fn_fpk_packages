@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"flag"
@@ -27,8 +28,24 @@ import (
 var (
 	unixSocket = flag.String("unix-socket", "/var/apps/notepad/var/notepad.sock", "Unix socket path")
 	dataDir    = flag.String("data-dir", "/var/apps/notepad/var", "Data storage directory")
+	wwwDir     = flag.String("www-dir", "../www", "Frontend static files directory")
 	db         *sql.DB
+	
+	externalServer *http.Server
+	currentPort    string
 )
+
+type Settings struct {
+	ExternalAccessEnabled  bool   `json:"external_access_enabled"`
+	ExternalAccessPort     string `json:"external_access_port"`
+	ExternalAccessUsername string `json:"external_access_username"`
+	ExternalAccessPassword string `json:"external_access_password"`
+	IsExternal             bool   `json:"is_external"` // Dynamic field for UI
+}
+
+type contextKey string
+
+const isExternalKey contextKey = "isExternal"
 
 type Note struct {
 	ID        int64  `json:"id"`
@@ -141,9 +158,29 @@ func main() {
 	http.HandleFunc("/api/export-notes", exportNotesHandler)
 	http.HandleFunc("/api/lock-note", lockNoteHandler)
 	http.HandleFunc("/api/verify-note", verifyNoteHandler)
+	http.HandleFunc("/api/get-settings", getSettingsHandler)
+	http.HandleFunc("/api/save-settings", saveSettingsHandler)
 	
 	// Keep old handler for backward compatibility during transition if needed
 	http.HandleFunc("/api/save-notes", saveNotesCompatibilityHandler)
+
+	// Static files server for external access
+	wwwPath, _ := filepath.Abs(*wwwDir)
+	log.Printf("Static files directory: %s", wwwPath)
+	if _, err := os.Stat(wwwPath); err == nil {
+		http.Handle("/", http.FileServer(http.Dir(wwwPath)))
+	} else {
+		// Try fallback: check relative to executable
+		execPath, _ := os.Executable()
+		execDir := filepath.Dir(execPath)
+		fallbackPath := filepath.Join(execDir, "..", "www")
+		if _, err := os.Stat(fallbackPath); err == nil {
+			log.Printf("Using fallback static files directory: %s", fallbackPath)
+			http.Handle("/", http.FileServer(http.Dir(fallbackPath)))
+		} else {
+			log.Printf("Warning: static files directory not found at %s or %s. Static files will not be served.", wwwPath, fallbackPath)
+		}
+	}
 
 	if _, err := os.Stat(*unixSocket); err == nil {
 		os.Remove(*unixSocket)
@@ -156,6 +193,15 @@ func main() {
 	os.Chmod(*unixSocket, 0666)
 
 	log.Printf("Starting notepad backend (SQLite) on %s", *unixSocket)
+	
+	// Start external server if enabled
+	go func() {
+		settings := getSettingsFromDB()
+		if settings.ExternalAccessEnabled && settings.ExternalAccessPort != "" {
+			updateExternalServer(true, settings.ExternalAccessPort)
+		}
+	}()
+
 	http.Serve(listener, nil)
 }
 
@@ -184,7 +230,14 @@ func initDatabase() error {
 	db.Exec("ALTER TABLE notes ADD COLUMN isPrivate INTEGER DEFAULT 0")
 	db.Exec("ALTER TABLE notes ADD COLUMN password TEXT")
 
-	return nil
+	// Create settings table
+	_, err = db.Exec(`
+	CREATE TABLE IF NOT EXISTS settings (
+		key TEXT PRIMARY KEY,
+		value TEXT
+	)`)
+	
+	return err
 }
 
 func migrateOldData() {
@@ -242,9 +295,10 @@ func getNotesHandler(w http.ResponseWriter, r *http.Request) {
 		args = append(args, "%"+query+"%", "%"+query+"%")
 	}
 
-	if filter == "pinned" {
+	switch filter {
+	case "pinned":
 		sqlQuery += " AND pinned = 1"
-	} else if filter == "reminder" {
+	case "reminder":
 		sqlQuery += " AND reminder != '' AND reminder IS NOT NULL"
 	}
 
@@ -377,6 +431,13 @@ func batchDeleteHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func saveNotesCompatibilityHandler(w http.ResponseWriter, r *http.Request) {
+	// Block import if accessed externally for security
+	isExt, _ := r.Context().Value(isExternalKey).(bool)
+	if isExt {
+		http.Error(w, "Import is restricted to local access", http.StatusForbidden)
+		return
+	}
+
 	// For backward compatibility and importing backups
 	var bf BackupFile
 	var notes []map[string]interface{}
@@ -455,6 +516,13 @@ func saveNotesCompatibilityHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"status":"success"}`))
 }
 func exportNotesHandler(w http.ResponseWriter, r *http.Request) {
+	// Block export if accessed externally for security
+	isExt, _ := r.Context().Value(isExternalKey).(bool)
+	if isExt {
+		http.Error(w, "Export is restricted to local access", http.StatusForbidden)
+		return
+	}
+
 	password := r.URL.Query().Get("password")
 
 	rows, err := db.Query("SELECT * FROM notes ORDER BY updatedAt DESC")
@@ -577,4 +645,154 @@ func verifyNoteHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(n)
+}
+
+func getSettingsFromDB() Settings {
+	var settings Settings
+	settings.ExternalAccessPort = "8080" // Default port
+
+	rows, err := db.Query("SELECT key, value FROM settings")
+	if err != nil {
+		return settings
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var key, value string
+		if err := rows.Scan(&key, &value); err == nil {
+			switch key {
+			case "external_access_enabled":
+				settings.ExternalAccessEnabled = value == "true"
+			case "external_access_port":
+				settings.ExternalAccessPort = value
+			case "external_access_username":
+				settings.ExternalAccessUsername = value
+			case "external_access_password":
+				settings.ExternalAccessPassword = value
+			}
+		}
+	}
+	return settings
+}
+
+func getSettingsHandler(w http.ResponseWriter, r *http.Request) {
+	settings := getSettingsFromDB()
+	
+	// Detect if request is external
+	isExt, _ := r.Context().Value(isExternalKey).(bool)
+	settings.IsExternal = isExt
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(settings)
+}
+
+func saveSettingsHandler(w http.ResponseWriter, r *http.Request) {
+	// Block settings modification if accessed externally
+	isExt, _ := r.Context().Value(isExternalKey).(bool)
+	if isExt {
+		http.Error(w, "Settings modification is restricted to local access", http.StatusForbidden)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var settings Settings
+	if err := json.NewDecoder(r.Body).Decode(&settings); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Save to DB
+	stmt, _ := db.Prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)")
+	enabledStr := "false"
+	if settings.ExternalAccessEnabled {
+		enabledStr = "true"
+	}
+	stmt.Exec("external_access_enabled", enabledStr)
+	stmt.Exec("external_access_port", settings.ExternalAccessPort)
+	stmt.Exec("external_access_username", settings.ExternalAccessUsername)
+	stmt.Exec("external_access_password", settings.ExternalAccessPassword)
+
+	// If enabling, check if port is available (only if port changed or server not running)
+	if settings.ExternalAccessEnabled {
+		if externalServer == nil || settings.ExternalAccessPort != currentPort {
+			addr := ":" + settings.ExternalAccessPort
+			ln, err := net.Listen("tcp", addr)
+			if err != nil {
+				http.Error(w, "Port already in use or invalid", http.StatusConflict)
+				return
+			}
+			ln.Close()
+		}
+	}
+
+	// Update listener
+	updateExternalServer(settings.ExternalAccessEnabled, settings.ExternalAccessPort)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"success"}`))
+}
+
+func authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Add isExternal to context
+		ctx := context.WithValue(r.Context(), isExternalKey, true)
+		r = r.WithContext(ctx)
+
+		// Only enforce authentication for API routes
+		if !strings.HasPrefix(r.URL.Path, "/api/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		settings := getSettingsFromDB()
+		if !settings.ExternalAccessEnabled {
+			http.Error(w, "External access disabled", http.StatusForbidden)
+			return
+		}
+
+		if settings.ExternalAccessUsername != "" || settings.ExternalAccessPassword != "" {
+			user, pass, ok := r.BasicAuth()
+			if !ok || user != settings.ExternalAccessUsername || pass != settings.ExternalAccessPassword {
+				// We don't set WWW-Authenticate here to avoid the browser's native login popup
+				// Instead, the frontend will handle the 401 and show a custom login page
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func updateExternalServer(enabled bool, port string) {
+	// Stop existing server if any
+	if externalServer != nil {
+		log.Printf("Stopping external server on port %s", currentPort)
+		externalServer.Close() 
+		externalServer = nil
+	}
+
+	if !enabled {
+		return
+	}
+
+	// Start new server
+	currentPort = port
+	addr := ":" + port
+	log.Printf("Starting external server on %s", addr)
+
+	externalServer = &http.Server{
+		Addr:    addr,
+		Handler: authMiddleware(http.DefaultServeMux),
+	}
+
+	go func() {
+		if err := externalServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("External server error: %v", err)
+		}
+	}()
 }
