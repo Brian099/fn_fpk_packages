@@ -1,11 +1,11 @@
 {
     ".url": {
-        "NginxManager.Application": {
-            "title": "Nginx 管理器",
+        "ApacheManager.Application": {
+            "title": "Apache 管理器",
             "icon": "images/icon_{0}.png",
             "type": "iframe",
             "protocol": "http",
-            "url": "/cgi/ThirdParty/NginxManager/index.cgi/",
+            "url": "/cgi/ThirdParty/ApacheManager/index.cgi/",
             "allUsers": true
         }
     }

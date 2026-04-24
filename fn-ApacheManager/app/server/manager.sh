@@ -77,7 +77,17 @@ apache_install_json() {
           sed -i "s/^Listen 80/Listen $port_to_use/g" /etc/apache2/ports.conf
       fi
 
-      # 修改所有启用站点的端口 (主要是 000-default.conf)
+      # 设置日志级别为 warn 以过滤 notice 信息 (如 AH00489, AH00094)
+      if [ -f "/etc/apache2/apache2.conf" ]; then
+          sed -i "s/^LogLevel.*/LogLevel warn/g" /etc/apache2/apache2.conf
+      fi
+
+      # 禁用默认站点 000-default 以避免 80 端口冲突或干扰
+      if [ -f "/etc/apache2/sites-enabled/000-default.conf" ]; then
+          a2dissite 000-default >/dev/null 2>&1
+      fi
+
+      # 修改所有启用站点的端口 (主要是 000-default.conf，尽管已禁用，但修改其源文件以防万一)
       local site_configs=$(grep -rlE "<VirtualHost\s+[^>]*:80>" /etc/apache2/sites-available 2>/dev/null)
       if [ -n "$site_configs" ]; then
           echo "$site_configs" | xargs -r sed -i "s/:80>/:$port_to_use>/g"
@@ -142,8 +152,9 @@ case "$1" in
     fi
     ;;
   logs)
-    if [ -f /var/log/nginx/error.log ]; then
-        content=$(tail -n 100 /var/log/nginx/error.log | sed 's/\\/\\\\/g; s/"/\\"/g; s/$/\\n/' | tr -d '\n' | tr -d '\r')
+    if [ -f /var/log/apache2/error.log ]; then
+        # 过滤掉启动时的 notice 信息 (AH00489 和 AH00094)
+        content=$(tail -n 100 /var/log/apache2/error.log | grep -vE "AH00489|AH00094" | sed 's/\\/\\\\/g; s/"/\\"/g; s/$/\\n/' | tr -d '\n' | tr -d '\r')
         printf '{"ok":true,"log":"%s"}' "$content"
     else
         echo '{"ok":false,"error":"日志文件不存在"}'

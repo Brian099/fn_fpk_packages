@@ -3,7 +3,7 @@
 # Actions after installation
 
 # Log file for installation details
-LOG_FILE="/tmp/nginx_manager_install.log"
+LOG_FILE="/tmp/apache_manager_install.log"
 
 # Define backend script path (following fnOS standard layout)
 # TRIM_APPNAME and TRIM_APPDEST are provided by the system
@@ -15,8 +15,8 @@ if [ -z "$TRIM_APPDEST" ]; then
 fi
 
 if [ -f "$BACKEND_SCRIPT" ]; then
-    # Trigger the Nginx installation/configuration
-    # wizard_nginx_port is automatically passed as an environment variable by the system
+    # Trigger the Apache installation/configuration
+    # wizard_apache_port is automatically passed as an environment variable by the system
     if ! bash "$BACKEND_SCRIPT" install > "$LOG_FILE" 2>&1; then
         # If backend fails, pass the log output to the system for user alert
         cat "$LOG_FILE" > "$TRIM_TEMP_LOGFILE"

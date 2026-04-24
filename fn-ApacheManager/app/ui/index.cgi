@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# index.cgi for NginxManager (fnOS Standard)
+# index.cgi for ApacheManager (fnOS Standard)
 # Version: 1.0.2
 
 # 动态获取应用名称和路径 (根据飞牛规范)
-# 假设安装在 /var/apps/NginxManager/target
+# 假设安装在 /var/apps/ApacheManager/target
 # 但在开发环境下，我们可能需要更灵活的路径处理
 APP_NAME="ApacheManager"
 BASE_PATH="/var/apps/$APP_NAME/target/www"

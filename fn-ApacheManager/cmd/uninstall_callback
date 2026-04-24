@@ -1,29 +1,29 @@
 #!/bin/bash
 
-# cmd/uninstall_callback for NginxManager
+# cmd/uninstall_callback for ApacheManager
 # fly-NAS App Uninstallation Logic (Purge Version)
 
 # 获取向导中选择的清理策略 (默认 keep 为安全起见)
 ACTION="${wizard_cleanup_action:-keep}"
 
 if [ "$ACTION" = "remove" ]; then
-    # 1. 停止并禁用通过此应用管理的 Nginx 服务
-    systemctl stop nginx >/dev/null 2>&1
-    systemctl disable nginx >/dev/null 2>&1
+    # 1. 停止并禁用通过此应用管理的 Apache 服务
+    systemctl stop apache2 >/dev/null 2>&1
+    systemctl disable apache2 >/dev/null 2>&1
     
-    # 2. 彻底卸载通过 dpkg 安装的 Debian Nginx 软件包
-    # 安全说明：这只会影响 /usr/sbin/nginx 和 /etc/nginx 下的文件。
-    # 位于 /usr/trim/nginx/ 下的系统内置镜像 Nginx 是由飞牛固件独立维护的，不属于软件包管理范围，因此不会受此操作影响。
-    apt-get purge -y nginx nginx-common nginx-core >/dev/null 2>&1
+    # 2. 彻底卸载通过 dpkg 安装的 Debian Apache2 软件包
+    # 安全说明：这只会影响 /usr/sbin/apache2 和 /etc/apache2 下的文件。
+    # 位于 /usr/trim/apache2/ 下的系统内置镜像 Apache 是由飞牛固件独立维护的，不属于软件包管理范围，因此不会受此操作影响。
+    apt-get purge -y apache2 apache2-bin apache2-data apache2-utils >/dev/null 2>&1
     
     # 3. 物理清理配置目录
-    if [ -d "/etc/nginx" ]; then
-        rm -rf /etc/nginx
+    if [ -d "/etc/apache2" ]; then
+        rm -rf /etc/apache2
     fi
     
     # 4. 清理日志目录
-    if [ -d "/var/log/nginx" ]; then
-        rm -rf /var/log/nginx
+    if [ -d "/var/log/apache2" ]; then
+        rm -rf /var/log/apache2
     fi
 fi
 

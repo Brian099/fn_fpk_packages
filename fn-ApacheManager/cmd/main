@@ -1,25 +1,25 @@
 #!/bin/bash
 
-# cmd/main for NginxManager
+# cmd/main for ApacheManager
 # fly-NAS App Life-cycle Management Script
 
 case "$1" in
   start)
-    # 启动 Nginx (如果尚未启动)
-    if ! systemctl is-active --quiet nginx; then
-      systemctl start nginx
+    # 启动 Apache (如果尚未启动)
+    if ! systemctl is-active --quiet apache2; then
+      systemctl start apache2
     fi
     exit 0
     ;;
   stop)
-    # 停止 Nginx (根据应用策略，通常 fnOS 应用停止时应释放资源)
-    # 注意：如果共享系统 Nginx，停止需谨慎。此处由于 NginxManager 为环境助手，保持逻辑。
-    systemctl stop nginx
+    # 停止 Apache (根据应用策略，通常 fnOS 应用停止时应释放资源)
+    # 注意：如果共享系统 Apache，停止需谨慎。此处由于 ApacheManager 为环境助手，保持逻辑。
+    systemctl stop apache2
     exit 0
     ;;
   status)
     # 关键点：fly-NAS 会根据此状态显示“运行中”或“已停止”
-    if [ -x "/usr/sbin/nginx" ] && systemctl is-active --quiet nginx; then
+    if [ -x "/usr/sbin/apache2" ] && systemctl is-active --quiet apache2; then
       exit 0 # 运行中
     else
       exit 3 # 未运行
