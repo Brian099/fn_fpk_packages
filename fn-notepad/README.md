@@ -1,25 +1,38 @@
-# 便签记事本 (notepad)
+# 便签记事本 (Notepad)
 
-飞牛系统 (FlyNAS) 的简约便签记事本应用。
+飞牛系统 (FlyNAS) 的简约、安全、全功能便签记事本应用。
 
-## 介绍
-![便签笔记本1](https://gitee.com/laoknas/fn_fpk_packages/raw/master/fn-notepad/image/notepad01.png)
-![便签笔记本2](https://gitee.com/laoknas/fn_fpk_packages/raw/master/fn-notepad/image/notepad02.png)
+## 核心特性
 
-## 功能特性
-- **简约设计**：采用现代毛玻璃质感界面。
-- **色彩分类**：支持多种颜色标记便签。
-- **日期备忘**：支持设置提醒时间，并在卡片上直观展示。
-- **持久化存储**：数据安全保存在 NAS 存储目录下，重装不丢失。
-- **多架构支持**：支持 x86_64 和 aarch64。
+-   **✨ 现代美学设计**：采用毛玻璃 (Glassmorphism) 质感界面，支持响应式布局，完美适配移动端。
+-   **🔐 隐私安全保护**：
+    -   **隐私锁**：支持对单个便签设置独立访问密码，内容物理加密存储。
+    -   **安全登录**：外网访问模式下提供强制账号密码鉴权，保护数据不被非法窃取。
+-   **💾 稳健数据管理**：
+    -   **SQLite 后端**：采用高效数据库存储，确保数据在高并发下的读写稳定性。
+    -   **高级备份**：支持 AES-256-GCM 高强度加密导出/导入，确保备份文件的绝对安全。
+-   **🌐 灵活外部访问**：
+    -   **独立端口**：支持自定义外网访问端口。
+    -   **多语言支持 (i18n)**：全界面支持中英文无缝切换。
+-   **🛠️ 高效生产力工具**：
+    -   **批量处理**：支持快速批量选择与删除便签。
+    -   **Markdown 渲染**：完美支持 Markdown 语法，笔记排版更专业。
+    -   **智能搜索与过滤**：毫秒级关键词搜索，支持置顶、提醒事项过滤。
+    -   **多端适配**：针对移动端进行深度优化，操作流畅无卡顿。
+
+## 预览
+![便签笔记本1](image/notepad01.png)
+![便签笔记本2](image/notepad02.png)
 
 ## 项目结构
-- `app/www`: 前端静态资源 (HTML/CSS/JS)。
-- `serverSourceCode`: 后端 Go 源码。
-- `cmd/`: 飞牛系统应用生命周期管理脚本。
-- `config/`: 应用权限与资源配置。
-- `wizard/`: 安装向导配置。
 
+-   `app/www`: 前端静态资源 (HTML/Vanilla CSS/JS)。
+-   `serverSourceCode`: 后端 Go 源码 (基于 SQLite)。
+-   `cmd/`: 飞牛系统应用生命周期管理脚本。
+-   `config/`: 应用权限与资源配置。
+-   `wizard/`: 安装向导配置。
 
 ## 维护者
-- laok ([Gitee](https://gitee.com/laoknas/fn_fpk_packages/fn-notepad))
+
+-   laok ([Gitee](https://gitee.com/laoknas/fn_fpk_packages/fn-notepad))
+
