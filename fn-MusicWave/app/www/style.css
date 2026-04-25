@@ -21,6 +21,24 @@ body {
   overflow: hidden;
 }
 
+/* Global Scrollbar Style */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 #app {
   display: flex;
   height: 100vh;
@@ -42,6 +60,7 @@ body {
   display: flex;
   flex-direction: column;
   z-index: 10;
+  overflow-y: auto;
 }
 
 .brand {
@@ -92,6 +111,13 @@ body {
 #playlist-container {
   flex: 1;
   overflow-y: auto;
+  padding-right: 4px;
+}
+
+#playlist-songs-container {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .toolbar {
@@ -312,6 +338,7 @@ textarea {
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 15px;
   padding-top: 20px;
+  padding-right: 4px;
   overflow-y: auto;
   flex: 1;
 }
