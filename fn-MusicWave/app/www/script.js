@@ -16,6 +16,7 @@ let savedPlaylists = [];
 let currentPlaylist = null; // Currently viewed playlist metadata
 let matchingResults = []; // Temporary storage for playlist matching process
 let activeMatchingIndex = -1; // For manual song picker
+let isLoading = false;
 
 let totalTracks = 0;
 let totalPages = 0;
@@ -53,6 +54,19 @@ window.onload = function() {
     // Initial range background update
     updateRangeBackground(seekBar);
     updateRangeBackground(volumeBar);
+    
+    // Setup infinite scroll for playlist
+    const playlistContainer = document.getElementById('playlist-container');
+    if (playlistContainer) {
+        playlistContainer.addEventListener('scroll', () => {
+            if (currentPage < totalPages && !isLoading) {
+                // If within 100px of bottom
+                if (playlistContainer.scrollTop + playlistContainer.clientHeight >= playlistContainer.scrollHeight - 100) {
+                    fetchLibraryPage(currentPage + 1, true);
+                }
+            }
+        });
+    }
     
     // Set crossOrigin for audio visualization
     audio.crossOrigin = "anonymous";
@@ -398,8 +412,10 @@ async function rescanAll(isSilent = false) {
     await fetchLibraryPage(currentPage);
 }
 
-async function fetchLibraryPage(page) {
-    currentPage = page;
+async function fetchLibraryPage(page, append = false) {
+    if (isLoading) return;
+    isLoading = true;
+    
     try {
         let url = `${apiBase}?api_route=/api/music/library/get&page=${page}&limit=${ITEMS_PER_PAGE}`;
         if (currentSearch) url += `&search=${encodeURIComponent(currentSearch)}`;
@@ -409,21 +425,45 @@ async function fetchLibraryPage(page) {
         const res = await fetch(url);
         const data = await res.json();
         if (data.ok) {
-            allTracks = data.tracks;
-            totalTracks = data.total;
-            totalPages = data.pages;
-            
-            let statusText = `共 ${totalTracks} 首歌曲`;
-            if (currentArtist) statusText = `歌手: ${currentArtist} (共 ${totalTracks} 首)`;
-            if (currentAlbum) statusText = `专辑: ${currentAlbum} (共 ${totalTracks} 首)`;
-            if (currentSearch) statusText = `搜索: ${currentSearch} (共 ${totalTracks} 首)`;
-            
-            document.getElementById('library-status').innerText = statusText;
-            renderPlaylist();
+            if (append) {
+                // Append unique tracks
+                const existingPaths = new Set(allTracks.map(t => t.path));
+                const newTracks = data.tracks.filter(t => !existingPaths.has(t.path));
+                allTracks = [...allTracks, ...newTracks];
+                
+                currentPage = page;
+                totalTracks = data.total;
+                totalPages = data.pages;
+                
+                updateLibraryStatus();
+                renderPlaylist(true, newTracks.length);
+            } else {
+                allTracks = data.tracks;
+                currentPage = page;
+                totalTracks = data.total;
+                totalPages = data.pages;
+                
+                updateLibraryStatus();
+                const container = document.getElementById('playlist-container');
+                if (container) container.scrollTop = 0;
+                renderPlaylist(false);
+            }
         }
     } catch (e) {
         console.error('Failed to fetch library page', e);
+    } finally {
+        isLoading = false;
     }
+}
+
+function updateLibraryStatus() {
+    let statusText = `共 ${totalTracks} 首歌曲`;
+    if (currentArtist) statusText = `歌手: ${currentArtist} (共 ${totalTracks} 首)`;
+    if (currentAlbum) statusText = `专辑: ${currentAlbum} (共 ${totalTracks} 首)`;
+    if (currentSearch) statusText = `搜索: ${currentSearch} (共 ${totalTracks} 首)`;
+    
+    const statusEl = document.getElementById('library-status');
+    if (statusEl) statusEl.innerText = statusText;
 }
 
 async function fetchMetadataBatch(tracksToFetch) {
@@ -531,17 +571,25 @@ function escapeJs(str) {
     return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
-function renderPlaylist() {
+function renderPlaylist(isAppend = false, appendCount = 0) {
     const container = document.getElementById('playlist-container');
+    if (!container) return;
+
     if (allTracks.length === 0 && !currentSearch) {
         container.innerHTML = '<div style="text-align:center; margin-top: 50px; color: #666;">暂无音乐，请去“管理目录”添加文件夹。</div>';
         return;
     }
     
-    container.innerHTML = '';
+    if (!isAppend) {
+        container.innerHTML = '';
+    }
     
+    const startIdx = isAppend ? Math.max(0, allTracks.length - appendCount) : 0;
+    const fragment = document.createDocumentFragment();
+
     // Render Items
-    allTracks.forEach((song, i) => {
+    for (let i = startIdx; i < allTracks.length; i++) {
+        const song = allTracks[i];
         const div = document.createElement('div');
         // Check if playing
         const isPlaying = playlist[currentIndex] && playlist[currentIndex].path === song.path;
@@ -589,50 +637,16 @@ function renderPlaylist() {
             <div class="col-size">${size}</div>
             <div class="col-duration">${duration}</div>
         `;
-        container.appendChild(div);
-    });
+        fragment.appendChild(div);
+    }
+    
+    container.appendChild(fragment);
 
     // Auto-fetch metadata for visible items if not scanned
     const unscanned = allTracks.filter(s => s.scanned === 0 && !s._pending);
     if (unscanned.length > 0) {
         unscanned.forEach(s => s._pending = true);
         fetchMetadataBatch(unscanned);
-    }
-    
-    // Render Pagination Controls
-    if (totalPages > 1) {
-        const paginationDiv = document.createElement('div');
-        paginationDiv.className = 'pagination-controls';
-        paginationDiv.style.cssText = 'display: flex; justify-content: center; align-items: center; padding: 20px; gap: 10px; color: #fff;';
-        
-        const prevBtn = document.createElement('button');
-        prevBtn.innerText = '上一页';
-        prevBtn.disabled = currentPage === 1;
-        prevBtn.onclick = () => {
-            if (currentPage > 1) {
-                fetchLibraryPage(currentPage - 1);
-                document.querySelector('.main-content').scrollTop = 0;
-            }
-        };
-        
-        const nextBtn = document.createElement('button');
-        nextBtn.innerText = '下一页';
-        nextBtn.disabled = currentPage === totalPages;
-        nextBtn.onclick = () => {
-            if (currentPage < totalPages) {
-                fetchLibraryPage(currentPage + 1);
-                document.querySelector('.main-content').scrollTop = 0;
-            }
-        };
-        
-        const info = document.createElement('span');
-        info.innerText = `第 ${currentPage} / ${totalPages} 页`;
-        
-        paginationDiv.appendChild(prevBtn);
-        paginationDiv.appendChild(info);
-        paginationDiv.appendChild(nextBtn);
-        
-        container.appendChild(paginationDiv);
     }
 }
 
