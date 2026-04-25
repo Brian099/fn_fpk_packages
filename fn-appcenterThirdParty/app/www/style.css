@@ -795,16 +795,7 @@ textarea {
     /* 增加行间距 */
 }
 
-.app-card-version {
-    font-size: 11px;
-    color: var(--semi-color-text-3);
-    background-color: var(--semi-color-fill-0);
-    padding: 0 6px;
-    height: 18px;
-    line-height: 18px;
-    border-radius: 4px;
-    flex-shrink: 0;
-}
+
 
 .app-card-source {
     display: flex;

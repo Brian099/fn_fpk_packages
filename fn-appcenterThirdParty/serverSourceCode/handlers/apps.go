@@ -464,19 +464,47 @@ func InstallApp(c *gin.Context) {
 	}
 
 	cliPath := getAppCenterCliPath()
+
+	// 1. 在执行安装前尝试获取真实的 appname (用于后续停止、卸载和启动命令)
+	realAppName, extractErr := services.GetAppNameFromFPK(fpkPath)
+	if extractErr != nil {
+		log.Printf("Warning: Failed to extract appname from manifest: %v, will fallback to appID: %s", extractErr, appID)
+		realAppName = appID
+	} else {
+		log.Printf("Extracted real application name from manifest: %s", realAppName)
+	}
+
+	// 2. 检查应用是否已安装，判断是否为更新流程
+	installedMap, _ := services.GetInstalledAppsMap()
+	isUpdate := false
+	if _, ok := installedMap[realAppName]; ok {
+		isUpdate = true
+	}
+
 	args := []string{"install-fpk", fpkPath}
 
 	// 如果前端没传 InstallType，尝试从 FPK 中解析 (确保逻辑严密)
 	installType := req.InstallType
 	if installType == "" {
-		if config, err := services.ExtractWizardConfig(fpkPath); err == nil {
+		if config, err := services.ExtractWizardConfig(fpkPath, isUpdate); err == nil {
 			installType = config.InstallType
 		}
 	}
 
-	// 处理存储池：如果不是 root 类型才传 -v
-	if installType != "root" && req.VolumeID > 0 {
-		args = append(args, "-v", fmt.Sprintf("%d", req.VolumeID))
+	// 处理存储池：如果是更新且未指定存储池，则尝试检测旧的存储池
+	targetVolumeID := req.VolumeID
+	if isUpdate && targetVolumeID <= 0 && installType != "root" {
+		appPath := filepath.Join("/var/apps", realAppName)
+		if resolved, err := filepath.EvalSymlinks(appPath); err == nil {
+			if strings.HasPrefix(resolved, "/vol") {
+				fmt.Sscanf(resolved, "/vol%d", &targetVolumeID)
+				log.Printf("Detected existing volume ID for update: %d", targetVolumeID)
+			}
+		}
+	}
+
+	if installType != "root" && targetVolumeID > 0 {
+		args = append(args, "-v", fmt.Sprintf("%d", targetVolumeID))
 	}
 
 	// 处理环境变量
@@ -507,18 +535,21 @@ func InstallApp(c *gin.Context) {
 		}
 	}
 
-	// 在执行安装前尝试获取真实的 appname (用于后续启动命令)
-	realAppName, extractErr := services.GetAppNameFromFPK(fpkPath)
-	if extractErr != nil {
-		log.Printf("Warning: Failed to extract appname from manifest: %v, will fallback to appID: %s", extractErr, appID)
-		realAppName = appID
-	} else {
-		log.Printf("Extracted real application name from manifest: %s", realAppName)
-	}
-
 	// 在安装/更新前，先尝试停止旧版本应用（如果有的话）
 	log.Printf("Ensuring app %s is stopped before (re)installation...", realAppName)
 	exec.Command(cliPath, "stop", realAppName).Run()
+
+	if isUpdate {
+		log.Printf("App %s is already installed, performing pre-upgrade uninstall...", realAppName)
+		// 删除旧的卸载向导，防止卸载过程中触发数据删除交互
+		uninstallWizardPath := filepath.Join("/var/apps", realAppName, "wizard/uninstall")
+		if _, err := os.Stat(uninstallWizardPath); err == nil {
+			log.Printf("Removing uninstall wizard to ensure silent uninstall: %s", uninstallWizardPath)
+			os.Remove(uninstallWizardPath)
+		}
+		// 执行卸载
+		exec.Command(cliPath, "uninstall", realAppName).Run()
+	}
 
 	cmd := exec.Command(cliPath, args...)
 	output, err := cmd.CombinedOutput()
@@ -535,6 +566,30 @@ func InstallApp(c *gin.Context) {
 			"output":  outputStr,
 		})
 		return
+	}
+
+	// 如果是更新流程，尝试执行新版本的 upgrade_callback
+	if isUpdate {
+		upgradeCallbackPath := filepath.Join("/var/apps", realAppName, "cmd/upgrade_callback")
+		if _, err := os.Stat(upgradeCallbackPath); err == nil {
+			log.Printf("Executing upgrade_callback for app %s: %s", realAppName, upgradeCallbackPath)
+			// 赋予执行权限
+			os.Chmod(upgradeCallbackPath, 0755)
+
+			cmd := exec.Command(upgradeCallbackPath)
+			// 设置环境变量模拟系统环境
+			cmd.Env = append(os.Environ(),
+				fmt.Sprintf("TRIM_APPDEST=%s", filepath.Join("/var/apps", realAppName)),
+				fmt.Sprintf("TRIM_PKGVAR=%s", filepath.Join("/var/apps", realAppName, "var")),
+				"TRIM_APP_STATUS=UPGRADE",
+			)
+
+			if out, err := cmd.CombinedOutput(); err != nil {
+				log.Printf("Warning: upgrade_callback failed for %s: %v, output: %s", realAppName, err, string(out))
+			} else {
+				log.Printf("upgrade_callback executed successfully for %s", realAppName)
+			}
+		}
 	}
 
 	// 如果设置了自动启动，则执行启动命令 (使用真实的 realAppName)
@@ -904,6 +959,7 @@ func GetAppStatus(c *gin.Context) {
 			"status":    status.Status,
 			"running":   status.Running,
 			"installed": status.Installed,
+			"version":   status.Version,
 		},
 	})
 }
@@ -1114,6 +1170,7 @@ func GetAppWizard(c *gin.Context) {
 	appID := c.Param("id")
 	sourceID := c.Query("source_id")
 	downloadURL := c.Query("download_url")
+	isUpdate := c.Query("is_update") == "true"
 
 	userAppStoreDir := services.GetUsersAppStoreDir()
 	if userAppStoreDir == "" {
@@ -1143,7 +1200,7 @@ func GetAppWizard(c *gin.Context) {
 		}
 	}
 
-	config, err := services.ExtractWizardConfig(fpkPath)
+	config, err := services.ExtractWizardConfig(fpkPath, isUpdate)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "Failed to extract wizard: " + err.Error()})
 		return

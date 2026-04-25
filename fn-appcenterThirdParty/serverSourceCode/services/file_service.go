@@ -170,7 +170,7 @@ func ParseFPKFile(fpkPath string, baseDir string) (models.App, error) {
 }
 
 // ExtractWizardConfig 提取向导配置和 License
-func ExtractWizardConfig(fpkPath string) (models.WizardConfig, error) {
+func ExtractWizardConfig(fpkPath string, isUpdate bool) (models.WizardConfig, error) {
 	var config models.WizardConfig
 
 	file, err := os.Open(fpkPath)
@@ -186,6 +186,11 @@ func ExtractWizardConfig(fpkPath string) (models.WizardConfig, error) {
 	defer gzipReader.Close()
 
 	tarReader := tar.NewReader(gzipReader)
+
+	targetWizard := "wizard/install"
+	if isUpdate {
+		targetWizard = "wizard/upgrade"
+	}
 
 	for {
 		header, err := tarReader.Next()
@@ -203,7 +208,7 @@ func ExtractWizardConfig(fpkPath string) (models.WizardConfig, error) {
 			if err == nil {
 				config.License = string(data)
 			}
-		} else if header.Name == "wizard/install" {
+		} else if header.Name == targetWizard {
 			// 查找并解析 Wizard
 			data, err := ioutil.ReadAll(tarReader)
 			if err == nil {
@@ -211,7 +216,7 @@ func ExtractWizardConfig(fpkPath string) (models.WizardConfig, error) {
 				if err := json.Unmarshal(data, &steps); err == nil {
 					config.Steps = steps
 				} else {
-					log.Printf("Failed to unmarshal wizard/install from %s: %v", fpkPath, err)
+					log.Printf("Failed to unmarshal %s from %s: %v", targetWizard, fpkPath, err)
 				}
 			}
 		} else if filepath.Base(name) == "manifest" {

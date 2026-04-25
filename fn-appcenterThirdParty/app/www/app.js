@@ -488,7 +488,6 @@ function createAppCard(app, mini = false) {
         <div class="app-card-info">
             <div class="app-card-name-row">
                 <div class="app-card-name">${escapeHtml(app.name)}</div>
-                <div class="app-card-version">v${escapeHtml(app.version)}</div>
                 ${isInstalled ? `<span class="app-installed-badge">${isUpdate ? '有更新' : '已安装'}</span>` : ''}
             </div>
          <div class="app-card-source">${ICON_SOURCE}${escapeHtml(app.source_name || '本地')}</div>
@@ -661,12 +660,18 @@ function renderAppDetail(app) {
                     <div class="info-value">系统分区</div>
                 </div>
                 <div class="info-item">
-                    <div class="info-label">当前版本</div>
+                    <div class="info-label">最新版本</div>
+                    <div class="info-value">${escapeHtml(app.version)}</div>
+                </div>
+                ${app.status.installed ? `
+                <div class="info-item">
+                    <div class="info-label">已安装版本</div>
                     <div class="info-value">
-                        ${escapeHtml(app.status.version || app.version)}
-                        ${(app.status.version && compareVersions(app.version, app.status.version) > 0) ? `<span style="color: var(--semi-color-warning); font-size: 11px; margin-left:8px;">(有新版 ${app.version})</span>` : ''}
+                        ${escapeHtml(app.status.version)}
+                        ${(app.status.version && compareVersions(app.version, app.status.version) > 0) ? `<span style="color: var(--semi-color-warning); font-size: 11px; margin-left:8px;">(可更新)</span>` : ''}
                     </div>
                 </div>
+                ` : ''}
                 <div class="info-item">
                 <div class="info-label">分类</div>
                 <div class="info-value">${escapeHtml(displayLabels)}</div>
@@ -752,6 +757,8 @@ async function installApp(app, envFilePath = null) {
         showLoading('正在准备安装向导...');
         let hasShownProgress = false;
 
+        const isUpdate = app.status && app.status.installed;
+
         const progressPoller = setInterval(async () => {
             try {
                 const res = await apiRequest(`/api/apps/${encodeURIComponent(app.id)}/install/progress`);
@@ -767,7 +774,7 @@ async function installApp(app, envFilePath = null) {
         }, 1000);
 
         const [wizardRes, volumesRes, defaultVolumeRes] = await Promise.all([
-            apiRequest(`/api/apps/${app.id}/wizard?source_id=${app.source_id || ''}&download_url=${encodeURIComponent(app.download_url || '')}`),
+            apiRequest(`/api/apps/${app.id}/wizard?source_id=${app.source_id || ''}&download_url=${encodeURIComponent(app.download_url || '')}&is_update=${isUpdate}`),
             apiRequest('/api/system/volumes'),
             apiRequest('/api/system/default-volume')
         ]);
@@ -784,6 +791,35 @@ async function installApp(app, envFilePath = null) {
         const wizardData = wizardRes.data || { steps: [] };
         const volumes = volumesRes.data || [];
         const defaultVolumeId = defaultVolumeRes?.data?.default_volume || null;
+
+        // Special case: if it's an update and no upgrade wizard is provided, perform silent install
+        if (isUpdate && (!wizardData.steps || wizardData.steps.length === 0)) {
+            console.log('No upgrade wizard found, performing silent update...');
+            
+            // 立即开始轮询监测状态
+            startAppStatusPolling(app.id);
+            showLoading('正在提交并启动安装...');
+
+            const res = await apiService.installApp(app.id, {
+                env: {},
+                volume_id: 0, // 对于更新，通常保留原卷，由 CLI 处理
+                download_url: app.download_url,
+                source_id: app.source_id,
+                auto_start: true,
+                install_type: wizardData.install_type
+            });
+
+            if (res.code === 0) {
+                hideLoading();
+                showNotification('更新已完成', 'success');
+                hideAppDetail();
+                setTimeout(() => loadApps(), 1000);
+            } else {
+                hideLoading();
+                showNotification('更新失败: ' + res.message, 'error');
+            }
+            return;
+        }
 
         // 2. 启动分步向导
         await showInstallationWizard(app, wizardData, volumes, defaultVolumeId);

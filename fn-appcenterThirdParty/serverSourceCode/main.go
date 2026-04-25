@@ -1,5 +1,5 @@
 /*
-author: Brian099 、laok
+author: Giraff、laok
 description: 应用中心【第三方】服务器端，负责处理应用安装、卸载、查询等操作
 date: 2026-04-01
 */
