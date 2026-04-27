@@ -925,14 +925,19 @@ function playPrev() {
 }
 
 function playAll() {
-    if (playlist.length > 0) play(0);
+    if (allTracks.length > 0) {
+        playlist = [...allTracks];
+        isShuffle = false;
+        play(0);
+    }
 }
 
 function shufflePlay() {
-    isShuffle = !isShuffle; // Just toggle mode, or shuffle list?
-    // User expects "Shuffle Play" button to start playing randomly
-    isShuffle = true;
-    playNext(); // Start a random song
+    if (allTracks.length > 0) {
+        playlist = [...allTracks];
+        isShuffle = true;
+        playNext();
+    }
 }
 
 function toggleLoop() {
