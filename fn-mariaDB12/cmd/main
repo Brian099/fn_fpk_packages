@@ -64,9 +64,9 @@ start)
             --init-file="$INIT_FILE" \
             --console >> "$TRIM_TEMP_LOGFILE" 2>&1 &
     else
-        "$TRIM_APPDEST/target/bin/mariadbd" \
+        "$SBIN_DIR/mariadbd" \
             --defaults-file="$CONFIG_FILE" \
-            --basedir="$TRIM_APPDEST/target" \
+            --basedir="$BASE_DIR" \
             --datadir="$DATA_DIR" \
             --port="$PORT" \
             --pid-file="$PID_FILE" \
