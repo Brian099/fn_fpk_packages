@@ -48,6 +48,9 @@ func ParseFPKFile(fpkPath string, baseDir string) (models.App, error) {
 
 	manifestData := make(map[string]string)
 	hasManifest := false
+	manifestDir := ""
+	dockerMainDir := ""
+	isDockerFound := false
 
 	for {
 		header, err := tarReader.Next()
@@ -59,7 +62,12 @@ func ParseFPKFile(fpkPath string, baseDir string) (models.App, error) {
 			break
 		}
 
-		if header.Name == "manifest" {
+		// 获取当前条目的基础名称和目录名称
+		baseName := filepath.Base(header.Name)
+		dirName := filepath.Dir(header.Name)
+
+		if baseName == "manifest" {
+			manifestDir = dirName
 			hasManifest = true
 			data, err := ioutil.ReadAll(tarReader)
 			if err != nil {
@@ -78,6 +86,14 @@ func ParseFPKFile(fpkPath string, baseDir string) (models.App, error) {
 					key := strings.TrimSpace(parts[0])
 					value := strings.TrimSpace(parts[1])
 					manifestData[key] = value
+				}
+			}
+		} else if baseName == "main" && filepath.Base(dirName) == "cmd" {
+			data, err := ioutil.ReadAll(tarReader)
+			if err == nil {
+				if strings.Contains(string(data), "is_docker_running") {
+					isDockerFound = true
+					dockerMainDir = filepath.Dir(dirName)
 				}
 			}
 		} else if header.Name == "ui/images/icon-256.png" || header.Name == "ICON_256.PNG" || header.Name == "icon-256.png" {
@@ -103,6 +119,11 @@ func ParseFPKFile(fpkPath string, baseDir string) (models.App, error) {
 
 	if !hasManifest {
 		return app, fmt.Errorf("manifest not found in FPK")
+	}
+
+	// 最终确认 IsDocker 状态：必须内容匹配且目录层级一致
+	if isDockerFound && manifestDir == dockerMainDir {
+		app.IsDocker = "true"
 	}
 
 	if appname, ok := manifestData["appname"]; ok && appname != "" {

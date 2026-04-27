@@ -25,6 +25,7 @@ type App struct {
 	SourceName    string   `json:"source_name"`
 	DownloadCount int      `json:"download_count"`
 	Recommended   bool     `json:"recommended"`
+	IsDocker      string   `json:"isdocker"`
 	OtherVersions []*App   `json:"other_versions,omitempty"`
 }
 

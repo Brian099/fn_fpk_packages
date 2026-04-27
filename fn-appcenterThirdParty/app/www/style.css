@@ -606,13 +606,13 @@ textarea {
     .about-content {
         padding: 24px;
     }
-    
+
     .about-header {
         flex-direction: column;
         text-align: center;
         gap: 16px;
     }
-    
+
     .about-links {
         grid-template-columns: 1fr;
     }
@@ -739,19 +739,45 @@ textarea {
     align-items: flex-start;
     gap: 16px;
     padding: 20px;
-    background-color: var(--card-DefaultBg);
+    background: linear-gradient(135deg, #ffffff 0%, #f8f8f8 100%);
     border: 1px solid var(--card-border);
     border-radius: 12px;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     min-height: 84px;
+    overflow: hidden;
 }
 
 .app-card:hover {
-    background-color: var(--card-HoverBg);
+    background: linear-gradient(135deg, #e8e9ea 0%, #e6e6e6 100%);
     border-color: var(--semi-color-primary-light-default);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+
+.app-card.is-docker::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 48px;
+    height: 48px;
+    background-color: #1c90ed;
+    clip-path: polygon(0 0, 100% 0, 100% 100%);
+    z-index: 1;
+}
+
+
+.docker-icon-badge {
+    position: absolute;
+    right: 4px;
+    top: 5px;
+    width: 20px;
+    height: 20px;
+    color: #ffffff;
+    z-index: 2;
+    pointer-events: none;
 }
 
 .app-card.has-popover {
@@ -1140,7 +1166,8 @@ textarea {
     gap: 20px;
     margin-bottom: 16px;
     transition: box-shadow 0.2s;
-    min-width: 0; /* Prevents flex items from overflowing */
+    min-width: 0;
+    /* Prevents flex items from overflowing */
 }
 
 .settings-card:hover {
@@ -1254,19 +1281,20 @@ textarea {
         align-items: flex-start;
         gap: 12px;
     }
-    
+
     .settings-card-actions {
         width: 100%;
         justify-content: flex-start;
         margin-top: 8px;
     }
-    
+
     .settings-card-input-wrapper {
         width: 100%;
     }
-    
+
     .settings-card .semi-input {
-        width: 100% !important; /* Override inline styles from JS */
+        width: 100% !important;
+        /* Override inline styles from JS */
     }
 }
 
@@ -2289,10 +2317,12 @@ textarea {
    Mobile Adaptation (Responsive Design)
    ============================================================ */
 @media (max-width: 768px) {
+
     /* 1. Global Layout Adjustments */
     .app-body {
         position: relative;
-        flex-direction: row !important; /* Keep sidebar on left */
+        flex-direction: row !important;
+        /* Keep sidebar on left */
     }
 
     .nav-toggle {
@@ -2316,7 +2346,7 @@ textarea {
     /* Expanded Sidebar State */
     .sidebar-expanded .base-TabsList-root {
         width: 220px !important;
-        box-shadow: 4px 0 12px rgba(0,0,0,0.15);
+        box-shadow: 4px 0 12px rgba(0, 0, 0, 0.15);
     }
 
     .nav-header {
@@ -2493,7 +2523,7 @@ textarea {
         gap: 8px !important;
         align-items: center !important;
         text-align: center !important;
-        min-height: 190px !important; 
+        min-height: 190px !important;
         background-color: var(--card-DefaultBg) !important;
         overflow: hidden;
         min-width: 0;
@@ -2541,7 +2571,8 @@ textarea {
         margin: 0 auto !important;
     }
 
-    .app-card-source, .app-card-category {
+    .app-card-source,
+    .app-card-category {
         font-size: 9px !important;
         margin-bottom: 4px !important;
         width: 100% !important;
@@ -2593,7 +2624,8 @@ textarea {
     }
 
     /* 7. Modals & Dialogs */
-    .app-detail-window, .wizard-dialog {
+    .app-detail-window,
+    .wizard-dialog {
         width: 100vw !important;
         height: 100vh !important;
         max-width: 100vw !important;

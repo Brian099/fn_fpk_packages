@@ -445,7 +445,7 @@ async function renderAppGrid(apps, grouped = true, mini = false) {
 
 function createAppCard(app, mini = false) {
     const card = document.createElement('div');
-    card.className = 'app-card';
+    card.className = 'app-card' + (app.isdocker === 'true' ? ' is-docker' : '');
     card.dataset.appId = app.id;
 
     let iconUrl = resolveIconUrl(app.icon) || '/static/app/icons/trim.app-center/icon.png';
@@ -500,6 +500,7 @@ function createAppCard(app, mini = false) {
                 </div>
             </div>
         </div>
+        ${app.isdocker === 'true' ? `<svg class="docker-icon-badge" viewBox="0 0 24 24"><path d="M23.6096 7.78281C23.0211 7.38668 21.4751 7.21752 20.3513 7.52051C20.291 6.40098 19.7132 5.45739 18.6572 4.63407L18.2664 4.37177L18.0059 4.7654C17.4937 5.54269 17.2778 6.5787 17.3542 7.52051C17.4145 8.10079 17.6162 8.75281 18.0059 9.22603C16.543 10.0747 15.1944 9.88197 9.22236 9.88197H0.00204151C-0.0247244 11.2306 0.191901 13.8244 1.84139 15.9361C2.02376 16.1695 2.22326 16.395 2.44024 16.6124C3.78139 17.9553 5.80775 18.9403 8.83765 18.9428C13.4603 18.9471 17.4206 16.4482 19.8299 10.4069C20.6225 10.4198 22.7152 10.549 23.7395 8.57009C23.7645 8.5369 24 8.04548 24 8.04548L23.6096 7.78317V7.78281ZM6.01938 6.5498H3.42665V9.14252H6.01938V6.5498ZM9.36868 6.5498H6.77596V9.14252H9.36868V6.5498ZM12.7183 6.5498H10.1256V9.14252H12.7183V6.5498ZM16.068 6.5498H13.4753V9.14252H16.068V6.5498ZM2.66971 6.5498H0.0769861V9.14252H2.66971V6.5498ZM6.01938 3.27508H3.42665V5.8678H6.01938V3.27508ZM9.36868 3.27508H6.77596V5.8678H9.36868V3.27508ZM12.7183 3.27508H10.1256V5.8678H12.7183V3.27508ZM12.7183 0H10.1256V2.59272H12.7183V0Z" fill="currentColor"></path></svg>` : ''}
     `;
 
     card.addEventListener('click', function (e) {
@@ -654,6 +655,10 @@ function renderAppDetail(app) {
                 <div class="info-item">
                     <div class="info-label">发布者</div>
                     <div class="info-value">${escapeHtml(app.publisher || '第三方')}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">应用属性</div>
+                    <div class="info-value">${app.isdocker === 'true' ? 'Docker' : '原生'}</div>
                 </div>
                 <div class="info-item">
                     <div class="info-label">安装位置</div>
