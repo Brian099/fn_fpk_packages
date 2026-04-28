@@ -35,7 +35,7 @@ const translations = {
     "field.python_func": "Python 函数",
     "field.cron": "Cron 表达式",
     "field.cron_hint": "标准 5 字段 Cron，分钟 小时 日 月 周（周字段 0=周一）",
-    "field.interval": "间隔（秒）",
+    "field.interval": "间隔",
     "field.run_date": "执行时间",
     "field.immediate": "立即启动",
     "field.enabled": "启用任务",
@@ -98,6 +98,27 @@ const translations = {
     "cron.field.day": "日期（天）",
     "cron.field.month": "月份",
     "cron.field.weekday": "星期（0=周一）",
+    "interval.days": "天",
+    "interval.hours": "时",
+    "interval.minutes": "分",
+    "interval.seconds": "秒",
+    "cron.frequency": "定时方式",
+    "cron.freq.daily": "每天",
+    "cron.freq.weekly": "每周",
+    "cron.freq.monthly": "每月",
+    "cron.freq.yearly": "每年",
+    "cron.freq.custom": "高级 (传统 Cron)",
+    "cron.time": "执行时间 (时:分)",
+    "cron.weekdays": "星期几",
+    "cron.day_of_month": "号数",
+    "cron.month": "月份",
+    "cron.wk.1": "一",
+    "cron.wk.2": "二",
+    "cron.wk.3": "三",
+    "cron.wk.4": "四",
+    "cron.wk.5": "五",
+    "cron.wk.6": "六",
+    "cron.wk.0": "日",
     "cron.opt.minute.every": "每分钟 *",
     "cron.opt.minute.zero": "整点 0",
     "cron.opt.minute.5": "每 5 分钟 */5",
@@ -133,7 +154,7 @@ const translations = {
     "cron.current_expression": "当前表达式：",
     "cron.hint": "顺序：分钟 小时 日 月 周；自定义字段可使用数字、*、/、,、-，为空时默认 *",
     "cron.invalid": "表达式无效",
-    "cron.preview": "执行时间预览：",
+    "cron.preview": "最近将要执行时间：",
     "cron.search_exceeded": "已超出搜索范围（{months} 个月），可能在更远时间触发",
     "loading": "加载中...",
     "loading_accounts": "正在加载账号...",
@@ -181,7 +202,7 @@ const translations = {
     "field.python_func": "Python Function",
     "field.cron": "Cron Expression",
     "field.cron_hint": "Standard 5-field Cron: minute hour day month weekday",
-    "field.interval": "Interval (seconds)",
+    "field.interval": "Interval",
     "field.run_date": "Run Date",
     "field.immediate": "Start Immediately",
     "field.enabled": "Enable Task",
@@ -205,7 +226,7 @@ const translations = {
     "settings.result_log_preview": "Log Preview Characters",
     "empty.no_tasks": "No tasks yet. Click 'New' to create one.",
     "cron.placeholder": "e.g.: */5 * * * *",
-    "cron.preview": "Cron Preview",
+    "cron.preview": "Will run at",
     "cron.next_runs": "Next 5 Runs",
     "error.task_name_required": "Task name is required",
     "error.trigger_type_required": "Please select a trigger type",
@@ -244,6 +265,27 @@ const translations = {
     "cron.field.day": "Day (date)",
     "cron.field.month": "Month",
     "cron.field.weekday": "Weekday(0=Mon)",
+    "interval.days": "Days",
+    "interval.hours": "Hrs",
+    "interval.minutes": "Mins",
+    "interval.seconds": "Secs",
+    "cron.frequency": "Frequency",
+    "cron.freq.daily": "Daily",
+    "cron.freq.weekly": "Weekly",
+    "cron.freq.monthly": "Monthly",
+    "cron.freq.yearly": "Yearly",
+    "cron.freq.custom": "Custom (Cron)",
+    "cron.time": "Time (HH:mm)",
+    "cron.weekdays": "Days of Week",
+    "cron.day_of_month": "Day of Month",
+    "cron.month": "Month",
+    "cron.wk.1": "Mon",
+    "cron.wk.2": "Tue",
+    "cron.wk.3": "Wed",
+    "cron.wk.4": "Thu",
+    "cron.wk.5": "Fri",
+    "cron.wk.6": "Sat",
+    "cron.wk.0": "Sun",
     "cron.opt.minute.every": "Every minute *",
     "cron.opt.minute.zero": "On :00",
     "cron.opt.minute.5": "Every 5 minutes */5",
@@ -294,7 +336,7 @@ const translations = {
 };
 
 window.__i18n = {
-  translate: function(key, params) {
+  translate: function (key, params) {
     const lang = localStorage.getItem('lang') || 'zh-CN';
     let text = translations[lang]?.[key] || key;
     if (params) {
@@ -304,22 +346,22 @@ window.__i18n = {
     }
     return text;
   },
-  setLang: function(lang) {
+  setLang: function (lang) {
     localStorage.setItem('lang', lang);
   },
-  getLang: function() {
+  getLang: function () {
     return localStorage.getItem('lang') || 'zh-CN';
   },
-  applyTranslations: function() {
+  applyTranslations: function () {
     const t = this.translate;
-    
+
     document.querySelectorAll('[data-i18n]').forEach(el => {
       const key = el.getAttribute('data-i18n');
       if (key) {
         el.textContent = t(key);
       }
     });
-    
+
     document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
       const key = el.getAttribute('data-i18n-placeholder');
       if (key) {

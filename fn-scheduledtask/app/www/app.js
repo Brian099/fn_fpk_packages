@@ -416,7 +416,21 @@ async function openEditModal(taskId) {
     if (cfg.day !== undefined) document.getElementById('cron_day').value = cfg.day;
     if (cfg.month !== undefined) document.getElementById('cron_month').value = cfg.month;
     if (cfg.day_of_week !== undefined) document.getElementById('cron_day_of_week').value = cfg.day_of_week;
-    if (cfg.seconds !== undefined) document.getElementById('interval_seconds').value = cfg.seconds;
+    if (cfg.seconds !== undefined) {
+      const s = parseInt(cfg.seconds, 10) || 0;
+      const d = Math.floor(s / 86400);
+      const h = Math.floor((s % 86400) / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = s % 60;
+      const eDays = document.getElementById('interval_days');
+      if (eDays) eDays.value = d;
+      const eHours = document.getElementById('interval_hours');
+      if (eHours) eHours.value = h;
+      const eMins = document.getElementById('interval_minutes');
+      if (eMins) eMins.value = m;
+      const eSecs = document.getElementById('interval_seconds');
+      if (eSecs) eSecs.value = sec;
+    }
     if (cfg.run_date !== undefined) {
       const d = new Date(cfg.run_date);
       document.getElementById('run_date').value = formatDateTimeLocalInput(d);
@@ -501,9 +515,16 @@ async function saveTask(e) {
         day_of_week: document.getElementById('cron_day_of_week').value || '*',
       };
       break;
-    case 'interval':
-      triggerConfig = { seconds: parseInt(document.getElementById('interval_seconds').value) || 60 };
+    case 'interval': {
+      const d = parseInt(document.getElementById('interval_days')?.value) || 0;
+      const h = parseInt(document.getElementById('interval_hours')?.value) || 0;
+      const m = parseInt(document.getElementById('interval_minutes')?.value) || 0;
+      const s = parseInt(document.getElementById('interval_seconds')?.value) || 0;
+      let total = d * 86400 + h * 3600 + m * 60 + s;
+      if (total <= 0) total = 60;
+      triggerConfig = { seconds: total };
       break;
+    }
     case 'date':
       let runDateValue = document.getElementById('run_date').value;
       if (runDateValue && runDateValue.length === 16 && runDateValue[10] === 'T') {
@@ -692,7 +713,33 @@ function getCronFieldValue(field) {
 }
 
 function updateCronPreview() {
-  const expression = CRON_FIELDS.map((field) => getCronFieldValue(field)).join(" ");
+  const freqSelect = document.getElementById('cron_frequency');
+  const freq = freqSelect ? freqSelect.value : 'custom';
+  let expression = '* * * * *';
+
+  if (freq === 'custom') {
+    expression = CRON_FIELDS.map((field) => getCronFieldValue(field)).join(" ");
+  } else {
+    let min = '*', hour = '*', day = '*', month = '*', weekday = '*';
+    const timeVal = document.getElementById(`cron_time_${freq}`)?.value || '00:00';
+    const [h, m] = timeVal.split(':');
+    min = parseInt(m, 10).toString();
+    hour = parseInt(h, 10).toString();
+
+    if (freq === 'daily') {
+      // already set min and hour
+    } else if (freq === 'weekly') {
+      const wks = Array.from(document.querySelectorAll('input[name="cron_weekday"]:checked')).map(cb => cb.value);
+      if (wks.length > 0) weekday = wks.join(',');
+    } else if (freq === 'monthly') {
+      day = document.getElementById('cron_day_monthly')?.value || '1';
+    } else if (freq === 'yearly') {
+      day = document.getElementById('cron_day_yearly')?.value || '1';
+      month = document.getElementById('cron_month_yearly')?.value || '1';
+    }
+    expression = `${min} ${hour} ${day} ${month} ${weekday}`;
+  }
+
   const cronPreview = document.getElementById('cronPreview');
   const cronNextTimes = document.getElementById('cronNextTimes');
   const btnApplyCron = document.getElementById('btnApplyCron');
@@ -869,6 +916,60 @@ function formatCronDate(dt) {
 function prefillCronGenerator(expression = "") {
   const normalized = expression.trim();
   const tokens = normalized ? normalized.split(/\s+/) : [];
+  
+  const minute = tokens[0] || '*';
+  const hour = tokens[1] || '*';
+  const day = tokens[2] || '*';
+  const month = tokens[3] || '*';
+  const weekday = tokens[4] || '*';
+
+  let freq = 'custom';
+  const isTimePattern = !minute.includes('*') && !minute.includes('/') && !hour.includes('*') && !hour.includes('/');
+  
+  if (expression === '* * * * *') {
+    freq = 'daily';
+    const el = document.getElementById('cron_time_daily');
+    if (el) el.value = '00:00';
+  } else if (isTimePattern) {
+    const timeStr = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+    
+    if (day === '*' && month === '*' && weekday === '*') {
+      freq = 'daily';
+      const el = document.getElementById('cron_time_daily');
+      if (el) el.value = timeStr;
+    } else if (day === '*' && month === '*' && weekday !== '*' && !weekday.includes('/')) {
+      freq = 'weekly';
+      const el = document.getElementById('cron_time_weekly');
+      if (el) el.value = timeStr;
+      const wks = weekday.split(',');
+      document.querySelectorAll('input[name="cron_weekday"]').forEach(cb => {
+        cb.checked = wks.includes(cb.value);
+      });
+    } else if (day !== '*' && !day.includes('*') && !day.includes('/') && month === '*' && weekday === '*') {
+      freq = 'monthly';
+      const el = document.getElementById('cron_time_monthly');
+      if (el) el.value = timeStr;
+      const eld = document.getElementById('cron_day_monthly');
+      if (eld) eld.value = day;
+    } else if (day !== '*' && !day.includes('*') && month !== '*' && !month.includes('*') && weekday === '*') {
+      freq = 'yearly';
+      const el = document.getElementById('cron_time_yearly');
+      if (el) el.value = timeStr;
+      const eld = document.getElementById('cron_day_yearly');
+      if (eld) eld.value = day;
+      const elm = document.getElementById('cron_month_yearly');
+      if (elm) elm.value = month;
+    }
+  }
+
+  const freqSelect = document.getElementById('cron_frequency');
+  if (freqSelect) {
+    freqSelect.value = freq;
+    document.querySelectorAll('.cron-detail').forEach(el => el.classList.add('hidden'));
+    const activeDetail = document.getElementById(`cron_detail_${freq}`);
+    if (activeDetail) activeDetail.classList.remove('hidden');
+  }
+
   CRON_FIELDS.forEach((field, index) => {
     const select = cronSelects[field];
     const input = cronCustomInputs[field];
@@ -1093,6 +1194,21 @@ function initEventListeners() {
         updateCronPreview();
       });
     }
+  });
+
+  const freqSelect = document.getElementById('cron_frequency');
+  if (freqSelect) {
+    freqSelect.addEventListener('change', (e) => {
+      document.querySelectorAll('.cron-detail').forEach(el => el.classList.add('hidden'));
+      const activeDetail = document.getElementById(`cron_detail_${e.target.value}`);
+      if (activeDetail) activeDetail.classList.remove('hidden');
+      updateCronPreview();
+    });
+  }
+
+  document.querySelectorAll('.cron-detail input').forEach(input => {
+    input.addEventListener('input', updateCronPreview);
+    input.addEventListener('change', updateCronPreview);
   });
 
   document.addEventListener('click', (event) => {
