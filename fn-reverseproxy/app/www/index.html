@@ -330,6 +330,22 @@
             width: 100%;
             -webkit-overflow-scrolling: touch;
         }
+        .custom-headers-textarea {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 13px;
+            resize: vertical;
+            min-height: 80px;
+            transition: border-color 0.3s;
+        }
+        .custom-headers-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
         @media (max-width: 768px) {
             body {
                 padding: 10px;
@@ -492,13 +508,38 @@
                         <label for="proxyTimeout" title="等待后端响应的最大时间，超时后将断开连接">代理超时（秒）</label>
                         <input type="number" id="proxyTimeout" placeholder="默认：30">
                     </div>
+                    <div class="form-group">
+                        <label for="maxBodySize" title="限制客户端上传的最大请求体大小，防范超大文件上传造成的OOM或带宽拥堵。">最大上传限制（MB）</label>
+                        <input type="number" id="maxBodySize" placeholder="留空或0表示不限制，推荐：50">
+                    </div>
+                    <div class="fieldset">
+                        <legend title="配置发往后端服务时的自定义请求头">自定义请求头 (Custom Headers)</legend>
+                        <textarea id="customHeadersText" class="custom-headers-textarea" placeholder="每行一个请求头，格式为 名称: 值&#10;例如：&#10;Host: kami.laokhome.cn&#10;X-Forwarded-Proto: https" rows="4"></textarea>
+                    </div>
                     <div class="form-check">
                         <input type="checkbox" id="enableHsts">
                         <label for="enableHsts" title="强制浏览器仅通过HTTPS访问该域名，增强安全性">启用 HSTS</label>
                     </div>
                     <div class="form-check">
+                        <input type="checkbox" id="forceHttps">
+                        <label for="forceHttps" title="当用户通过 HTTP 访问时，自动 301 重定向到 HTTPS 版本">强制跳转 HTTPS</label>
+                    </div>
+                    <div class="form-check">
                         <input type="checkbox" id="preserveHost">
                         <label for="preserveHost" title="转发时保留原始请求中的Host头，而非使用目标地址的Host">保留原始主机头</label>
+                    </div>
+                    <div class="fieldset" style="margin-top: 15px;">
+                        <legend title="配置允许或拒绝访问的 IP 段（支持 CIDR，如 192.168.1.0/24），每行一个">IP 访问控制 (Access Control)</legend>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="allowIps">白名单 (Allow IPs)</label>
+                                <textarea id="allowIps" placeholder="留空允许所有&#10;例: 192.168.1.0/24" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-family: monospace;"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="blockIps">黑名单 (Block IPs)</label>
+                                <textarea id="blockIps" placeholder="优先于白名单&#10;例: 10.0.0.1" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-family: monospace;"></textarea>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -620,8 +661,13 @@
             document.getElementById('targetPort').value = '8080';
             document.getElementById('ruleEnable').checked = true;
             document.getElementById('proxyTimeout').value = '30';
+            document.getElementById('maxBodySize').value = '';
             document.getElementById('enableHsts').checked = false;
+            document.getElementById('forceHttps').checked = false;
             document.getElementById('preserveHost').checked = false;
+            document.getElementById('customHeadersText').value = '';
+            document.getElementById('allowIps').value = '';
+            document.getElementById('blockIps').value = '';
             document.getElementById('proxyModal').classList.add('show');
         }
 
@@ -643,8 +689,22 @@
                     document.getElementById('targetPort').value = proxy.targetPort || '8080';
                     document.getElementById('ruleEnable').checked = proxy.enable !== false;
                     document.getElementById('proxyTimeout').value = proxy.timeout || '30';
+                    document.getElementById('maxBodySize').value = proxy.maxBodySize || '';
                     document.getElementById('enableHsts').checked = !!proxy.hsts;
+                    document.getElementById('forceHttps').checked = !!proxy.forceHttps;
                     document.getElementById('preserveHost').checked = !!proxy.preserveHost;
+                    
+                    document.getElementById('allowIps').value = (proxy.allowIps || []).join('\n');
+                    document.getElementById('blockIps').value = (proxy.blockIps || []).join('\n');
+                    
+                    let headersText = '';
+                    if (proxy.setHeaders) {
+                        for (const [k, v] of Object.entries(proxy.setHeaders)) {
+                            headersText += `${k}: ${v}\n`;
+                        }
+                    }
+                    document.getElementById('customHeadersText').value = headersText.trim();
+
                     document.getElementById('proxyModal').classList.add('show');
                 }
             } catch (e) {
@@ -664,6 +724,24 @@
 
         function closeModal() {
             document.getElementById('proxyModal').classList.remove('show');
+        }
+
+        function getCustomHeaders() {
+            const headers = {};
+            const text = document.getElementById('customHeadersText').value;
+            if (!text) return headers;
+            const lines = text.split('\n');
+            for (const line of lines) {
+                const idx = line.indexOf(':');
+                if (idx > 0) {
+                    const name = line.substring(0, idx).trim();
+                    const value = line.substring(idx + 1).trim();
+                    if (name) {
+                        headers[name] = value;
+                    }
+                }
+            }
+            return headers;
         }
 
         async function validateRule(name, sourceProtocol, sourcePort, targetHost, targetPort) {
@@ -704,8 +782,13 @@
             const targetPort = document.getElementById('targetPort').value.trim();
             const enable = document.getElementById('ruleEnable').checked;
             const timeout = document.getElementById('proxyTimeout').value.trim();
+            const maxBodySize = parseInt(document.getElementById('maxBodySize').value.trim() || '0', 10);
             const hsts = document.getElementById('enableHsts').checked;
+            const forceHttps = document.getElementById('forceHttps').checked;
             const preserveHost = document.getElementById('preserveHost').checked;
+            const setHeaders = getCustomHeaders();
+            const allowIps = document.getElementById('allowIps').value.split('\n').map(ip => ip.trim()).filter(Boolean);
+            const blockIps = document.getElementById('blockIps').value.split('\n').map(ip => ip.trim()).filter(Boolean);
 
             const errMsg = await validateRule(name, sourceProtocol, sourcePort, targetHost, targetPort);
             if (errMsg) {
@@ -724,7 +807,12 @@
                 targetHost,
                 targetPort,
                 timeout: timeout || '30',
+                maxBodySize,
+                setHeaders,
                 hsts,
+                forceHttps,
+                allowIps,
+                blockIps,
                 preserveHost
             };
 

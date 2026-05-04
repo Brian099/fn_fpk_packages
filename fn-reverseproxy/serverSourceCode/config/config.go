@@ -34,10 +34,16 @@ type ProxyRule struct {
 	SourcePort     string   `json:"sourcePort,omitempty"`
 	TargetProtocol string   `json:"targetProtocol,omitempty"`
 	TargetHost     string   `json:"targetHost,omitempty"`
-	TargetPort     string   `json:"targetPort,omitempty"`
-	Timeout        string   `json:"timeout,omitempty"`
-	HSTS           bool     `json:"hsts,omitempty"`
-	PreserveHost   bool     `json:"preserveHost,omitempty"`
+	TargetPort     string            `json:"targetPort,omitempty"`
+	Timeout        string            `json:"timeout,omitempty"`
+	HSTS           bool              `json:"hsts,omitempty"`
+	PreserveHost   bool              `json:"preserveHost,omitempty"`
+	SetHeaders     map[string]string `json:"setHeaders,omitempty"`
+	RemoveHeaders  []string          `json:"removeHeaders,omitempty"`
+	MaxBodySize    int64             `json:"maxBodySize,omitempty"`
+	ForceHTTPS     bool              `json:"forceHttps,omitempty"`
+	AllowIPs       []string          `json:"allowIps,omitempty"`
+	BlockIPs       []string          `json:"blockIps,omitempty"`
 }
 
 func Init(path string) error {
