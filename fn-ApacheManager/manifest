@@ -1,5 +1,5 @@
 appname               = ApacheManager
-version               = 1.0.6
+version               = 1.0.10
 display_name          = Apache 管理器
 desc                  = Apache 独立生命周期管理器。提供环境检测、一键安装、服务控制及实时日志。
 platform              = all

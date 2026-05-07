@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -251,12 +252,78 @@ func createProxy(p *config.ProxyRule) error {
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 
+	originalDirector := rp.Director
 	rp.Director = func(req *http.Request) {
-		req.URL.Scheme = targetURL.Scheme
-		req.URL.Host = targetURL.Host
+		originalDirector(req)
 		if !p.PreserveHost {
 			req.Host = targetURL.Host
 		}
+		for k, v := range p.SetHeaders {
+			if strings.ToLower(k) == "host" {
+				req.Host = v
+			} else {
+				req.Header.Set(k, v)
+			}
+		}
+		for _, k := range p.RemoveHeaders {
+			if strings.ToLower(k) == "host" {
+				// Cannot remove Host field, ignore
+			} else {
+				req.Header.Del(k)
+			}
+		}
+		if req.Header.Get("X-Forwarded-Proto") == "" {
+			proto := p.SourceProtocol
+			if proto == "" {
+				proto = "http"
+			}
+			req.Header.Set("X-Forwarded-Proto", proto)
+		}
+	}
+
+	rp.ModifyResponse = func(resp *http.Response) error {
+		if p.HSTS {
+			resp.Header.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+		return nil
+	}
+
+	rp.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		statusCode := http.StatusBadGateway
+		if errors.Is(err, context.DeadlineExceeded) {
+			statusCode = http.StatusGatewayTimeout
+		}
+		
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(statusCode)
+		html := fmt.Sprintf(`
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>%d %s</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: #f8f9fa; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .error-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
+        h1 { color: #dc3545; font-size: 48px; margin: 0 0 10px; }
+        h2 { color: #333; font-size: 20px; margin: 0 0 20px; }
+        p { color: #6c757d; font-size: 15px; line-height: 1.6; margin-bottom: 30px; }
+        .btn { display: inline-block; background: #667eea; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-size: 14px; transition: background 0.3s; }
+        .btn:hover { background: #5a6cd6; }
+    </style>
+</head>
+<body>
+    <div class="error-card">
+        <h1>%d</h1>
+        <h2>%s</h2>
+        <p>目标服务当前不可达 (Target Unreachable)。<br>它可能正在重启或已离线，请稍后再试或联系管理员排查后端服务状态。</p>
+        <a href="javascript:location.reload()" class="btn">刷新重试</a>
+    </div>
+</body>
+</html>
+`, statusCode, http.StatusText(statusCode), statusCode, http.StatusText(statusCode))
+		w.Write([]byte(html))
 	}
 
 	proxies[p.ID] = rp
@@ -311,6 +378,17 @@ func GetListenAddrs() []ListenAddr {
 		}
 		if proto == "http" {
 			info.enableTLS = false
+		}
+		
+		if rule.ForceHTTPS {
+			addr80 := ":80"
+			info80, ok80 := portInfos[addr80]
+			if !ok80 {
+				info80 = &portInfo{addr: addr80, enableTLS: false}
+				portInfos[addr80] = info80
+			} else {
+				info80.enableTLS = false
+			}
 		}
 	}
 
@@ -414,6 +492,21 @@ func SyncListeners() {
 	}
 }
 
+func matchIP(pattern string, ip net.IP) bool {
+	if strings.Contains(pattern, "/") {
+		_, ipNet, err := net.ParseCIDR(pattern)
+		if err == nil {
+			return ipNet.Contains(ip)
+		}
+	} else {
+		target := net.ParseIP(pattern)
+		if target != nil {
+			return target.Equal(ip)
+		}
+	}
+	return false
+}
+
 func Handler(c *gin.Context) {
 	hostParts := strings.Split(c.Request.Host, ":")
 	domain := hostParts[0]
@@ -456,6 +549,54 @@ func Handler(c *gin.Context) {
 			"error": "Proxy not initialized for rule: " + proxyRule.Name,
 		})
 		return
+	}
+
+	clientIP := net.ParseIP(c.ClientIP())
+	if clientIP != nil {
+		if len(proxyRule.AllowIPs) > 0 {
+			allowed := false
+			for _, cidr := range proxyRule.AllowIPs {
+				if matchIP(cidr, clientIP) {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Access Denied by AllowIPs"})
+				return
+			}
+		}
+		if len(proxyRule.BlockIPs) > 0 {
+			for _, cidr := range proxyRule.BlockIPs {
+				if matchIP(cidr, clientIP) {
+					c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Access Denied by BlockIPs"})
+					return
+				}
+			}
+		}
+	}
+
+	if proxyRule.ForceHTTPS && c.Request.TLS == nil {
+		targetPort := proxyRule.SourcePort
+		if targetPort == "" || targetPort == "80" {
+			targetPort = "443" // fallback
+		}
+		host := c.Request.Host
+		if !strings.Contains(host, ":") && targetPort != "443" {
+			host = host + ":" + targetPort
+		} else if strings.Contains(host, ":") {
+			host = strings.Split(host, ":")[0]
+			if targetPort != "443" {
+				host = host + ":" + targetPort
+			}
+		}
+		targetURL := "https://" + host + c.Request.URL.RequestURI()
+		c.Redirect(http.StatusMovedPermanently, targetURL)
+		return
+	}
+
+	if proxyRule.MaxBodySize > 0 {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, proxyRule.MaxBodySize*1024*1024)
 	}
 
 	rp.ServeHTTP(c.Writer, c.Request)

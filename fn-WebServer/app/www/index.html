@@ -307,11 +307,56 @@
           </div>
         </div>
       </div>
+      <div class="layui-row layui-col-space10">
+        <div class="layui-col-md6">
+          <div class="layui-form-item">
+            <label class="layui-form-label">高级选项</label>
+            <div class="layui-input-block">
+              <input type="checkbox" name="preserveHost" title="保留原始 Host" lay-skin="primary" checked>
+              <input type="checkbox" name="forceHttps" title="强制 HTTPS" lay-skin="primary">
+            </div>
+          </div>
+        </div>
+        <div class="layui-col-md6">
+          <div class="layui-form-item">
+            <label class="layui-form-label">安全策略</label>
+            <div class="layui-input-block">
+              <input type="checkbox" name="hsts" title="启用 HSTS" lay-skin="primary">
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="layui-form-item">
-        <label class="layui-form-label">高级选项</label>
+        <label class="layui-form-label">最大上传</label>
         <div class="layui-input-block">
-          <input type="checkbox" name="preserveHost" title="保留原始 Host 头" lay-skin="primary" checked>
-          <input type="checkbox" name="hsts" title="启用 HSTS" lay-skin="primary">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <input type="number" name="maxBodySize" placeholder="例如: 50 (单位: MB)" class="layui-input" style="width: 150px;">
+            <div class="layui-word-aux">0 表示不限制</div>
+          </div>
+        </div>
+      </div>
+      <div class="layui-form-item">
+        <label class="layui-form-label">IP 白名单</label>
+        <div class="layui-input-block">
+          <textarea name="allowIps" placeholder="每行一个 IP 或网段 (如 192.168.1.0/24)，留空允许所有" class="layui-textarea" style="min-height: 80px;"></textarea>
+        </div>
+      </div>
+      <div class="layui-form-item">
+        <label class="layui-form-label">IP 黑名单</label>
+        <div class="layui-input-block">
+          <textarea name="blockIps" placeholder="每行一个 IP 或网段，匹配时将拒绝访问" class="layui-textarea" style="min-height: 80px;"></textarea>
+        </div>
+      </div>
+      <div class="layui-form-item">
+        <label class="layui-form-label">设置请求头</label>
+        <div class="layui-input-block">
+          <textarea name="setHeaders" placeholder="每行一个，格式为 Key: Value (如 X-Proxy-By: WebServer)" class="layui-textarea" style="min-height: 80px;"></textarea>
+        </div>
+      </div>
+      <div class="layui-form-item">
+        <label class="layui-form-label">移除请求头</label>
+        <div class="layui-input-block">
+          <textarea name="removeHeaders" placeholder="每行一个请求头名称 (如 Server)" class="layui-textarea" style="min-height: 60px;"></textarea>
         </div>
       </div>
       <div class="layui-form-item" style="margin-top:25px; text-align:right;">

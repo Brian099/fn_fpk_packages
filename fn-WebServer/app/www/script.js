@@ -732,7 +732,13 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
             "targetPort": isEdit ? data.targetPort : "",
             "targetHost": isEdit ? data.targetHost : "127.0.0.1",
             "preserveHost": isEdit ? data.preserveHost : true,
-            "hsts": isEdit ? data.hsts : false
+            "forceHttps": isEdit ? data.forceHttps : false,
+            "hsts": isEdit ? data.hsts : false,
+            "maxBodySize": isEdit ? data.maxBodySize : "",
+            "allowIps": isEdit ? (data.allowIps ? data.allowIps.join('\n') : "") : "",
+            "blockIps": isEdit ? (data.blockIps ? data.blockIps.join('\n') : "") : "",
+            "removeHeaders": isEdit ? (data.removeHeaders ? data.removeHeaders.join('\n') : "") : "",
+            "setHeaders": isEdit ? (data.setHeaders ? Object.keys(data.setHeaders).map(k => k + ": " + data.setHeaders[k]).join('\n') : "") : ""
         });
         form.render();
 
@@ -756,7 +762,24 @@ layui.use(['element', 'table', 'layer', 'form'], function () {
             targetHost: field.targetHost,
             targetPort: field.targetPort,
             preserveHost: field.preserveHost === "on" || field.preserveHost === true,
-            hsts: field.hsts === "on" || field.hsts === true
+            forceHttps: field.forceHttps === "on" || field.forceHttps === true,
+            hsts: field.hsts === "on" || field.hsts === true,
+            maxBodySize: field.maxBodySize ? parseInt(field.maxBodySize) : 0,
+            allowIps: field.allowIps.split('\n').map(s => s.trim()).filter(s => s !== ""),
+            blockIps: field.blockIps.split('\n').map(s => s.trim()).filter(s => s !== ""),
+            removeHeaders: field.removeHeaders.split('\n').map(s => s.trim()).filter(s => s !== ""),
+            setHeaders: (function () {
+                var headers = {};
+                field.setHeaders.split('\n').forEach(line => {
+                    var idx = line.indexOf(':');
+                    if (idx > 0) {
+                        var k = line.substring(0, idx).trim();
+                        var v = line.substring(idx + 1).trim();
+                        if (k) headers[k] = v;
+                    }
+                });
+                return headers;
+            })()
         };
 
         if (field.id) {
