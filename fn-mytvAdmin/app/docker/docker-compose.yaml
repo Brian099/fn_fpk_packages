@@ -1,0 +1,12 @@
+services:
+  mytvAdmin:
+    image: brian9909/mytvadmin:main
+    pull_policy: always
+    container_name: mytvAdmin
+    environment:
+      - MYTV_BACKEND_SECRET=${wizard_key}
+    volumes:
+      - ${wizard_data}:/var/www/html/files
+    ports: 
+      - "${wizard_port}:80"
+    restart: always

@@ -1,0 +1,50 @@
+[
+  {
+    "stepTitle": "储存设置",
+    "items": [
+      {
+        "type": "text",
+        "field": "wizard_data",
+        "label": "持久化文档目录",
+        "initValue": "/vol1/1000/docker/mytvadmin",
+        "rules": [
+          {
+            "required": true,
+            "message": "请输入媒体目录",
+            "min": 3,
+            "max": 100,
+            "message": "请输入媒体的绝对目录地址"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "field": "wizard_key",
+        "label": "接口密钥",
+        "initValue": "mytv-secret",
+        "rules": [
+          {
+            "required": true,
+            "message": "请输入后端密钥",
+            "min": 3,
+            "message": "请输入后端密钥"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "field": "wizard_port",
+        "label": "访问端口",
+        "initValue": "8880",
+        "rules": [
+          {
+            "required": true,
+            "message": "请输入端口号",
+            "pattern": "^[0-9]+$",
+            "message": "端口号必须是数字"
+          }
+        ]
+      }
+    ]
+  }
+]

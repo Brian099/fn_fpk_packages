@@ -1,0 +1,8 @@
+{
+    "defaults":
+    {
+        "run-as": "package"
+    },
+    "username": "docker-mytvadmin",
+    "groupname": "docker-mytvadmin"
+}

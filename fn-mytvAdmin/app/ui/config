@@ -1,0 +1,13 @@
+{
+  ".url": {
+    "mytvadmin.Application": {
+      "title": "mytvAdmin",
+      "icon": "images/icon_{0}.png",
+      "type": "url",
+      "protocol": "http",
+      "port": "${wizard_port}",
+      "url": "/",
+      "allUsers": false
+    }
+  }
+}

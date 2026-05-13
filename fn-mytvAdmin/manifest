@@ -1,0 +1,12 @@
+appname               = mytvadmin
+version               = 3.1.7
+display_name          = mytvAdmin
+desc                  = 一个聚合播放源管理及客户端授权管理系统。
+platform              = all
+source                = thirdparty
+maintainer            = Giraff
+maintainer_url=https://giraff.fun
+distributor           = Giraff
+distributor_url=https://giraff.fun
+desktop_uidir         = ui
+desktop_applaunchname = mytvadmin.Application
