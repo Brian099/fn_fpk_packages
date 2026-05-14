@@ -23,6 +23,20 @@ if [ -z "$REL_PATH" ] || [ "$REL_PATH" = "/" ]; then
     REL_PATH="/index.html"
 fi
 
+# 1.5 解析查询参数
+if [ -n "$QUERY_STRING" ]; then
+    # 将 & 替换为空格，循环处理
+    IFS='&' read -ra ADDR <<< "$QUERY_STRING"
+    for i in "${ADDR[@]}"; do
+        # 简单处理：export 变量
+        # 比如 wizard_site_name=test -> export wizard_site_name=test
+        # 注意：这里需要 urldecode，但为了简单起见，先做基本处理
+        key=$(echo "$i" | cut -d= -f1)
+        val=$(echo "$i" | cut -d= -f2 | sed 's/%\([0-9A-F][0-9A-F]\)/\\x\1/g' | xargs -0 printf %b)
+        export "$key"="$val"
+    done
+fi
+
 # 2. 路由分发 (API 或 静态文件)
 if [[ "$REL_PATH" == /api/* ]]; then
     BACKEND_SCRIPT="/var/apps/$APP_NAME/target/server/manager.sh"

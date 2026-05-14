@@ -49,6 +49,29 @@ case "$ARCH" in
     ;;
 esac
 
+# 初始化 Nginx 目录结构及配置包含
+init_nginx_structure() {
+  # 创建目录
+  mkdir -p /etc/nginx/sites-available
+  mkdir -p /etc/nginx/sites-enabled
+  mkdir -p /etc/nginx/conf.d
+
+  # 确保 nginx.conf 包含 sites-enabled
+  if [ -f "/etc/nginx/nginx.conf" ]; then
+    if ! grep -q "sites-enabled" /etc/nginx/nginx.conf; then
+      # 在 http 块结束前插入 include
+      # 寻找最后一个 } 之前的位置，或者在 conf.d include 之后
+      if grep -q "include /etc/nginx/conf.d/\*.conf;" /etc/nginx/nginx.conf; then
+        sed -i '/include \/etc\/nginx\/conf.d\/\*.conf;/a \    include /etc/nginx/sites-enabled/*;' /etc/nginx/nginx.conf
+      else
+        # 兜底：在倒数第二行插入（假设最后一行是 }）
+        sed -i '$i \    include /etc/nginx/sites-enabled/*;' /etc/nginx/nginx.conf
+      fi
+    fi
+  fi
+}
+
+
 # Nginx 离线安装及配置逻辑 (支持引导参数)
 nginx_install_json() {
   # 获取向导传入的端口参数，默认为 2829
@@ -127,9 +150,11 @@ case "$1" in
     nginx_status_json
     ;;
   install)
+    init_nginx_structure
     nginx_install_json || exit 1
     ;;
   upgrade)
+    init_nginx_structure
     nginx_install_json upgrade || exit 1
     ;;
   start)
