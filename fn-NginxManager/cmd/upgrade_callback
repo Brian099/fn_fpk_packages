@@ -1,4 +1,28 @@
 #!/bin/bash
 # cmd/upgrade_callback
 # Actions after upgrade
+
+# Log file for upgrade details
+LOG_FILE="/tmp/nginx_manager_upgrade.log"
+
+# Define backend script path
+BACKEND_SCRIPT="${TRIM_APPDEST}/server/manager.sh"
+
+# Local environment compatibility
+if [ -z "$TRIM_APPDEST" ]; then
+    BACKEND_SCRIPT="$(dirname "$(dirname "$(readlink -f "$0")")")/app/server/manager.sh"
+fi
+
+if [ -f "$BACKEND_SCRIPT" ]; then
+    # Trigger the Nginx upgrade
+    if ! bash "$BACKEND_SCRIPT" upgrade > "$LOG_FILE" 2>&1; then
+        # If backend fails, pass the log output to the system for user alert
+        cat "$LOG_FILE" > "$TRIM_TEMP_LOGFILE"
+        exit 1
+    fi
+else
+    echo "Error: Backend script not found at $BACKEND_SCRIPT" > "$TRIM_TEMP_LOGFILE"
+    exit 1
+fi
+
 exit 0

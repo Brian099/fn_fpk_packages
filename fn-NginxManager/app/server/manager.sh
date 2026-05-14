@@ -59,12 +59,12 @@ nginx_install_json() {
     already_installed=true
   fi
   
-  if [ "$already_installed" = false ]; then
+  if [ "$already_installed" = false ] || [ "$1" = "upgrade" ]; then
     if [ ! -d "$PKG_ARCH_DIR" ] || [ -z "$(ls -A "$PKG_ARCH_DIR" 2>/dev/null)" ]; then
       printf '{"ok":false,"error":"架构 %s 的本地软件包目录不存在或为空"}' "$ARCH"
       return 1
     fi
-    # 使用 dpkg 尝试离线安装
+    # 使用 dpkg 尝试离线安装/升级
     dpkg -i "$PKG_ARCH_DIR"/*.deb >/tmp/nginx_manager_install.log 2>&1
     # 修复依赖关系 (如果系统中存在部分未满足的库)
     apt-get install -y -f >>/tmp/nginx_manager_install.log 2>&1
@@ -107,14 +107,17 @@ nginx_install_json() {
           : > /var/log/nginx/error.log
       fi
       
-      if [ "$already_installed" = true ]; then
+      if [ "$already_installed" = true ] && [ "$1" != "upgrade" ]; then
           printf '{"ok":true,"message":"Nginx 已检测到安装，已同步端口为 %s"}' "$port_to_use"
+      elif [ "$1" = "upgrade" ]; then
+          printf '{"ok":true,"message":"Nginx 已成功升级，当前端口为 %s"}' "$port_to_use"
       else
           printf '{"ok":true,"message":"Nginx 离线安装成功，当前端口为 %s"}' "$port_to_use"
       fi
   else
       error_tail=$(tail -n 3 /tmp/nginx_manager_install.log | tr -d '"' | tr '\n' ' ')
       printf '{"ok":false,"error":"安装失败: %s"}' "$error_tail"
+      return 1
   fi
 }
 
@@ -124,7 +127,10 @@ case "$1" in
     nginx_status_json
     ;;
   install)
-    nginx_install_json
+    nginx_install_json || exit 1
+    ;;
+  upgrade)
+    nginx_install_json upgrade || exit 1
     ;;
   start)
     systemctl start nginx && echo '{"ok":true}' || echo '{"ok":false}'
