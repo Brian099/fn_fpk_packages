@@ -1,5 +1,8 @@
 #!/bin/bash
 
+
+
+
 # Nginx Manager Backend Script (Offline Ready)
 # Version: 1.1.1 (Dynamic Port)
 
@@ -55,20 +58,94 @@ init_nginx_structure() {
   mkdir -p /etc/nginx/sites-available
   mkdir -p /etc/nginx/sites-enabled
   mkdir -p /etc/nginx/conf.d
+  mkdir -p /etc/nginx/snippets
+  mkdir -p /etc/nginx/modules-available
+  mkdir -p /etc/nginx/modules-enabled
+
+  # 1. 补全 fastcgi-php.conf
+  if [ ! -f "/etc/nginx/snippets/fastcgi-php.conf" ]; then
+    tee /etc/nginx/snippets/fastcgi-php.conf > /dev/null <<'EOF'
+fastcgi_split_path_info ^(.+?\.php)(/.*)$;
+try_files $fastcgi_script_name =404;
+set $path_info $fastcgi_path_info;
+fastcgi_param PATH_INFO $path_info;
+fastcgi_index index.php;
+include fastcgi.conf;
+EOF
+  fi
+
+  # 2. 补全 fastcgi.conf (官方版只有 fastcgi_params)
+  if [ ! -f "/etc/nginx/fastcgi.conf" ]; then
+    [ -f "/etc/nginx/fastcgi_params" ] && cp /etc/nginx/fastcgi_params /etc/nginx/fastcgi.conf 2>/dev/null
+    echo 'fastcgi_param  SCRIPT_FILENAME    $document_root$fastcgi_script_name;' | tee -a /etc/nginx/fastcgi.conf > /dev/null
+  fi
+
+  # 3. 补全 proxy_params
+  if [ ! -f "/etc/nginx/proxy_params" ]; then
+    tee /etc/nginx/proxy_params > /dev/null <<'EOF'
+proxy_set_header Host \$http_host;
+proxy_set_header X-Real-IP \$remote_addr;
+proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-Proto \$scheme;
+EOF
+  fi
 
   # 确保 nginx.conf 包含 sites-enabled
   if [ -f "/etc/nginx/nginx.conf" ]; then
     if ! grep -q "sites-enabled" /etc/nginx/nginx.conf; then
+      # 移除可能存在的默认站点链接以防止 80 端口冲突 (WebServer 会接管)
+      [ -L "/etc/nginx/sites-enabled/default" ] && rm -f "/etc/nginx/sites-enabled/default"
+      [ -f "/etc/nginx/sites-enabled/default" ] && mv "/etc/nginx/sites-enabled/default" "/etc/nginx/sites-enabled/default.bak"
+
       # 在 http 块结束前插入 include
-      # 寻找最后一个 } 之前的位置，或者在 conf.d include 之后
-      if grep -q "include /etc/nginx/conf.d/\*.conf;" /etc/nginx/nginx.conf; then
-        sed -i '/include \/etc\/nginx\/conf.d\/\*.conf;/a \    include /etc/nginx/sites-enabled/*;' /etc/nginx/nginx.conf
-      else
-        # 兜底：在倒数第二行插入（假设最后一行是 }）
-        sed -i '$i \    include /etc/nginx/sites-enabled/*;' /etc/nginx/nginx.conf
+      # 尝试解除可能的只读属性
+      chmod +w /etc/nginx/nginx.conf 2>/dev/null
+
+      # 统一将运行用户改为 www-data 以解决 PHP-FPM 权限问题
+      sed -i 's/^user  nginx;/user  www-data;/g' /etc/nginx/nginx.conf
+
+      # 针对 1.30.1 等官方版本结构的强力适配
+      # 如果存在 conf.d 的 include，则在其后直接追加 sites-enabled 的包含
+      if grep -q "conf.d/.*conf;" /etc/nginx/nginx.conf; then
+        sed -i '/conf.d\/.*conf;/a \    include /etc/nginx/sites-enabled/*;' /etc/nginx/nginx.conf
+      fi
+
+      # 再次兜底检查：如果还没有包含 sites-enabled，则在最后一个 } 之前强制插入
+      if ! grep -q "sites-enabled" /etc/nginx/nginx.conf; then
+        # 最终兜底：如果仍未成功，则用完整模板覆盖 nginx.conf
+        cat > /etc/nginx/nginx.conf <<'EOF'
+user  www-data;
+worker_processes  auto;
+
+error_log  /var/log/nginx/error.log notice;
+pid        /run/nginx.pid;
+
+events {
+    worker_connections  1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log  /var/log/nginx/access.log  main;
+
+    sendfile        on;
+    keepalive_timeout  65;
+
+    include /etc/nginx/conf.d/*.conf;
+    include /etc/nginx/sites-enabled/*;
+}
+EOF
       fi
     fi
   fi
+  # 修改完配置后使生效
+  /usr/sbin/nginx -s reload >/dev/null 2>&1
 }
 
 
@@ -150,12 +227,10 @@ case "$1" in
     nginx_status_json
     ;;
   install)
-    init_nginx_structure
-    nginx_install_json || exit 1
+    nginx_install_json && init_nginx_structure || exit 1
     ;;
   upgrade)
-    init_nginx_structure
-    nginx_install_json upgrade || exit 1
+    nginx_install_json upgrade && init_nginx_structure || exit 1
     ;;
   start)
     systemctl start nginx && echo '{"ok":true}' || echo '{"ok":false}'
@@ -170,7 +245,7 @@ case "$1" in
     systemctl reload nginx && echo '{"ok":true}' || echo '{"ok":false}'
     ;;
   check)
-    output=$(nginx -t 2>&1)
+    output=$(/usr/sbin/nginx -t 2>&1)
     if [ $? -eq 0 ]; then
       output_esc=$(echo "$output" | sed 's/\\/\\\\/g; s/"/\\"/g; s/$/\\n/' | tr -d '\n')
       echo "{\"ok\":true,\"output\":\"$output_esc\"}"

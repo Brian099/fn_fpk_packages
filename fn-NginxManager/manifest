@@ -1,5 +1,5 @@
 appname               = NginxManager
-version               = 1.1.3
+version               = 1.1.4
 display_name          = Nginx 管理器
 desc                  = Nginx 独立生命周期管理器。提供环境检测、一键安装、服务控制及实时日志。
 platform              = all
