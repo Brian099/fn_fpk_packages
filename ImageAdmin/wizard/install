@@ -1,0 +1,11 @@
+[
+  {
+    "stepTitle": "安装向导",
+    "items": [
+      {
+        "type": "tips",
+        "helpText": "<strong>欢迎使用 ImagesGallery</strong><br><br>ImagesGallery 是一款高性能的私人图床与镜像管理系统，支持多存储后端、智能缩略图和私有 API。<br><br>点击下一步开始安装。"
+      }
+    ]
+  }
+]

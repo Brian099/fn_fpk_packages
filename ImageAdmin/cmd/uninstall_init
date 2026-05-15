@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# 获取脚本目录和根目录
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CMD_MAIN="${APP_ROOT}/cmd/main"
+
+echo ">>> ImagesGallery 卸载预处理：正在停止服务..."
+
+# 强制停止服务
+if [ -f "${CMD_MAIN}" ]; then
+    bash "${CMD_MAIN}" stop
+fi
+
+exit 0

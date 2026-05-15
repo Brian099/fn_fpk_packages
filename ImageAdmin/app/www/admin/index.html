@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImagesGallery - 管理控制台</title>
+    <link rel="stylesheet" href="static/css/admin.css?v=9">
+    <link rel="stylesheet" href="static/css/all.min.css?v=7">
+    <link rel="stylesheet" href="static/css/outfit.css?v=7">
+    <link rel="icon" type="image/png" href="static/img/favicon32.png?v=7">
+</head>
+
+<body>
+    <!-- Sidebar Overlay (mobile) -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileMenu()"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="logo-container">
+            <!-- <i class="fas fa-bolt"></i> -->
+            <img src="static/img/logo.png?v=7" alt="">
+            <span id="adminBrandName">ImagesGallery</span>
+        </div>
+        <ul class="nav-menu">
+            <li class="nav-item">
+                <a href="#" class="nav-link active" data-section="dashboard">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>控制面板</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link" data-section="media">
+                    <i class="fas fa-images"></i>
+                    <span>媒体库</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link" data-section="resources">
+                    <i class="fas fa-layer-group"></i>
+                    <span>资源管理</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link" data-section="api">
+                    <i class="fas fa-code"></i>
+                    <span>API 服务</span>
+                </a>
+            </li>
+            <li class="nav-item" style="margin-top: auto;">
+                <a href="#" class="nav-link" data-section="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>设置</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="user-info" style="margin-top: auto;">
+            <i class="fas fa-user-circle" style="color: var(--text-secondary);"></i>
+            <div class="user-text">
+                <span class="name" id="adminName">Admin</span>
+                <span class="role" id="adminRole">Administrator</span>
+            </div>
+            <i class="fas fa-sign-out-alt" style="margin-left: auto; color: var(--text-secondary);"
+                onclick="logout()"></i>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="app-container">
+        <!-- Header -->
+        <header>
+            <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleMobileMenu()">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="search-wrapper" style="visibility: hidden;">
+                <i class="fas fa-search"></i>
+                <input type="text" class="search-input" placeholder="搜索资源、标签或位置..." id="globalSearch">
+            </div>
+
+            <div class="header-actions">
+                <div class="view-site-btn" style="color: var(--text-secondary); cursor: pointer;" title="查看公共主页">
+                    <a href="/" id="viewSiteLink" style="color: inherit; text-decoration: none;" target="_blank">
+                        <i class="fas fa-external-link-alt"></i>
+                    </a>
+                </div>
+                <button class="btn-upload" onclick="openUploadModal()">
+                    <i class="fas fa-plus"></i>
+                    <span>上传新资源</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Filters Bar -->
+        <div class="filters-bar" style="display: none;">
+            <select class="filter-select" id="filterDate">
+                <option value="desc">按日期降序</option>
+                <option value="asc">按日期升序</option>
+            </select>
+            <select class="filter-select" id="filterCategory">
+                <option value="0">全部分类</option>
+            </select>
+            <select class="filter-select" id="filterStatus">
+                <option value="all">全部状态</option>
+                <option value="visible">可见</option>
+                <option value="hidden">隐藏</option>
+            </select>
+
+            <div class="filters-bar-right">
+                <!-- 移除了布局切换按钮 -->
+            </div>
+        </div>
+
+        <!-- Main Scrollable Content -->
+        <div class="main-wrapper">
+            <div class="scrollable-content">
+                <!-- 1. Dashboard Section -->
+                <section id="section-dashboard" class="admin-section">
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 24px;">
+                        <div class="img-card" style="padding: 24px; text-align: center;">
+                            <div style="font-size: 14px; color: var(--text-secondary);">总图片数</div>
+                            <div style="font-size: 32px; font-weight: 800; color: var(--accent-primary);"
+                                id="statTotal">0</div>
+                        </div>
+                        <div class="img-card" style="padding: 24px; text-align: center;">
+                            <div style="font-size: 14px; color: var(--text-secondary);">存储占用</div>
+                            <div style="font-size: 32px; font-weight: 800; color: var(--accent-primary);" id="statSize">
+                                0 MB</div>
+                        </div>
+                        <div class="img-card" style="padding: 24px; text-align: center;">
+                            <div style="font-size: 14px; color: var(--text-secondary);">全部分类</div>
+                            <div style="font-size: 32px; font-weight: 800; color: var(--accent-primary);" id="statCats">
+                                0</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. Media Library Section -->
+                <section id="section-media" class="admin-section" style="display: none;">
+                    <div class="image-grid" id="imageGrid">
+                        <!-- Cards injected here -->
+                    </div>
+
+                    <!-- Pagination for Media Library -->
+                    <div id="mediaPagination" class="pagination-container"
+                        style="margin-top: 30px; display: flex; justify-content: center; gap: 10px; padding-bottom: 20px;">
+                    </div>
+
+                    <!-- 批量操作工具栏 (悬浮显示) -->
+                    <div class="batch-toolbar" id="batchToolbar">
+                        <div class="toolbar-info">
+                            <i class="fas fa-check-circle"></i>
+                            <span id="selectionCountText">已选中 0 项</span>
+                        </div>
+                        <div class="toolbar-actions">
+                            <button class="btn-batch" onclick="selectAllImages()">全选</button>
+                            <button class="btn-batch" onclick="selectedIds.clear(); renderImages();">取消选择</button>
+                            <button class="btn-batch btn-danger" onclick="batchAction('delete')">
+                                <i class="fas fa-trash-alt"></i> 批量删除
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 3. Resources Management Section -->
+                <section id="section-resources" class="admin-section" style="display: none;">
+                    <div class="settings-container" style="margin-top: 24px;">
+                        <!-- Resources Sidebar -->
+                        <div class="settings-nav">
+                            <div class="s-nav-item active" onclick="switchResourcesTab(this, 'categories')">
+                                <i class="fas fa-tags"></i> <span>分类管理</span>
+                            </div>
+                            <div class="s-nav-item" onclick="switchResourcesTab(this, 'storage')">
+                                <i class="fas fa-hdd"></i> <span>存储节点</span>
+                            </div>
+                        </div>
+
+                        <!-- Resources Content -->
+                        <div class="settings-content">
+                            <!-- Categories Tab -->
+                            <div id="res-tab-categories" class="s-tab-content active">
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                    <h3 style="font-size: 18px;">分类列表</h3>
+                                    <button class="btn-upload" onclick="openModal('categoryModal')"><i
+                                            class="fas fa-plus"></i> 新增分类</button>
+                                </div>
+                                <div id="categoryListContainer"></div>
+                            </div>
+
+                            <!-- Storage Tab -->
+                            <div id="res-tab-storage" class="s-tab-content">
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                    <h3 style="font-size: 18px;">存储节点管理</h3>
+                                    <div style="display: flex; gap: 10px;">
+                                        <button class="btn-batch" onclick="reindexFiles()" id="reindexBtn">
+                                            <i class="fas fa-sync-alt"></i> 重建索引
+                                        </button>
+                                        <button class="btn-upload" onclick="openModal('storageModal')"><i
+                                                class="fas fa-plus"></i> 新增节点</button>
+                                    </div>
+                                </div>
+                                <div id="storageListContainer"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 5. Settings Section -->
+                <section id="section-settings" class="admin-section" style="display: none;">
+                    <div class="settings-container" style="margin-top: 24px;">
+                        <!-- Settings Sidebar -->
+                        <div class="settings-nav">
+                            <div class="s-nav-item active" onclick="switchSettingsTab(this, 'general')">
+                                <i class="fas fa-globe"></i> <span>常规设置</span>
+                            </div>
+                            <div class="s-nav-item" onclick="switchSettingsTab(this, 'upload')">
+                                <i class="fas fa-upload"></i> <span>上传设置</span>
+                            </div>
+                            <div class="s-nav-item" onclick="switchSettingsTab(this, 'display')">
+                                <i class="fas fa-desktop"></i> <span>展示设置</span>
+                            </div>
+                            <div class="s-nav-item" onclick="switchSettingsTab(this, 'account')">
+                                <i class="fas fa-user-shield"></i> <span>账户安全</span>
+                            </div>
+                        </div>
+
+                        <!-- Settings Content -->
+                        <div class="settings-content">
+                            <!-- General Tab -->
+                            <div id="tab-general" class="s-tab-content active">
+                                <h3 style="margin-bottom: 24px;">常规设置</h3>
+                                <div class="form-group">
+                                    <label>站点名称</label>
+                                    <input type="text" class="form-control" id="siteTitle" placeholder="ImagesGallery">
+                                </div>
+                                <div class="form-group">
+                                    <label>站点描述 (SEO)</label>
+                                    <textarea class="form-control" id="siteDesc" rows="3"
+                                        placeholder="一个简约高性能的私人图床系统"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>页脚信息</label>
+                                    <input type="text" class="form-control" id="siteFooter"
+                                        placeholder="© 2024 ImagesGallery. All rights reserved.">
+                                </div>
+                                <div class="form-group">
+                                    <label>备案号 (ICP)</label>
+                                    <input type="text" class="form-control" id="siteBeian" placeholder="京ICP备12345678号">
+                                </div>
+                                <button class="btn-primary" style="width: auto; padding: 12px 30px; margin-top: 20px;"
+                                    onclick="saveGeneralSettings()">保存全局设置</button>
+                            </div>
+
+                            <!-- Upload Tab -->
+                            <div id="tab-upload" class="s-tab-content">
+                                <h3 style="margin-bottom: 24px;">上传设置</h3>
+                                <div class="form-group">
+                                    <label>最大文件限制 (MB)</label>
+                                    <input type="number" class="form-control" value="10">
+                                </div>
+                                <div class="form-group">
+                                    <label>允许的扩展名 (逗号分隔)</label>
+                                    <input type="text" class="form-control" value="jpg, jpeg, png, webp, gif">
+                                </div>
+                                <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="checkbox" checked>
+                                    <label style="margin-bottom: 0;">自动压缩大图 (优化带宽)</label>
+                                </div>
+                                <button class="btn-primary" style="width: auto; padding: 12px 30px; margin-top: 20px;"
+                                    onclick="saveUploadSettings()">保存上传配置</button>
+                            </div>
+
+                            <!-- Display Tab -->
+                            <div id="tab-display" class="s-tab-content">
+                                <h3 style="margin-bottom: 24px;">展示设置</h3>
+                                <div class="form-group">
+                                    <label>每页加载数量</label>
+                                    <input type="number" class="form-control" value="20">
+                                </div>
+                                <div class="form-group">
+                                    <label>默认排序方式</label>
+                                    <select class="form-control" id="selectDefaultSort">
+                                        <option value="desc">上传时间 (由新到旧)</option>
+                                        <option value="asc">上传时间 (由旧到新)</option>
+                                        <option value="random">随机排序</option>
+                                    </select>
+                                </div>
+
+                                <div style="height: 1px; background: var(--glass-border); margin: 24px 0;"></div>
+
+                                <div class="form-group">
+                                    <label>外部访问控制</label>
+                                    <div style="display: flex; align-items: center; gap: 15px;">
+                                        <label class="switch">
+                                            <input type="checkbox" id="externalAccessToggle">
+                                            <span class="slider"></span>
+                                        </label>
+                                        <span style="font-size: 13px; color: var(--text-secondary);">开启后可通过 IP:端口 直接访问（API 必备）</span>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>外部访问端口</label>
+                                    <input type="text" class="form-control" id="externalPortInput" placeholder="默认 23721" style="max-width: 150px;">
+                                </div>
+                                <button class="btn-primary" style="width: auto; padding: 12px 30px; margin-top: 20px;"
+                                    onclick="saveDisplaySettings()">保存展示设置</button>
+                            </div>
+
+                            <!-- Account Tab -->
+                            <div id="tab-account" class="s-tab-content">
+                                <h3 style="margin-bottom: 24px;">账户与安全</h3>
+                                <div class="form-group">
+                                    <label>修改用户名</label>
+                                    <input type="text" class="form-control" id="newAdminName" placeholder="Admin">
+                                </div>
+                                <div style="height: 1px; background: var(--glass-border); margin: 30px 0;"></div>
+                                <h4 style="margin-bottom: 15px;">修改密码</h4>
+                                <div class="form-group">
+                                    <label>当前密码</label>
+                                    <input type="password" class="form-control" placeholder="••••••••">
+                                </div>
+                                <div class="form-group">
+                                    <label>新密码</label>
+                                    <input type="password" class="form-control" placeholder="••••••••">
+                                </div>
+                                <div class="form-group">
+                                    <label>确认新密码</label>
+                                    <input type="password" class="form-control" placeholder="••••••••">
+                                </div>
+                                <button class="btn-primary" id="btnUpdatePassword"
+                                    style="width: auto; padding: 12px 30px; margin-top: 10px;"
+                                    onclick="updatePassword()">更新账户信息</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 4. API Services Section -->
+                <section id="section-api" class="admin-section" style="display: none;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; margin-bottom: 24px;">
+                        <h2>API 服务与开发者中心</h2>
+                        <button class="btn-primary" style="width: auto; padding: 10px 24px; font-size: 14px;"
+                            onclick="openApiKeyModal()"><i class="fas fa-key"></i> 生成新私有密钥</button>
+                    </div>
+
+                    <div class="info-alert">
+                        <i class="fas fa-info-circle"></i>
+                        <span>温馨提示：如需在第三方客户端（如 PicGo）中使用 API，请确保已在“展示设置”中开启“外部访问”并配置正确端口。</span>
+                    </div>
+
+                    <!-- API Keys Table -->
+                    <div class="card" style="margin-bottom: 30px;">
+                        <h3 style="margin-bottom: 20px;">私有密钥管理</h3>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>用途/名称</th>
+                                        <th>Token (API Key)</th>
+                                        <th>限流速率</th>
+                                        <th>状态</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="apiKeysTableBody">
+                                    <!-- Keys will be rendered here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- API Documentation -->
+                    <div class="card">
+                        <h3 style="margin-bottom: 20px;"><i class="fas fa-book"></i> 接口与参数说明</h3>
+
+                        <div class="table-responsive" style="margin-bottom: 30px;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>接口类型</th>
+                                        <th>请求地址 (Endpoint)</th>
+                                        <th>限流策略</th>
+                                        <th>说明与用途</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span
+                                                style="color: var(--accent-primary); font-weight: 600;">公共随机接口</span><br>(Public
+                                            API)</td>
+                                        <td><code
+                                                style="background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 4px;">GET /api/v1/public/random</code>
+                                        </td>
+                                        <td>20次/分钟/IP</td>
+                                        <td style="color: var(--text-secondary);">无需验证。适合用于博客随机头图、开源项目挂载。严格防止滥用。</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span
+                                                style="color: var(--success); font-weight: 600;">私有随机接口</span><br>(Private
+                                            API)</td>
+                                        <td><code
+                                                style="background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 4px;">GET /api/v1/private/random</code>
+                                        </td>
+                                        <td>跟随密钥设定</td>
+                                        <td style="color: var(--text-secondary);">需要在请求头中携带 Token 验证。调用额度高，适合开发者集成到自己的
+                                            App 或后台业务中。</td>
+                                    <tr>
+                                        <td><span
+                                                style="color: var(--success); font-weight: 600;">私有上传接口</span><br>(Private
+                                            Upload)</td>
+                                        <td><code
+                                                style="background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 4px;">POST /api/v1/private/upload</code>
+                                        </td>
+                                        <td>跟随密钥设定</td>
+                                        <td style="color: var(--text-secondary);">支持本地二进制上传或网络资源抓取。支持自定义描述、标签等丰富元数据。
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <h4 style="margin-bottom: 15px;">私有上传参数 (POST Parameters)</h4>
+                        <div class="table-responsive" style="margin-bottom: 30px;">
+                            <table class="data-table" style="background: rgba(0,0,0,0.1);">
+                                <thead>
+                                    <tr>
+                                        <th>参数名</th>
+                                        <th>类型</th>
+                                        <th>必填</th>
+                                        <th>说明</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>mode</code></td>
+                                        <td>String</td>
+                                        <td>是</td>
+                                        <td>上传模式：<code>local</code> (本地文件) 或 <code>remote</code> (网络链接)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>file</code> / <code>url</code></td>
+                                        <td>-</td>
+                                        <td>是</td>
+                                        <td><code>local</code> 模式下对应文件字段 <code>file</code>；<code>remote</code> 模式下对应
+                                            JSON 字段 <code>url</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>category_id</code></td>
+                                        <td>Int</td>
+                                        <td>是</td>
+                                        <td>目标分类的 ID</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>title</code></td>
+                                        <td>String</td>
+                                        <td>否</td>
+                                        <td>图片标题</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>description</code></td>
+                                        <td>String</td>
+                                        <td>否</td>
+                                        <td>图片详细描述内容</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>tags</code></td>
+                                        <td>Array/Str</td>
+                                        <td>否</td>
+                                        <td>标签。JSON 数组或逗号分隔字符串</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <h4 style="margin-bottom: 15px;">通用查询参数 (Common Query Parameters)</h4>
+                        <div class="table-responsive" style="margin-bottom: 30px;">
+                            <table class="data-table" style="background: rgba(0,0,0,0.1);">
+                                <thead>
+                                    <tr>
+                                        <th>参数名</th>
+                                        <th>类型</th>
+                                        <th>必填</th>
+                                        <th>说明</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>category_id</code></td>
+                                        <td>Int</td>
+                                        <td>否</td>
+                                        <td>指定分类的 ID。默认为 0（表示全部分类中随机）。</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>format</code></td>
+                                        <td>String</td>
+                                        <td>否</td>
+                                        <td>若设定为 <code>image</code>，则放弃返回 JSON，直接 <strong>302
+                                                重定向到真实的图片地址</strong>。非常适合直接写在 <code>&lt;img src="..."&gt;</code> 标签或 CSS
+                                            背景图中。</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <h4 style="margin-bottom: 15px;">私有接口请求示例</h4>
+                        <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 10px;">方式一：Header
+                            传参（推荐，更安全）</p>
+                        <pre
+                            style="background: #1e1e1e; padding: 15px; border-radius: 8px; overflow-x: auto; color: #d4d4d4; border: 1px solid var(--glass-border); margin-bottom: 12px;"><code>curl -X GET "http://127.0.0.1:8080/api/v1/private/random?format=image" \
+-H "Authorization: Bearer sk_xxxxxxxxxxxxxxxx"</code></pre>
+                        <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 10px;">方式二：URL 传参（便捷，适合
+                            img 标签直接嵌入）</p>
+                        <pre
+                            style="background: #1e1e1e; padding: 15px; border-radius: 8px; overflow-x: auto; color: #d4d4d4; border: 1px solid var(--glass-border);"><code>&lt;img src="http://127.0.0.1:8080/api/v1/private/random?format=image&amp;token=sk_xxxxxxxxxxxxxxxx"&gt;</code></pre>
+
+                        <h4 style="margin-bottom: 15px; margin-top: 30px;">私有上传接口示例 (Private Upload Examples)</h4>
+
+                        <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 10px;">场景一：远程 URL 抓取
+                            (JSON 方式)</p>
+                        <pre
+                            style="background: #1e1e1e; padding: 15px; border-radius: 8px; overflow-x: auto; color: #d4d4d4; border: 1px solid var(--glass-border); margin-bottom: 12px;"><code>curl -X POST "http://127.0.0.1:8080/api/v1/private/upload" \
+-H "Authorization: Bearer sk_your_token" \
+-H "Content-Type: application/json" \
+-d '{
+  "mode": "remote",
+  "url": "https://example.com/image.jpg",
+  "category_id": 1,
+  "title": "抓取标题",
+  "description": "这是通过 API 自动生成的详细描述内容",
+  "tags": ["自动化", "采集"]
+}'</code></pre>
+
+                        <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 10px;">场景二：本地文件上传
+                            (Form-Data 方式)</p>
+                        <pre
+                            style="background: #1e1e1e; padding: 15px; border-radius: 8px; overflow-x: auto; color: #d4d4d4; border: 1px solid var(--glass-border); margin-bottom: 12px;"><code>curl -X POST "http://127.0.0.1:8080/api/v1/private/upload" \
+-H "Authorization: Bearer sk_your_token" \
+-F "mode=local" \
+-F "file=@/path/to/your/image.jpg" \
+-F "category_id=1" \
+-F "description=本地推送描述"</code></pre>
+
+                        <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 10px;">Python 自动化脚本示例
+                            (requests 库)</p>
+                        <pre
+                            style="background: #1e1e1e; padding: 15px; border-radius: 8px; overflow-x: auto; color: #d4d4d4; border: 1px solid var(--glass-border); margin-bottom: 12px;"><code>import requests
+
+url = "http://127.0.0.1:8080/api/v1/private/upload"
+headers = {"Authorization": "Bearer sk_your_token"}
+data = {
+    "mode": "remote",
+    "url": "https://example.com/img.jpg",
+    "category_id": 1,
+    "description": "这是从第三方采集到的内容描述..."
+}
+
+response = requests.post(url, json=data, headers=headers)
+print(response.json())</code></pre>
+                    </div>
+                </section>
+
+                <!-- Batch Toolbar -->
+                <div id="batchToolbar"
+                    style="position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(13,17,23,0.9); border: 1px solid var(--accent-primary); padding: 12px 24px; border-radius: 100px; display: none; align-items: center; gap: 20px; backdrop-filter: blur(10px); box-shadow: 0 15px 30px rgba(0,0,0,0.5); z-index: 200;">
+                    <span style="font-weight: 600; color: var(--accent-primary);" id="selectionCountText">已选中 0 项</span>
+                    <div style="height: 20px; width: 1px; background: var(--glass-border);"></div>
+                    <button class="btn" style="color: white; border: none; background: transparent; cursor: pointer;"
+                        onclick="batchAction('move')"><i class="fas fa-folder"></i> 移动</button>
+                    <button class="btn"
+                        style="color: var(--success); border: none; background: transparent; cursor: pointer;"
+                        onclick="batchAction('show')"><i class="fas fa-eye"></i> 显示</button>
+                    <button class="btn"
+                        style="color: var(--text-secondary); border: none; background: transparent; cursor: pointer;"
+                        onclick="batchAction('hide')"><i class="fas fa-eye-slash"></i> 隐藏</button>
+                    <button class="btn"
+                        style="color: var(--danger); border: none; background: transparent; cursor: pointer;"
+                        onclick="batchAction('delete')"><i class="fas fa-trash"></i> 删除</button>
+                </div>
+            </div>
+
+            <!-- Detail Panel (Right Sidebar) -->
+            <div class="detail-panel" id="detailPanel">
+                <div class="detail-header">
+                    <h3>媒体详情</h3>
+                    <i class="fas fa-times close-panel" onclick="closeDetailPanel()"></i>
+                </div>
+
+                <div class="detail-preview">
+                    <img src="" alt="" id="detailImg">
+                </div>
+
+                <div class="form-group">
+                    <label>标题</label>
+                    <input type="text" class="form-control" id="editTitle">
+                </div>
+
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">分辨率</span>
+                        <span class="info-value" id="infoResolution">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">大小</span>
+                        <span class="info-value" id="infoSize">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">格式</span>
+                        <span class="info-value" id="infoFormat">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">上传日期</span>
+                        <span class="info-value" id="infoDate">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">分类</span>
+                        <select class="form-control" id="editCategory" style="padding: 4px 8px; height: auto;"></select>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">位置</span>
+                        <input type="text" class="form-control" id="editLocation"
+                            style="padding: 4px 8px; height: auto;">
+                    </div>
+                    <div class="info-item" style="grid-column: span 2;">
+                        <span class="info-label">来源地址 (Source URL)</span>
+                        <input type="url" class="form-control" id="editSourceURL"
+                            style="padding: 4px 8px; height: auto;" placeholder="https://...">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>描述</label>
+                    <textarea class="form-control" id="editDesc" rows="3"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>标签 (逗号分隔)</label>
+                    <div id="tagContainer" class="tags-container" style="margin-bottom: 8px;"></div>
+                    <input type="text" class="form-control" id="editTags" placeholder="添加标签...">
+                </div>
+
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: auto;">
+                    <input type="checkbox" id="editVisible">
+                    <label style="margin-bottom: 0;">前端页面可见</label>
+                </div>
+
+                <button class="btn-primary" style="margin-top: 20px;" onclick="saveImageDetails()">保存更改</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- API Key Creation Modal -->
+    <div class="modal-overlay" id="apiKeyModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="detail-header">
+                <h3>生成新私有密钥</h3>
+                <i class="fas fa-times close-panel" onclick="closeModal('apiKeyModal')"></i>
+            </div>
+            <div style="margin-top: 20px;">
+                <div class="form-group">
+                    <label>用途 / 密钥名称</label>
+                    <input type="text" class="form-control" id="apiKeyName" placeholder="例如：我的安卓 APP">
+                </div>
+                <div class="form-group">
+                    <label>限流速率 (次/分钟)</label>
+                    <input type="number" class="form-control" id="apiKeyRateLimit" value="120">
+                </div>
+                <button class="btn-primary" style="margin-top: 15px;" onclick="submitCreateApiKey()">生成并启用</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="uploadModal">
+        <div class="modal-content">
+            <div class="detail-header">
+                <h3>上传媒体</h3>
+                <i class="fas fa-times close-panel" onclick="closeModal('uploadModal')"></i>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button class="btn-upload" id="modeLocal"
+                    style="flex: 1; justify-content: center; background: var(--accent-primary); color: #000;">本地上传</button>
+                <button class="btn-upload" id="modeRemote"
+                    style="flex: 1; justify-content: center; background: rgba(255,255,255,0.05); color: white;">网络资源</button>
+            </div>
+
+            <form id="uploadForm">
+                <div id="localInput" class="form-group">
+                    <label class="file-upload-custom" for="fileInput">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>点击此处或拖拽图片到这里上传</span>
+                        <div class="file-names" id="fileListNames"></div>
+                    </label>
+                    <input type="file" id="fileInput" accept="image/*" multiple onchange="updateFileList(this)">
+                </div>
+                <div id="remoteInput" class="form-group" style="display: none;">
+                    <label>远程图片 URL</label>
+                    <input type="url" class="form-control" id="urlInput" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                    <label>标题</label>
+                    <input type="text" class="form-control" id="uploadTitle" placeholder="留空则使用文件名">
+                </div>
+                <div class="form-group">
+                    <label>分类</label>
+                    <select class="form-control" id="uploadCategory"></select>
+                </div>
+                <div class="form-group">
+                    <label>位置</label>
+                    <input type="text" class="form-control" id="uploadLocation" placeholder="例如：上海, 中国">
+                </div>
+                <div class="form-group">
+                    <label>标签 (逗号分隔)</label>
+                    <input type="text" class="form-control" id="uploadTags" placeholder="例如：风景, 旅游">
+                </div>
+                <button type="submit" class="btn-primary" style="margin-top: 10px;">开始上传</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Category Modal -->
+    <div class="modal-overlay" id="categoryModal">
+        <div class="modal-content">
+            <div class="detail-header">
+                <h3>新增分类</h3>
+                <i class="fas fa-times close-panel" onclick="closeModal('categoryModal')"></i>
+            </div>
+            <form id="categoryForm">
+                <div class="form-group">
+                    <label>分类名称</label>
+                    <input type="text" class="form-control" id="newCatName" required>
+                </div>
+                <button type="submit" class="btn-primary">保存分类</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Category Modal -->
+    <div class="modal-overlay" id="editCategoryModal">
+        <div class="modal-content">
+            <div class="detail-header">
+                <h3>修改分类名称</h3>
+                <i class="fas fa-times close-panel" onclick="closeModal('editCategoryModal')"></i>
+            </div>
+            <form id="editCategoryForm">
+                <input type="hidden" id="editCatId">
+                <div class="form-group">
+                    <label>新分类名称</label>
+                    <input type="text" class="form-control" id="editCatName" required>
+                </div>
+                <button type="submit" class="btn-primary">保存修改</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Storage Modal -->
+    <div class="modal-overlay" id="storageModal">
+        <div class="modal-content">
+            <div class="detail-header">
+                <h3>新增存储节点</h3>
+                <i class="fas fa-times close-panel" onclick="closeModal('storageModal')"></i>
+            </div>
+            <form id="storageForm">
+                <div class="form-group">
+                    <label>本地绝对路径</label>
+                    <input type="text" class="form-control" id="newStoragePath" required
+                        placeholder="请输入存储资源的绝对路径，例如：/home/www/Images">
+                </div>
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="storageActive" checked>
+                    <label style="margin-bottom: 0;">设为活跃节点 (新上传将存入此路径)</label>
+                </div>
+                <button type="submit" class="btn-primary">保存配置</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="static/js/admin_v2.js?v=12"></script>
+</body>
+
+</html>

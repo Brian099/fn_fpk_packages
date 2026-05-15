@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImagesGallery - 管理员登录</title>
+    <link rel="stylesheet" href="static/css/all.min.css">
+    <link rel="stylesheet" href="static/css/outfit.css">
+    <link rel="icon" type="image/png" href="static/img/favicon32.png?v=7">
+    <style>
+        :root {
+            --bg-color: #05070a;
+            --card-bg: rgba(20, 24, 33, 0.8);
+            --accent-color: #00f2ff;
+            --accent-glow: rgba(0, 242, 255, 0.3);
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image:
+                radial-gradient(circle at 20% 30%, rgba(0, 242, 255, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.05) 0%, transparent 40%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            color: var(--text-primary);
+        }
+
+        .login-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            padding: 3rem;
+            border-radius: 24px;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 2rem;
+            justify-content: center;
+        }
+
+        .logo i {
+            font-size: 2.5rem;
+            color: var(--accent-color);
+            filter: drop-shadow(0 0 10px var(--accent-glow));
+        }
+
+        .logo span {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .welcome-text {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .welcome-text h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .welcome-text p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .form-control {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 14px 14px 14px 48px;
+            color: white;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            background: rgba(255, 255, 255, 0.05);
+            box-shadow: 0 0 0 4px var(--accent-glow);
+        }
+
+        .login-btn {
+            width: 100%;
+            background: var(--accent-color);
+            color: #000;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 1rem;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -5px var(--accent-glow);
+            filter: brightness(1.1);
+        }
+
+        .login-btn:active {
+            transform: translateY(0);
+        }
+
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+            display: none;
+            text-align: center;
+        }
+
+        .footer-note {
+            text-align: center;
+            margin-top: 2rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 480px) {
+            body {
+                height: auto;
+                min-height: 100vh;
+                padding: 20px;
+                overflow-y: auto;
+            }
+
+            .login-card {
+                padding: 2rem 1.5rem;
+                border-radius: 20px;
+            }
+
+            .logo i {
+                font-size: 2rem;
+            }
+
+            .logo span {
+                font-size: 1.6rem;
+            }
+
+            .welcome-text h1 {
+                font-size: 1.3rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="login-card">
+        <div class="logo">
+            <img src="static/img/logo.png?v=7" alt="">
+            <!-- <i class="fas fa-bolt"></i> -->
+            <span>ImagesGallery</span>
+        </div>
+        <div class="welcome-text">
+            <h1>欢迎回来</h1>
+        </div>
+
+        <div id="errorMessage" class="error-message">
+            用户名或密码错误，请重试
+        </div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label>用户名</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="username" class="form-control" placeholder="admin" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="password" class="form-control" placeholder="••••••••" required>
+                </div>
+            </div>
+            <button type="submit" class="login-btn">
+                登 录
+                <i class="fas fa-arrow-right"></i>
+            </button>
+        </form>
+    </div>
+
+    <script>
+        const getBaseUrl = () => {
+            let path = window.location.pathname;
+            if (path.includes('index.cgi')) {
+                return path.split('/index.cgi')[0] + '/index.cgi';
+            }
+            return '';
+        };
+
+        const API_BASE = getBaseUrl() + '/api';
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorEl = document.getElementById('errorMessage');
+            errorEl.style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_BASE}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('adminToken', data.token);
+                    localStorage.setItem('adminUser', JSON.stringify(data.user));
+                    
+                    // Correct redirect to /admin route
+                    window.location.href = getBaseUrl() + '/admin';
+                } else {
+                    errorEl.style.display = 'block';
+                }
+            } catch (err) {
+                console.error('Login failed:', err);
+                errorEl.textContent = '服务器连接失败';
+                errorEl.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+
+</html>

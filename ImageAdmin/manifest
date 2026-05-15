@@ -1,0 +1,17 @@
+appname               = imageadmin
+version               = 1.0.1
+display_name          = ImagesGallery
+desc                  = <p>ImagesGallery 是一款高性能的私人图床与图像管理系统。</p><ul><li>支持多种存储后端</li><li>智能缩略图生成</li><li>私有 API 接口支持</li><li>响应式管理后台</li></ul>
+platform              = all
+source                = thirdparty
+os_min_version        = 0.9.0
+desktop_uidir         = ui
+desktop_applaunchname = imageadmin.Application
+maintainer            = laok
+maintainer_url        = https://github.com/Brian099/ImageAdmin
+distributor           = laok
+distributor_url       = https://github.com/Brian099/ImageAdmin
+reloadui              = yes
+ctl_stop              = true
+install_wizard        = wizard/install
+uninstall_wizard      = wizard/uninstall

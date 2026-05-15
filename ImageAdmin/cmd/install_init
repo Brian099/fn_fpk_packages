@@ -1,0 +1,13 @@
+#!/bin/bash
+
+echo ">>> ImagesGallery 安装预处理：清理残留进程..."
+
+# 暴力清理同名进程
+pkill -9 imageadmin_x86_
+pkill -9 imageadmin_aar
+pkill -9 imageadmin
+
+# 等待端口释放
+sleep 2
+
+exit 0

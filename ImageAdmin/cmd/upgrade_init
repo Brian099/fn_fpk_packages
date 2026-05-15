@@ -1,0 +1,27 @@
+#!/bin/bash
+
+echo ">>> ImagesGallery 升级预处理：正在强制释放资源..."
+
+# 1. 尝试优雅停止 (通过 PID)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CMD_MAIN="${APP_ROOT}/cmd/main"
+if [ -f "${CMD_MAIN}" ]; then
+    bash "${CMD_MAIN}" stop >/dev/null 2>&1
+fi
+
+# 2. 暴力清理 (根据二进制名称)
+# 无论进程在哪，直接根据名字杀掉，这是最彻底的
+pkill -9 imageadmin_x86_
+pkill -9 imageadmin_aar
+pkill -9 imageadmin
+
+# 3. 端口清理 (如果系统支持 fuser 或 lsof)
+# 虽然不一定都有，但试一下不吃亏
+fuser -k 23721/tcp >/dev/null 2>&1
+
+# 4. 强制等待，确保内核释放端口
+sleep 2
+
+echo ">>> 资源已释放，准备执行升级安装。"
+exit 0

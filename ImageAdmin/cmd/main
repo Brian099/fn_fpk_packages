@@ -1,0 +1,139 @@
+#!/bin/bash
+
+# ==============================================================================
+# ImageAdmin Service Controller (Hardened Stop Logic)
+# ==============================================================================
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+TRIM_APPDEST="${TRIM_APPDEST:-${APP_ROOT}/app}"
+TRIM_PKGVAR="${TRIM_PKGVAR:-${APP_ROOT}/var}"
+
+CONF_FILE="${TRIM_PKGVAR}/config.json"
+PID_FILE="${TRIM_PKGVAR}/service.pid"
+LOG_FILE="${TRIM_PKGVAR}/info.log"
+SOCK_FILE="${TRIM_PKGVAR}/imageadmin.sock"
+
+get_conf() {
+    local key="$1"
+    local default="$2"
+    if [ -f "${CONF_FILE}" ]; then
+        # 统一提取逻辑：先提取冒号后的内容，再去掉引号、逗号和空格
+        local val
+        val=$(grep "\"$key\":" "${CONF_FILE}" | head -n1 | cut -d':' -f2- | sed 's/[",[:space:]]//g')
+        echo "${val:-$default}"
+    else
+        echo "$default"
+    fi
+}
+
+is_running() {
+    # 只要 Unix Socket 能连通，说明新架构进程在跑
+    if [ -S "$SOCK_FILE" ]; then
+        if curl -s --unix-socket "$SOCK_FILE" http://localhost/api/health | grep -q "ok"; then
+            return 0
+        fi
+    fi
+    
+    # 检查 PID 文件
+    if [ -f "$PID_FILE" ]; then
+        kill -0 "$(cat "$PID_FILE")" 2>/dev/null && return 0
+    fi
+    return 1
+}
+
+stop() {
+    local port=$(get_conf "port" "23721")
+    echo "正在停止服务..."
+    
+    # 1. 优先使用 PID 文件进行优雅停止
+    if [ -f "$PID_FILE" ]; then
+        local pid=$(cat "$PID_FILE")
+        if kill -0 "$pid" 2>/dev/null; then
+            kill "$pid" 2>/dev/null
+            local count=0
+            while kill -0 "$pid" 2>/dev/null && [ $count -lt 5 ]; do
+                sleep 1
+                count=$((count + 1))
+            done
+        fi
+    fi
+    
+    # 2. 如果仍在运行，执行清理
+    echo "正在执行残留清理..."
+    fuser -k "${port}/tcp" >/dev/null 2>&1
+    pkill -9 -f "imageadmin_x86" >/dev/null 2>&1
+    pkill -9 -f "imageadmin_aar" >/dev/null 2>&1
+    
+    rm -f "$PID_FILE"
+    rm -f "$SOCK_FILE"
+    sleep 1
+    echo "停止完成。"
+}
+
+start() {
+    if is_running; then echo "服务已在运行中"; return 0; fi
+
+    # 稳健的架构判定逻辑
+    local arch=$(uname -m)
+    local arch_dir=""
+    local bin_suffix=""
+
+    case "$arch" in
+        x86_64)
+            arch_dir="amd64"
+            bin_suffix="x86_64"
+            ;;
+        aarch64|arm64)
+            arch_dir="arm64"
+            bin_suffix="aarch64"
+            ;;
+        *)
+            echo "❌ 错误: 不支持的系统架构 ($arch)。本插件仅支持 x86_64 和 arm64。"
+            exit 1
+            ;;
+    esac
+
+    local binary="${TRIM_APPDEST}/server/${arch_dir}/imageadmin_${bin_suffix}"
+    
+    if [ ! -f "$binary" ]; then
+        echo "❌ 错误: 未找到对应的二进制文件: $binary"
+        return 1
+    fi
+
+    chmod +x "$binary"
+    mkdir -p "${TRIM_PKGVAR}"
+    
+    local host=$(get_conf "host" "0.0.0.0")
+    local port=$(get_conf "port" "23721")
+    local external=$(get_conf "external_enabled" "false")
+    
+    rm -f "$SOCK_FILE"
+    cd "${TRIM_PKGVAR}"
+    
+    echo "正在启动服务 (${arch})..."
+    # 使用绝对路径启动，防止进程名查找失败
+    nohup "$binary" -host "$host" -port "$port" -external="$external" -config "$CONF_FILE" -sock "$SOCK_FILE" -db "${TRIM_PKGVAR}/imageadmin.db" -www "${TRIM_APPDEST}/www" >> "$LOG_FILE" 2>&1 &
+    
+    echo $! > "$PID_FILE"
+    sleep 2
+    [ -f "$LOG_FILE" ] && chmod 666 "$LOG_FILE"
+    [ -S "$SOCK_FILE" ] && chmod 777 "$SOCK_FILE"
+    
+    if is_running; then
+        echo "服务成功启动。"
+    else
+        echo "❌ 启动失败，请查看日志: $LOG_FILE"
+        return 1
+    fi
+}
+
+case "$1" in
+    start)   start ;;
+    stop)    stop ;;
+    restart) stop; sleep 1; start ;;
+    status)  if is_running; then echo "Running"; exit 0; else echo "Stopped"; exit 3; fi ;;
+    *)       echo "Usage: $0 {start|stop|restart|status}"; exit 1 ;;
+esac

@@ -1,0 +1,3 @@
+#!/bin/bash
+echo "ImagesGallery 配置回调..."
+exit 0

@@ -1,0 +1,7 @@
+{
+    "shared_folder": {
+        "desc": "请选择图片存储与数据库存放的目录",
+        "required": true,
+        "writable": true
+    }
+}

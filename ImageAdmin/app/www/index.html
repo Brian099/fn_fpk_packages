@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="pageTitle">ImagesGallery - 图片库</title>
+    <link rel="stylesheet" href="static/css/style.css?v=7">
+    <link rel="stylesheet" href="static/css/all.min.css?v=7">
+    <link rel="stylesheet" href="static/css/outfit.css?v=7">
+    <link rel="icon" type="image/png" href="static/img/favicon32.png?v=7">
+</head>
+
+<body>
+    <header>
+        <div class="brand" id="brandName">IMAGEGALLERY.</div>
+        <div class="filters" id="categoryFilters">
+            <button class="filter-btn active" data-category="all">全部</button>
+        </div>
+    </header>
+
+    <main class="gallery-container" id="gallery">
+        <!-- Gallery Items will be injected by JS -->
+    </main>
+
+    <!-- Lightbox -->
+    <div class="lightbox" id="lightbox">
+        <div class="lightbox-content">
+            <i class="fas fa-times close-lightbox" id="closeBtn"></i>
+            <div class="lightbox-img-container">
+                <img id="lightboxImg" src="" alt="">
+            </div>
+            <div class="lightbox-info">
+                <h2 class="info-title" id="infoTitle">图片标题</h2>
+                <p class="info-desc" id="infoDesc">这里是图片的详细描述信息。</p>
+                <div class="info-meta">
+                    <div class="meta-item">
+                        <div class="meta-label">分辨率</div>
+                        <div class="meta-value" id="metaRes">--</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="meta-label">创建日期</div>
+                        <div class="meta-value" id="metaDate">--</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="meta-label">分类</div>
+                        <div class="meta-value" id="metaCat">--</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="meta-label">标签</div>
+                        <div class="meta-value tags-display" id="metaTags">--</div>
+                    </div>
+                </div>
+                <div class="source-link-container" id="sourceLinkContainer"
+                    style="display: none; margin-top: 20px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                    <span style="color: var(--text-secondary); font-size: 13px;">来源:</span>
+                    <a id="sourceURL" href="#" target="_blank"
+                        style="color: var(--accent-primary); text-decoration: none; font-size: 13px; margin-left: 8px; word-break: break-all;"></a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back to Top Button -->
+    <div id="backToTop" class="back-to-top">
+        <i class="fas fa-chevron-up"></i>
+    </div>
+
+    <footer>
+        <div class="footer-content">
+            <p id="footerInfo"></p>
+            <p><a id="beianInfo" href="https://beian.miit.gov.cn/" target="_blank"></a></p>
+        </div>
+    </footer>
+
+    <script src="static/js/main.js?v=7"></script>
+</body>
+
+</html>

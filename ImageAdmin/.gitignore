@@ -1,0 +1,33 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project Specific
+*.db
+dist
+.gocache
+*.build
+*.fpk
+uploads/.thumbnails/
+uploads/*/*.jpg
+uploads/*/*.png
+uploads/*/*.gif
+uploads/*/*.jpeg
+uploads/*/*.webp
+uploads/*/*.bmp
+uploads/*.jpg
+uploads/*.png
+uploads/*.gif
+uploads/*.jpeg
+uploads/*.webp
+uploads/*.bmp
+serverSourceCode
