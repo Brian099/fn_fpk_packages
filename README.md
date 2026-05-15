@@ -9,7 +9,7 @@
 | :---: | :--- | :--- | :--- | :--- | :--- |
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-ApacheManager/ICON.PNG" width="48" height="48"> | ApacheManager | v1.0.10 | all | 7.88 MB | Apache 独立生命周期管理器。提供环境检测、一键安装、服务控制及实时日志。 |
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-MusicWave/ICON.PNG" width="48" height="48"> | musicwave | v1.0.24 | all | 0.39 MB | 专为飞牛OS设计的音乐播放器，支持多目录管理，支持托管系统音乐文件。 |
-| <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-NginxManager/ICON.PNG" width="48" height="48"> | NginxManager | v1.1.3 | all | 6.89 MB | Nginx 独立生命周期管理器。提供环境检测、一键安装、服务控制及实时日志。 |
+| <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-NginxManager/ICON.PNG" width="48" height="48"> | NginxManager | v1.1.4 | all | 6.89 MB | Nginx 独立生命周期管理器。提供环境检测、一键安装、服务控制及实时日志。 |
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-WebServer/ICON.PNG" width="48" height="48"> | WebServer | v1.0.29 | all | 7.65 MB | WebServer 是一款专为飞牛 NAS 系统 (fnOS) 设计的轻量级可视化 Web 环境配置与管理工具。它通过直观的 Web 界面，帮助用户轻松管理 Nginx、PHP、数据库以及网站站点，无需繁琐的命令行操作。 |
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-appcenterThirdParty/ICON.PNG" width="48" height="48"> | appcenterThirdParty | v1.0.113 | all | 7.48 MB | <p>应用精选，用于管理和安装第三方飞牛应用。</p><p>功能特性：</p><ul><li>浏览和搜索第三方应用</li><li>支持多源管理，类似群晖套件中心</li><li>自动发现本地源目录</li><li>应用下载和安装</li></ul> |
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-mariaDB12/ICON.PNG" width="48" height="48"> | MariaDB12 | v12.2.2 | all | 85.42 MB | MariaDB 数据库服务器 12.2 版本，专为飞牛 fnOS 优化的原生应用。支持自定义端口并运行于系统分区。 |
@@ -24,7 +24,7 @@
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-video_transfer/ICON.PNG" width="48" height="48"> | video_transfer | v1.0.1 | x86 | 0.38 MB | 一个基于 FFmpeg 和 FastAPI 的高性能视频转码服务。支持多种格式互转，集成 NVIDIA CUDA、Intel QSV 和 VAAPI 硬件加速功能。提供直观的 Web 界面用于任务管理、进度监控和文件处理，并支持用户认证与权限管理。 |
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-xlist-strm/ICON.PNG" width="48" height="48"> | xlist-strm | v1.0.0 | all | 0.02 MB | XList Strm 是一个用于获取alist/openlist strm文件的容器。 |
 
-![](https://img.shields.io/github/downloads/Brian099/fn_fpk_packages/2026.05.14-2124/total)
+![](https://img.shields.io/github/downloads/Brian099/fn_fpk_packages/2026.05.15-1409/total)
 
 <!-- APPS_LIST_END -->
 
