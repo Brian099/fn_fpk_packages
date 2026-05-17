@@ -1,0 +1,17 @@
+appname               = fnosnassign
+version               = 1.0.0
+display_name          = 飞牛club签到
+desc                  = <p>飞牛club签到是一款专门为飞牛私有云（FNOS）用户打造的飞牛社区（club.fnnas.com）自动打卡签到工具。</p><ul><li>支持网页Cookie和账号密码快速配置</li><li>支持一键手动测试打卡</li><li>支持每日定时自动签到（Cron任务）</li><li>提供完整的签到日志记录与运行控制</li></ul>
+platform              = all
+source                = thirdparty
+os_min_version        = 0.9.0
+desktop_uidir         = ui
+desktop_applaunchname = fnosnassign.Application
+maintainer            = laok
+maintainer_url        = https://github.com/kuai410022283
+distributor           = laok
+distributor_url       = https://github.com/Brian099/fn-fnosnassign
+reloadui              = yes
+ctl_stop              = true
+install_wizard        = wizard/install
+uninstall_wizard      = wizard/uninstall

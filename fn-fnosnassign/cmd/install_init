@@ -1,0 +1,11 @@
+#!/bin/bash
+
+echo ">>> fnosnassign 安装预处理：清理残留进程..."
+
+# 暴力清理同名进程
+pkill -9 fnosnassign_x86_
+pkill -9 fnosnassign_aar
+pkill -9 fnosnassign
+
+
+exit 0

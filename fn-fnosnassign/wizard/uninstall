@@ -1,0 +1,37 @@
+[
+  {
+    "stepTitle": "确认卸载",
+    "items": [
+      {
+        "type": "tips",
+        "helpText": "<strong>您正在卸载“fnosnassign”</strong><br><br>此操作将停止服务并移除主程序文件。请选择如何处理您的数据："
+      },
+      {
+        "type": "radio",
+        "field": "wizard_data_action",
+        "label": "数据清理选项",
+        "initValue": "keep",
+        "options": [
+          {
+            "label": "保留数据 (推荐) - 保留配置文件，方便下次重装恢复",
+            "value": "keep"
+          },
+          {
+            "label": "删除所有数据 - 彻底清理所有配置文件 (不可恢复)",
+            "value": "delete"
+          }
+        ],
+        "rules": [
+          {
+            "required": true,
+            "message": "请选择数据清理选项"
+          }
+        ]
+      },
+      {
+        "type": "tips",
+        "helpText": "<br><strong>注意：</strong>卸载后，您可以随时重新安装本应用。"
+      }
+    ]
+  }
+]

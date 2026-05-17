@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# 获取脚本目录和根目录
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+TRIM_PKGVAR="${TRIM_PKGVAR:-${APP_ROOT}/var}"
+
+echo ">>> fnosnassign 卸载回调开始..."
+
+# 从向导中获取用户的选择 (wizard_data_action)
+# 飞牛通常会通过 WIZARD_ 环境变量或者参数传递这些值
+ACTION="${wizard_data_action}"
+
+if [ "$ACTION" = "delete" ]; then
+    echo "用户选择【彻底清理所有数据】"
+    # 清理私有数据目录 (数据库、日志、缓存等)
+    if [ -d "${TRIM_PKGVAR}" ]; then
+        echo "正在清理私有数据目录: ${TRIM_PKGVAR}..."
+        rm -rf "${TRIM_PKGVAR}"/*
+        # 注意：我们通常不建议在脚本里直接 rm -rf 整个文件夹，而是清理内部内容
+    fi
+    echo "清理完成。"
+else
+    echo "用户选择【保留数据】，跳过清理步骤。"
+fi
+
+exit 0
