@@ -2,7 +2,7 @@
 
 轻量级反向代理管理工具，专为飞牛 fnOS 系统设计。采用 Unix Socket 通信，无需占用额外 TCP 端口即可安全访问管理界面。
 
-![v1.0.6](images/home.png)
+![v1.0.6](Preview/home.png)
 
 ## 项目结构
 
