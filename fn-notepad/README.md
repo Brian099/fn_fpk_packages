@@ -21,8 +21,8 @@
     -   **多端适配**：针对移动端进行深度优化，操作流畅无卡顿。
 
 ## 预览
-![便签笔记本1](image/notepad01.png)
-![便签笔记本2](image/notepad02.png)
+![便签笔记本1](Preview/notepad01.png)
+![便签笔记本2](Preview/notepad02.png)
 
 ## 项目结构
 

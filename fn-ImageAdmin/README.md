@@ -28,12 +28,12 @@ ImagesGallery 是一款专为个人和团队设计的现代化、高性能私人
 
 *注：以下截图位于本目录下*
 
-- **系统主页**: ![ImageAdmin](image/ImageAdmin.png)
-- **媒体库**: ![媒体库](image/媒体库.png)
-- **媒体上传**: ![媒体上传](image/媒体上传.png)
-- **资源管理**: ![资源管理](image/资源管理.png)
-- **API 服务**: ![API服务](image/API服务.png)
-- **系统设置**: ![设置](image/设置.png)
+- **系统主页**: ![ImageAdmin](Preview/ImageAdmin.png)
+- **媒体库**: ![媒体库](Preview/媒体库.png)
+- **媒体上传**: ![媒体上传](Preview/媒体上传.png)
+- **资源管理**: ![资源管理](Preview/资源管理.png)
+- **API 服务**: ![API服务](Preview/API服务.png)
+- **系统设置**: ![设置](Preview/设置.png)
 
 ---
 
@@ -42,4 +42,4 @@ ImagesGallery 是一款专为个人和团队设计的现代化、高性能私人
 - **项目名称**: ImagesGallery
 - **作者**: laok
 - **联系方式**: kuai410022283@qq.com
-- **维护地址**: [GitHub - Brian099/ImageAdmin](https://github.com/Brian099/ImageAdmin)
+- **维护地址**: [GitHub - Brian099/ImageAdmin](https://github.com/Brian099/fn-ImageAdmin)
