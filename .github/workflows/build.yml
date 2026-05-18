@@ -207,6 +207,19 @@ jobs:
                     echo "Copied ICON.PNG for $APPNAME"
                   fi
 
+                  # 同步 Preview 目录
+                  if [ -d "$SOURCE_DIR/Preview" ]; then
+                    rm -rf "$APPNAME/Preview"
+                    cp -rf "$SOURCE_DIR/Preview" "$APPNAME/"
+                    echo "Copied Preview directory for $APPNAME"
+                  fi
+
+                  # 同步 README.md
+                  if [ -f "$SOURCE_DIR/README.md" ]; then
+                    cp -f "$SOURCE_DIR/README.md" "$APPNAME/"
+                    echo "Copied README.md for $APPNAME"
+                  fi
+
                   # 同步更新根目录 fnpack.json 中多个字段（如果不存在则新增）
                   jq --arg app "$APPNAME" \
                      --arg name "$DISPLAY_NAME" \
