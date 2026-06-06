@@ -275,7 +275,11 @@ func createProxy(p *config.ProxyRule) error {
 		if req.Header.Get("X-Forwarded-Proto") == "" {
 			proto := p.SourceProtocol
 			if proto == "" {
-				proto = "http"
+				if req.TLS != nil {
+					proto = "https"
+				} else {
+					proto = "http"
+				}
 			}
 			req.Header.Set("X-Forwarded-Proto", proto)
 		}
@@ -410,11 +414,17 @@ func Reload() {
 
 func SetHandler(h *gin.Engine) {
 	handler = h
-	proxyHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c, _ := gin.CreateTestContext(w)
-		c.Request = r
-		Handler(c)
-	})
+
+	// 性能优化: 
+	// 原来的 gin.CreateTestContext 会在"每次"请求时创建一个全新的 gin.Engine 实例，
+	// 在高并发反向代理场景下会导致海量的内存分配和 GC 压力。
+	// 这里预先创建一个干净的、独立的 Engine，专门用来处理代理流量，
+	// 既实现了和 h (API路由) 的物理隔离，又完美利用了 Gin 内置的 sync.Pool 上下文复用。
+	proxyEngine := gin.New()
+	proxyEngine.Use(gin.Recovery()) // 防止单个代理请求的 panic 导致整个进程崩溃
+	proxyEngine.NoRoute(Handler)
+	
+	proxyHandler = proxyEngine
 }
 
 func SyncListeners() {
@@ -598,6 +608,15 @@ func Handler(c *gin.Context) {
 	if proxyRule.MaxBodySize > 0 {
 		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, proxyRule.MaxBodySize*1024*1024)
 	}
+
+	// Fix for 304 Not Modified or responses without body
+	// gin.ResponseWriter delays WriteHeader until Write is called.
+	// If no body is written, headers are never flushed, causing empty 200 OK responses.
+	defer func() {
+		if !c.Writer.Written() {
+			c.Writer.WriteHeaderNow()
+		}
+	}()
 
 	rp.ServeHTTP(c.Writer, c.Request)
 }
