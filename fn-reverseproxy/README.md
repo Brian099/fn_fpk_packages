@@ -128,7 +128,12 @@ cd D:\UGit\fn_fpk_packages
 
 ## 版本历史
 
-详见 [manifest](./manifest) 中的 version 字段。
+### 更新v1.0.8
+- 1、修复代理精准度（解决丢状态码和丢协议的问题）和 吞吐性能（高并发承载能力）瓶颈。（偶发场景）
+
+### 更新v1.0.7
+- 1、修复HSTS实际未生效问题
+- 2、新增高级设置）：最大上传限制（MB）、自定义请求头 (Custom Headers)、强制跳转 HTTPS、IP 访问控制 (Access Control)
 
 ## 许可证
 
