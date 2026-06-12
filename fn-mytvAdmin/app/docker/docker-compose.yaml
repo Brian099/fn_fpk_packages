@@ -1,6 +1,6 @@
 services:
   mytvAdmin:
-    image: brian9909/mytvadmin:main
+    image: brian9909/mytvadmin:latest
     pull_policy: always
     container_name: mytvAdmin
     environment:

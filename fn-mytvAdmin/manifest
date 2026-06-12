@@ -1,5 +1,5 @@
 appname               = mytvadmin
-version               = 3.1.7
+version               = 3.1.8
 display_name          = mytvAdmin
 desc                  = 一个聚合播放源管理及客户端授权管理系统。
 platform              = all
