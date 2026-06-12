@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -46,6 +47,10 @@ var (
 	listenerTLS = make(map[string]bool)
 	listenersMu sync.Mutex
 
+	tcpListeners = make(map[string]context.CancelFunc)
+	udpListeners = make(map[string]context.CancelFunc)
+	layer4Mu     sync.Mutex
+
 	handler      *gin.Engine
 	proxyHandler http.Handler
 	certCache    = make(map[string]tls.Certificate)
@@ -77,6 +82,17 @@ func Shutdown() {
 	}
 	listeners = make(map[string]*http.Server)
 	listenerTLS = make(map[string]bool)
+
+	layer4Mu.Lock()
+	defer layer4Mu.Unlock()
+	for _, cancel := range tcpListeners {
+		cancel()
+	}
+	for _, cancel := range udpListeners {
+		cancel()
+	}
+	tcpListeners = make(map[string]context.CancelFunc)
+	udpListeners = make(map[string]context.CancelFunc)
 }
 
 func loadFnOSCerts() {
@@ -221,15 +237,30 @@ func loadProxies() {
 }
 
 func createProxy(p *config.ProxyRule) error {
-	targetProtocol := p.TargetProtocol
-	if targetProtocol == "" {
-		targetProtocol = "http"
+	realTargetProtocol := p.TargetProtocol
+	if realTargetProtocol == "" {
+		realTargetProtocol = "http"
 	}
-	targetURL, err := url.Parse(fmt.Sprintf("%s://%s:%s", targetProtocol, p.TargetHost, p.TargetPort))
+	
+	var targetURL *url.URL
+	var err error
+
+	if realTargetProtocol == "unix" {
+		targetURL, err = url.Parse("http://localhost")
+	} else {
+		scheme := realTargetProtocol
+		switch scheme {
+		case "ws":
+			scheme = "http"
+		case "wss":
+			scheme = "https"
+		}
+		targetURL, err = url.Parse(fmt.Sprintf("%s://%s:%s", scheme, p.TargetHost, p.TargetPort))
+	}
 	if err != nil {
 		return err
 	}
-	if p.Target == "" && (p.TargetHost == "" || p.TargetPort == "") {
+	if p.Target == "" && (p.TargetHost == "" || (p.TargetPort == "" && realTargetProtocol != "unix")) {
 		return fmt.Errorf("no target specified for rule %s", p.Name)
 	}
 
@@ -245,7 +276,12 @@ func createProxy(p *config.ProxyRule) error {
 	}
 	rp.Transport = &http.Transport{
 		ResponseHeaderTimeout: timeout,
-		DialContext:           (&net.Dialer{Timeout: timeout}).DialContext,
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			if realTargetProtocol == "unix" {
+				return (&net.Dialer{Timeout: timeout}).DialContext(ctx, "unix", p.TargetHost)
+			}
+			return (&net.Dialer{Timeout: timeout}).DialContext(ctx, network, addr)
+		},
 		MaxIdleConns:          100,
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
@@ -367,6 +403,9 @@ func GetListenAddrs() []ListenAddr {
 	portInfos := make(map[string]*portInfo)
 
 	for key, rule := range portMap {
+		if rule.SourceProtocol == "tcp" || rule.SourceProtocol == "udp" || rule.SourceProtocol == "tcp+udp" {
+			continue
+		}
 		proto := "http"
 		if len(key) > 0 && key[:5] == "https" {
 			proto = "https"
@@ -500,6 +539,51 @@ func SyncListeners() {
 			delete(listenerTLS, addr)
 		}
 	}
+	
+	activeTCP := make(map[string]bool)
+	activeUDP := make(map[string]bool)
+	
+	portMapMu.RLock()
+	for key, rule := range portMap {
+		if rule.SourceProtocol == "tcp" || rule.SourceProtocol == "tcp+udp" {
+			activeTCP[key] = true
+			layer4Mu.Lock()
+			if _, exists := tcpListeners[key]; !exists {
+				ctx, cancel := context.WithCancel(context.Background())
+				tcpListeners[key] = cancel
+				go startTCPProxy(ctx, rule)
+			}
+			layer4Mu.Unlock()
+		}
+		if rule.SourceProtocol == "udp" || rule.SourceProtocol == "tcp+udp" {
+			activeUDP[key] = true
+			layer4Mu.Lock()
+			if _, exists := udpListeners[key]; !exists {
+				ctx, cancel := context.WithCancel(context.Background())
+				udpListeners[key] = cancel
+				go startUDPProxy(ctx, rule)
+			}
+			layer4Mu.Unlock()
+		}
+	}
+	portMapMu.RUnlock()
+
+	layer4Mu.Lock()
+	for key, cancel := range tcpListeners {
+		if !activeTCP[key] {
+			cancel()
+			delete(tcpListeners, key)
+			fmt.Printf("Stopped TCP proxy listener for rule key %s\n", key)
+		}
+	}
+	for key, cancel := range udpListeners {
+		if !activeUDP[key] {
+			cancel()
+			delete(udpListeners, key)
+			fmt.Printf("Stopped UDP proxy listener for rule key %s\n", key)
+		}
+	}
+	layer4Mu.Unlock()
 }
 
 func matchIP(pattern string, ip net.IP) bool {
@@ -515,6 +599,209 @@ func matchIP(pattern string, ip net.IP) bool {
 		}
 	}
 	return false
+}
+
+func checkIPAccess(clientIP net.IP, proxyRule *config.ProxyRule) error {
+	if clientIP != nil {
+		if len(proxyRule.AllowIPs) > 0 {
+			allowed := false
+			for _, cidr := range proxyRule.AllowIPs {
+				if matchIP(cidr, clientIP) {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				return errors.New("Access Denied by AllowIPs")
+			}
+		}
+		if len(proxyRule.BlockIPs) > 0 {
+			for _, cidr := range proxyRule.BlockIPs {
+				if matchIP(cidr, clientIP) {
+					return errors.New("Access Denied by BlockIPs")
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func startTCPProxy(ctx context.Context, rule *config.ProxyRule) {
+	addr := rule.SourcePort
+	if len(addr) > 0 && addr[0] != ':' {
+		addr = ":" + addr
+	}
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		fmt.Printf("Failed to listen on TCP %s: %v\n", addr, err)
+		return
+	}
+	fmt.Printf("TCP Proxy listening on %s\n", addr)
+
+	go func() {
+		<-ctx.Done()
+		listener.Close()
+	}()
+
+	for {
+		clientConn, err := listener.Accept()
+		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				break
+			}
+			continue
+		}
+
+		go func(c net.Conn) {
+			defer c.Close()
+			if tcpConn, ok := c.(*net.TCPConn); ok {
+				tcpConn.SetKeepAlive(true)
+				tcpConn.SetKeepAlivePeriod(30 * time.Second)
+			}
+
+			clientIPStr := c.RemoteAddr().(*net.TCPAddr).IP
+			if err := checkIPAccess(clientIPStr, rule); err != nil {
+				return
+			}
+
+			targetAddr := rule.TargetHost
+			if rule.TargetPort != "" {
+				targetAddr = net.JoinHostPort(rule.TargetHost, rule.TargetPort)
+			}
+			network := "tcp"
+			if rule.TargetProtocol == "unix" {
+				network = "unix"
+				targetAddr = rule.TargetHost
+			}
+
+			backendConn, err := net.DialTimeout(network, targetAddr, 10*time.Second)
+			if err != nil {
+				return
+			}
+			defer backendConn.Close()
+			if tcpBackend, ok := backendConn.(*net.TCPConn); ok {
+				tcpBackend.SetKeepAlive(true)
+				tcpBackend.SetKeepAlivePeriod(30 * time.Second)
+			}
+
+			go io.Copy(backendConn, c)
+			io.Copy(c, backendConn)
+		}(clientConn)
+	}
+}
+
+func startUDPProxy(ctx context.Context, rule *config.ProxyRule) {
+	addr := rule.SourcePort
+	if len(addr) > 0 && addr[0] != ':' {
+		addr = ":" + addr
+	}
+	udpAddr, err := net.ResolveUDPAddr("udp", addr)
+	if err != nil {
+		fmt.Printf("Failed to resolve UDP %s: %v\n", addr, err)
+		return
+	}
+	conn, err := net.ListenUDP("udp", udpAddr)
+	if err != nil {
+		fmt.Printf("Failed to listen on UDP %s: %v\n", addr, err)
+		return
+	}
+	fmt.Printf("UDP Proxy listening on %s\n", addr)
+
+	go func() {
+		<-ctx.Done()
+		conn.Close()
+	}()
+
+	targetAddr := rule.TargetHost
+	if rule.TargetPort != "" {
+		targetAddr = net.JoinHostPort(rule.TargetHost, rule.TargetPort)
+	}
+	targetUDPAddr, err := net.ResolveUDPAddr("udp", targetAddr)
+	if err != nil {
+		fmt.Printf("Failed to resolve target UDP %s: %v\n", targetAddr, err)
+		return
+	}
+
+	type session struct {
+		backendConn *net.UDPConn
+		lastActive  time.Time
+	}
+	var sessions sync.Map
+
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				sessions.Range(func(key, value any) bool {
+					value.(*session).backendConn.Close()
+					return true
+				})
+				return
+			case <-ticker.C:
+				now := time.Now()
+				sessions.Range(func(key, value any) bool {
+					s := value.(*session)
+					if now.Sub(s.lastActive) > 60*time.Second {
+						s.backendConn.Close()
+						sessions.Delete(key)
+					}
+					return true
+				})
+			}
+		}
+	}()
+
+	buf := make([]byte, 65507)
+	for {
+		n, clientAddr, err := conn.ReadFromUDP(buf)
+		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				break
+			}
+			continue
+		}
+
+		if err := checkIPAccess(clientAddr.IP, rule); err != nil {
+			continue
+		}
+
+		key := clientAddr.String()
+		v, ok := sessions.Load(key)
+		if !ok {
+			backendConn, err := net.DialUDP("udp", nil, targetUDPAddr)
+			if err != nil {
+				continue
+			}
+			s := &session{backendConn: backendConn, lastActive: time.Now()}
+			sessions.Store(key, s)
+			v = s
+
+			go func(client string, bc *net.UDPConn, cAddr *net.UDPAddr) {
+				defer func() {
+					bc.Close()
+					sessions.Delete(client)
+				}()
+				bBuf := make([]byte, 65507)
+				for {
+					bc.SetReadDeadline(time.Now().Add(60 * time.Second))
+					bn, err := bc.Read(bBuf)
+					if err != nil {
+						break
+					}
+					if sObj, ok := sessions.Load(client); ok {
+						sObj.(*session).lastActive = time.Now()
+					}
+					conn.WriteToUDP(bBuf[:bn], cAddr)
+				}
+			}(key, backendConn, clientAddr)
+		}
+
+		s := v.(*session)
+		s.lastActive = time.Now()
+		s.backendConn.Write(buf[:n])
+	}
 }
 
 func Handler(c *gin.Context) {
@@ -562,28 +849,9 @@ func Handler(c *gin.Context) {
 	}
 
 	clientIP := net.ParseIP(c.ClientIP())
-	if clientIP != nil {
-		if len(proxyRule.AllowIPs) > 0 {
-			allowed := false
-			for _, cidr := range proxyRule.AllowIPs {
-				if matchIP(cidr, clientIP) {
-					allowed = true
-					break
-				}
-			}
-			if !allowed {
-				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Access Denied by AllowIPs"})
-				return
-			}
-		}
-		if len(proxyRule.BlockIPs) > 0 {
-			for _, cidr := range proxyRule.BlockIPs {
-				if matchIP(cidr, clientIP) {
-					c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Access Denied by BlockIPs"})
-					return
-				}
-			}
-		}
+	if err := checkIPAccess(clientIP, proxyRule); err != nil {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		return
 	}
 
 	if proxyRule.ForceHTTPS && c.Request.TLS == nil {
