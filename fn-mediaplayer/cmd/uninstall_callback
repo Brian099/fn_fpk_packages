@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# 描述: 卸载完成后的清理回调脚本
+
+echo "MediaPlayer 卸载回调处理中..."
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_ROOT="$(dirname "$SCRIPT_DIR")"
+
+if [ -z "$TRIM_PKGVAR" ]; then
+    if [ -d "${APP_ROOT}/var" ]; then
+        TRIM_PKGVAR="${APP_ROOT}/var"
+    else
+        TRIM_PKGVAR="/var/apps/mediaplayer/var"
+    fi
+fi
+
+DATA_DIR="${TRIM_PKGVAR}"
+ACTION="${wizard_data_action}"
+
+if [ "${ACTION}" = "delete" ]; then
+    echo "用户选择彻底删除数据。"
+    
+    # 1. 首先尝试删除存放在用户自选的持久化目录中的数据
+    if [ -f "${TRIM_PKGVAR}/wizard_data_path" ]; then
+        WIZARD_DATA=$(cat "${TRIM_PKGVAR}/wizard_data_path" | tr -d '\r\n')
+        if [ -n "$WIZARD_DATA" ] && [ -d "$WIZARD_DATA" ]; then
+            echo "发现持久化存储目录，正在清理: $WIZARD_DATA"
+            # 仅删除我们确切创建的三个子目录，以防误删用户整个上级文件夹
+            rm -rf "$WIZARD_DATA/data"
+            rm -rf "$WIZARD_DATA/library"
+            rm -rf "$WIZARD_DATA/download"
+            # 尝试删除空目录（如果没其他文件的话就会成功，有的话会忽略）
+            rmdir "$WIZARD_DATA" 2>/dev/null || true
+            echo "持久化目录数据清理完成。"
+        fi
+    fi
+
+    # 2. 接着清理系统隐藏数据区
+    if [ -n "${DATA_DIR}" ] && [ -d "${DATA_DIR}" ]; then
+        echo "正在清理系统缓存区: ${DATA_DIR}"
+        if [ "${DATA_DIR}" != "/" ] && [ "${DATA_DIR}" != "/var/apps" ]; then
+            rm -rf "${DATA_DIR}"
+            if [ $? -eq 0 ]; then
+                echo "数据目录清理成功。"
+            else
+                echo "错误：数据目录清理失败。"
+            fi
+        else
+            echo "错误：非法的数据目录路径，取消删除。"
+        fi
+    else
+        echo "未发现数据目录，无需清理。"
+    fi
+else
+    echo "用户选择保留数据 (选项: ${ACTION:-keep})。"
+    echo "清理运行时临时文件..."
+    rm -f "${DATA_DIR}/mediaplayer.pid"
+fi
+
+echo "卸载回调执行完毕。"
+exit 0

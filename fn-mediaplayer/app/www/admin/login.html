@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediaPlayer 管理后台 - 登录</title>
+<link rel="icon" type="image/svg+xml" href="/static/icon.svg">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body { display: flex; align-items: center; justify-content: center; height: 100vh; background: var(--bg); }
+.login-box { background: #fff; padding: 40px 32px; border-radius: 4px; width: 380px; box-shadow: 0 1px 10px rgba(0,0,0,0.05); }
+.login-box h3 { margin-bottom: 30px; text-align: center; color: var(--text); font-size: 20px; font-weight: 400; }
+.login-box .form-group { margin-bottom: 24px; }
+.login-box input { width: 100%; padding: 10px 12px; border: 1px solid #e6e6e6; border-radius: 2px; outline: none; transition: all 0.3s; font-size: 14px; }
+.login-box input:focus { border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="login-box">
+  <div style="text-align: center; margin-bottom: 24px;">
+    <svg viewBox="0 0 1024 1024" style="width: 48px; height: 48px; display: inline-block;">
+      <path fill="#1296db" d="M867.530667 172.330667A71.157333 71.157333 0 0 1 938.666667 243.477333v423.018667a71.146667 71.146667 0 0 1-71.136 71.168H167.146667A71.125333 71.125333 0 0 1 96 666.496V243.509333a71.157333 71.157333 0 0 1 71.146667-71.178666z m-360.853334 163.2c-34.016-19.648-76.533333 4.917333-76.533333 44.192v150.506666c0 39.296 42.517333 63.861333 76.533333 44.213334l130.272-75.264c34.016-19.626667 34.016-68.757333 0-88.405334zM360.202667 790.997333H685.12c19.690667 0 29.536 10.666667 29.536 32s-9.845333 32-29.536 32H360.213333c-19.690667 0-29.536-10.666667-29.536-32s9.845333-32 29.536-32z"/>
+    </svg>
+    <h3 style="margin: 12px 0 0 0;">管理后台登录</h3>
+  </div>
+  <div class="form-group">
+    <label>管理密码</label>
+    <input type="password" id="login-password" placeholder="输入管理密码" onkeydown="if(event.key==='Enter')doLogin()">
+    <div id="default-pwd-hint" style="font-size:11px;color:var(--text2);margin-top:8px">默认密码: admin123 (可通过环境变量 ADMIN_PASSWORD 修改)</div>
+  </div>
+  <div class="form-actions">
+    <button class="btn btn-primary" style="width:100%" onclick="doLogin()">登录</button>
+  </div>
+</div>
+<div class="toast" id="toast" style="display:none"></div>
+<script src="/static/app.js"></script>
+<script>
+  fetch('/api/v1/admin/config')
+    .then(res => res.json())
+    .then(data => {
+      if (data.code === 0 && data.data && !data.data.is_default_password) {
+        document.getElementById('default-pwd-hint').style.display = 'none';
+      }
+    })
+    .catch(console.error);
+</script>
+</body>
+</html>

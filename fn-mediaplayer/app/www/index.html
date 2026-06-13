@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/static/icon.svg">
+  <title>MediaPlayer - The Ultimate IPTV Experience</title>
+  <style>
+    @font-face {
+      font-family: 'Inter';
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url('/static/fonts/Inter-Regular.woff2') format('woff2');
+    }
+
+    @font-face {
+      font-family: 'Inter';
+      font-style: normal;
+      font-weight: 500;
+      font-display: swap;
+      src: url('/static/fonts/Inter-Medium.woff2') format('woff2');
+    }
+
+    @font-face {
+      font-family: 'Inter';
+      font-style: normal;
+      font-weight: 600;
+      font-display: swap;
+      src: url('/static/fonts/Inter-SemiBold.woff2') format('woff2');
+    }
+
+    @font-face {
+      font-family: 'Inter';
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+      src: url('/static/fonts/Inter-Bold.woff2') format('woff2');
+    }
+
+    :root {
+      --bg-color: #09090b;
+      --card-bg: rgba(24, 24, 27, 0.6);
+      --card-border: rgba(63, 63, 70, 0.4);
+      --text-main: #f4f4f5;
+      --text-muted: #a1a1aa;
+      --accent-1: #6366f1;
+      --accent-2: #a855f7;
+      --accent-3: #ec4899;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      overflow-x: hidden;
+      line-height: 1.6;
+      position: relative;
+    }
+
+    /* Ambient Background Blobs */
+    .ambient-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.15;
+      animation: float 20s infinite ease-in-out alternate;
+    }
+
+    .blob-1 {
+      top: -10%;
+      left: 20%;
+      width: 50vw;
+      height: 50vw;
+      background: var(--accent-1);
+      animation-delay: 0s;
+    }
+
+    .blob-2 {
+      bottom: -10%;
+      right: 10%;
+      width: 40vw;
+      height: 40vw;
+      background: var(--accent-2);
+      animation-delay: -5s;
+    }
+
+    @keyframes float {
+      0% {
+        transform: translate(0, 0) scale(1);
+      }
+
+      100% {
+        transform: translate(10%, 10%) scale(1.1);
+      }
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Navbar */
+    header {
+      padding: 24px 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(9, 9, 11, 0.7);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .logo svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 120px 0 60px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+    }
+
+    .hero-badge span {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 10px #10b981;
+    }
+
+    .hero h1 {
+      font-size: 64px;
+      font-weight: 800;
+      letter-spacing: -2px;
+      line-height: 1.1;
+      margin-bottom: 24px;
+      background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      max-width: 800px;
+    }
+
+    .hero p {
+      font-size: 20px;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin-bottom: 48px;
+    }
+
+    /* Download Card */
+    .download-section {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      margin-bottom: 80px;
+    }
+
+    .download-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 32px;
+      width: 100%;
+      max-width: 600px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.3s ease, border-color 0.3s ease;
+    }
+
+    .download-card:hover {
+      border-color: rgba(99, 102, 241, 0.5);
+      transform: translateY(-4px);
+    }
+
+    .download-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-1), var(--accent-2), transparent);
+      opacity: 0.5;
+    }
+
+    .version-info {
+      margin-bottom: 24px;
+    }
+
+    .version-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .version-meta {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .changelog {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 12px;
+      padding: 16px;
+      width: 100%;
+      text-align: left;
+      font-size: 14px;
+      color: #d4d4d8;
+      margin-bottom: 24px;
+      max-height: 120px;
+      overflow-y: auto;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Scrollbar for changelog */
+    .changelog::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .changelog::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .changelog::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+    }
+
+    .btn-download {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: linear-gradient(135deg, var(--accent-1) 0%, var(--accent-2) 100%);
+      color: #fff;
+      padding: 16px 32px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      width: 100%;
+      justify-content: center;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-download:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-download svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    /* Skeleton loader */
+    .skeleton {
+      animation: pulse 1.5s infinite ease-in-out;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+    }
+
+    .skeleton-text {
+      height: 24px;
+      width: 60%;
+      margin: 0 auto 12px;
+    }
+
+    .skeleton-text-small {
+      height: 16px;
+      width: 40%;
+      margin: 0 auto 24px;
+    }
+
+    .skeleton-box {
+      height: 80px;
+      width: 100%;
+      margin-bottom: 24px;
+      border-radius: 12px;
+    }
+
+    .skeleton-btn {
+      height: 54px;
+      width: 100%;
+      border-radius: 12px;
+    }
+
+    @keyframes pulse {
+      0% {
+        opacity: 0.5;
+      }
+
+      50% {
+        opacity: 1;
+      }
+
+      100% {
+        opacity: 0.5;
+      }
+    }
+
+    /* Features Grid */
+    .features {
+      padding: 60px 0 100px;
+    }
+
+    .features h2 {
+      text-align: center;
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 60px;
+      color: #fff;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 32px;
+      transition: all 0.3s ease;
+    }
+
+    .feature-card:hover {
+      background: rgba(39, 39, 42, 0.6);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #a855f7;
+      margin-bottom: 24px;
+    }
+
+    .feature-card h3 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+
+    .feature-card p {
+      font-size: 15px;
+      color: var(--text-muted);
+    }
+
+    footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 40px 0;
+      text-align: center;
+      color: #71717a;
+      font-size: 14px;
+    }
+
+    @media (max-width: 1024px) {
+      .feature-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .feature-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero h1 {
+        font-size: 40px;
+      }
+
+      .hero p {
+        font-size: 16px;
+        padding: 0 16px;
+      }
+
+      .download-card {
+        padding: 24px;
+        border-radius: 20px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="ambient-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+
+  <header>
+    <div class="container nav">
+      <a href="/" class="logo">
+        <svg viewBox="0 0 1024 1024">
+          <path fill="#1296db"
+            d="M867.530667 172.330667A71.157333 71.157333 0 0 1 938.666667 243.477333v423.018667a71.146667 71.146667 0 0 1-71.136 71.168H167.146667A71.125333 71.125333 0 0 1 96 666.496V243.509333a71.157333 71.157333 0 0 1 71.146667-71.178666z m-360.853334 163.2c-34.016-19.648-76.533333 4.917333-76.533333 44.192v150.506666c0 39.296 42.517333 63.861333 76.533333 44.213334l130.272-75.264c34.016-19.626667 34.016-68.757333 0-88.405334zM360.202667 790.997333H685.12c19.690667 0 29.536 10.666667 29.536 32s-9.845333 32-29.536 32H360.213333c-19.690667 0-29.536-10.666667-29.536-32s9.845333-32 29.536-32z" />
+        </svg>
+        MediaPlayer
+      </a>
+      <!-- <a href="./admin/" style="color: #fff; text-decoration: none; font-weight: 500; background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); transition: all 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">管理控制台 ⚙️</a> -->
+    </div>
+  </header>
+
+  <main>
+    <section class="hero container">
+      <h1>MediaPlayer 智能电视</h1>
+      <p>专为 Android TV 打造的专业级 IPTV 客户端，搭载强大的多端鉴权与流媒体加密核心。让海量订阅源的聚合管理与播放前所未有的流畅与安全。</p>
+    </section>
+
+    <section class="download-section container">
+      <div class="download-card" id="downloadCard">
+        <!-- Skeleton Loader (Shown initially) -->
+        <div id="loader">
+          <div class="skeleton skeleton-text"></div>
+          <div class="skeleton skeleton-text-small"></div>
+          <div class="skeleton skeleton-box"></div>
+          <div class="skeleton skeleton-btn"></div>
+        </div>
+
+        <!-- Content (Hidden initially) -->
+        <div id="content" style="display: none; width: 100%;">
+          <div class="version-info">
+            <h2 class="version-title">MediaPlayer for Android TV</h2>
+            <div class="version-meta" id="versionMeta">版本加载中...</div>
+          </div>
+
+          <div class="changelog" id="updateLog">
+            <!-- Changelog will be injected here -->
+          </div>
+
+          <a href="#" class="btn-download" id="downloadBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+              stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            下载客户端 APK (通用版)
+          </a>
+          <div id="archLinks"
+            style="display: none; margin-top: 16px; gap: 16px; justify-content: center; font-size: 13px;">
+          </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" style="display: none; width: 100%;">
+          <div class="version-info">
+            <h2 class="version-title" style="color: #ef4444;">暂无可用下载</h2>
+            <div class="version-meta">服务器上尚未发布任何客户端版本</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="features container">
+      <h2>为什么选择 MediaPlayer?</h2>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          </div>
+          <h3>极致安全防御</h3>
+          <p>彻底告别直播源被盗。服务端直连直播源，客户端通过加密协议及动态 Token 进行二次拉流，实现全方位的防盗链与防抓包保护。</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </div>
+          <h3>多端设备管控</h3>
+          <p>新设备首次接入需要服务端一键授权。支持按天数、允许同时在线设备数量精确控制，随时封禁或撤销指定设备的播放权限。</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+          </div>
+          <h3>大屏沉浸体验</h3>
+          <p>专为 Android TV 与机顶盒设计的原生客户端界面，全键盘/遥控器操作支持，无缝解析 M3U、EPG 及频道分组。</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+          </div>
+          <h3>全能订阅托管</h3>
+          <p>完美解析各种格式的 M3U 源，自动同步并缓存 EPG 电子节目单，配合灵活的频道分组，让杂乱的电视源井井有条。</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>&copy; 2026 MediaPlayer System. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const loader = document.getElementById('loader');
+      const content = document.getElementById('content');
+      const errorState = document.getElementById('errorState');
+
+      const versionMeta = document.getElementById('versionMeta');
+      const updateLog = document.getElementById('updateLog');
+      const downloadBtn = document.getElementById('downloadBtn');
+
+      // 动态替换下载地址的 host 为当前浏览器访问的 host，解决反向代理/Docker内容部IP泄露导致无法下载的问题
+      const fixDownloadUrl = (url) => {
+        if (!url) return url;
+        try {
+          const parsed = new URL(url);
+          return window.location.origin + parsed.pathname + parsed.search;
+        } catch (e) {
+          return url;
+        }
+      };
+
+      Promise.all([
+        fetch('/api/v1/update?arch=all').then(r => r.json()),
+        fetch('/api/v1/update?arch=armeabi-v7a').then(r => r.json()),
+        fetch('/api/v1/update?arch=arm64-v8a').then(r => r.json())
+      ])
+        .then(([resAll, resV7, resV8]) => {
+          loader.style.display = 'none';
+
+          if (resAll.code === 0 && resAll.data && resAll.data.download_url) {
+            content.style.display = 'block';
+            const vCode = resAll.data.version_code || '';
+            const vName = resAll.data.version_name || '1.0.0';
+
+            versionMeta.textContent = `Version ${vName} (Build ${vCode}) • Android TV Optimized`;
+
+            if (resAll.data.update_log) {
+              updateLog.innerHTML = resAll.data.update_log.replace(/\n/g, '<br>');
+            } else {
+              updateLog.innerHTML = '此版本包含了稳定性改进和流媒体播放器的性能优化。';
+            }
+
+            downloadBtn.href = fixDownloadUrl(resAll.data.download_url);
+
+            const archLinks = document.getElementById('archLinks');
+            archLinks.innerHTML = '';
+            let hasExtra = false;
+
+            if (resV7.code === 0 && resV7.data && resV7.data.download_url && resV7.data.download_url !== resAll.data.download_url) {
+              archLinks.innerHTML += `<a href="${fixDownloadUrl(resV7.data.download_url)}" style="color: var(--accent-1); text-decoration: none;">ARMv7 (32位)</a>`;
+              hasExtra = true;
+            }
+            if (resV8.code === 0 && resV8.data && resV8.data.download_url && resV8.data.download_url !== resAll.data.download_url) {
+              archLinks.innerHTML += `<a href="${fixDownloadUrl(resV8.data.download_url)}" style="color: var(--accent-1); text-decoration: none;">ARM64 (64位)</a>`;
+              hasExtra = true;
+            }
+
+            if (hasExtra) {
+              archLinks.style.display = 'flex';
+            }
+          } else {
+            showGithubFallback();
+          }
+        })
+        .catch(err => {
+          console.error('Failed to fetch update:', err);
+          showGithubFallback();
+        });
+
+      function showGithubFallback() {
+        loader.style.display = 'none';
+        content.style.display = 'block';
+        versionMeta.textContent = '最新版本 • GitHub 发布';
+        updateLog.innerHTML = '<div style="color:#f59e0b; margin-bottom: 8px;">服务器暂未提供直接下载，请前往 GitHub 获取最新版本</div>' +
+          '<li>支持所有的 Android TV 和移动设备</li>' +
+          '<li>稳定、高效的流媒体播放体验</li>';
+        downloadBtn.href = 'https://github.com/kuai410022283/mediaplayer/releases';
+        downloadBtn.target = '_blank';
+        downloadBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;margin-right:8px;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg> 前往 GitHub 下载';
+        errorState.style.display = 'none';
+        const archLinks = document.getElementById('archLinks');
+        if (archLinks) archLinks.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+
+</html>

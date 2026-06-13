@@ -1,0 +1,10 @@
+更新版本目录说明
+1.客户端版本如v1.0.0(8)
+2.更新版本目录命名：8_v1.0.0
+3.目录下存放各各客户端版本：
+    web\download\8_v1.0.0\mediaplayer-v1.0.0-all-release.apk
+    web\download\8_v1.0.0\mediaplayer-v1.0.0-arm64-v8a-release.apk
+    web\download\8_v1.0.0\mediaplayer-v1.0.0-armeabi-v7a-release.apk
+    web\download\8_v1.0.0\mediaplayer-v1.0.0-x86_64-release.apk
+    web\download\8_v1.0.0\mediaplayer-v1.0.0-x86-release.apk
+4.更新说明：更新说明内容写入web\download\8_v1.0.0\version.txt

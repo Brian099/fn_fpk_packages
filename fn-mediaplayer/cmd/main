@@ -1,0 +1,216 @@
+#!/bin/bash
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_ROOT="$(dirname "$SCRIPT_DIR")"
+
+if [ -z "$TRIM_APPDEST" ]; then
+    if [ -d "${APP_ROOT}/app" ]; then
+        TRIM_APPDEST="${APP_ROOT}/app"
+    else
+        TRIM_APPDEST="/var/apps/mediaplayer/target"
+    fi
+fi
+
+if [ -z "$TRIM_PKGVAR" ]; then
+    if [ -d "${APP_ROOT}/var" ]; then
+        TRIM_PKGVAR="${APP_ROOT}/var"
+    else
+        TRIM_PKGVAR="/var/apps/mediaplayer/var"
+    fi
+fi
+
+ARCH=$(uname -m)
+if [ "$ARCH" == "x86_64" ]; then
+    BINARY_ARCH="x86_64"
+elif [ "$ARCH" == "aarch64" ]; then
+    BINARY_ARCH="aarch64"
+else
+    BINARY_ARCH="$ARCH"
+fi
+
+APPNAME="mediaplayer"
+LOG_FILE="${TRIM_PKGVAR}/info.log"
+PID_FILE="${TRIM_PKGVAR}/mediaplayer.pid"
+BINARY="${TRIM_APPDEST}/server/mediaplayer_${BINARY_ARCH}"
+
+log_msg() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >>"${LOG_FILE}"
+}
+
+fail() {
+    local msg="$1"
+    log_msg "FAIL: ${msg}"
+    if [ -n "${TRIM_TEMP_LOGFILE:-}" ]; then
+        echo "${msg}" >"${TRIM_TEMP_LOGFILE}"
+    fi
+    return 1
+}
+
+status() {
+    if [ -f "${PID_FILE}" ]; then
+        local pid
+        pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
+        if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+start_process() {
+    if status; then
+        log_msg "Process already running (PID $(head -n 1 "${PID_FILE}"))"
+        return 0
+    fi
+
+    log_msg "========== STARTING =========="
+    mkdir -p "${TRIM_PKGVAR}/data"
+    mkdir -p "$(dirname "${LOG_FILE}")" 2>/dev/null || true
+
+    if [ ! -f "${BINARY}" ]; then
+        fail "Binary not found: ${BINARY}"
+        return 1
+    fi
+
+    chmod +x "${BINARY}"
+
+    # Copy config.yaml from target var folder if exists, or use template
+    if [ -f "${TRIM_PKGVAR}/config.yaml" ]; then
+        cp "${TRIM_PKGVAR}/config.yaml" "${TRIM_PKGVAR}/config.yaml.run"
+    elif [ -f "${TRIM_APPDEST}/server/config.yaml.template" ]; then
+        cp "${TRIM_APPDEST}/server/config.yaml.template" "${TRIM_PKGVAR}/config.yaml.run"
+    fi
+
+    log_msg "Exec: ${BINARY}"
+
+    # cd to the var directory so that it uses the config.yaml there if the app depends on PWD
+    cd "${TRIM_PKGVAR}"
+    
+    # 建立 data、library、web/download 的软连接，指向用户配置的持久化目录
+    if [ -f "${TRIM_PKGVAR}/wizard_data_path" ]; then
+        WIZARD_DATA=$(cat "${TRIM_PKGVAR}/wizard_data_path" | tr -d '\r\n')
+        if [ -n "$WIZARD_DATA" ]; then
+            # 尝试主动创建用户配置的上级目录（防止因为目录尚未存在而降级到系统隐藏区）
+            mkdir -p "$WIZARD_DATA" 2>/dev/null || true
+            if [ -d "$WIZARD_DATA" ]; then
+                # 自动在目标路径创建所需子目录
+                mkdir -p "$WIZARD_DATA/data"
+                mkdir -p "$WIZARD_DATA/library"
+                mkdir -p "$WIZARD_DATA/download"
+            
+            # 删除系统数据区中可能残留的空物理目录，替换为软链接
+            [ -d "${TRIM_PKGVAR}/data" ] && [ ! -L "${TRIM_PKGVAR}/data" ] && rm -rf "${TRIM_PKGVAR}/data"
+            ln -sf "$WIZARD_DATA/data" "${TRIM_PKGVAR}/data"
+            
+            [ -d "${TRIM_PKGVAR}/library" ] && [ ! -L "${TRIM_PKGVAR}/library" ] && rm -rf "${TRIM_PKGVAR}/library"
+            ln -sf "$WIZARD_DATA/library" "${TRIM_PKGVAR}/library"
+            
+            mkdir -p "${TRIM_PKGVAR}/web"
+            ln -sf "$WIZARD_DATA/download" "${TRIM_PKGVAR}/web/download"
+            fi
+        fi
+    fi
+    
+    # 保底：如果软连没有成功建立，则在本地创建并降级
+    mkdir -p "${TRIM_PKGVAR}/data"
+    mkdir -p "${TRIM_PKGVAR}/library"
+    mkdir -p "${TRIM_PKGVAR}/web"
+    if [ ! -e "${TRIM_PKGVAR}/web/download" ]; then
+        ln -sf "${TRIM_APPDEST}/www/download" "${TRIM_PKGVAR}/web/download"
+    fi
+
+    # 建立其余静态前端网页的软链接，使得后端的 r.Static() 能够正确提供网页服务！
+    ln -sf "${TRIM_APPDEST}/www/admin" "${TRIM_PKGVAR}/web/admin"
+    ln -sf "${TRIM_APPDEST}/www/static" "${TRIM_PKGVAR}/web/static"
+    ln -sf "${TRIM_APPDEST}/www/index.html" "${TRIM_PKGVAR}/web/index.html"
+
+    # 假设应用会自动读取同目录下的 config.yaml 或者支持命令行参数，这里我们复制到执行目录并重命名为 config.yaml
+    if [ -f "config.yaml.run" ]; then
+        cp config.yaml.run config.yaml
+    fi
+
+    # 直接在后台运行应用，确保记录的是真实进程的 PID
+    "${BINARY}" >>"${LOG_FILE}" 2>&1 &
+    local pid=$!
+    printf "%s" "$pid" >"${PID_FILE}"
+
+    sleep 2
+    if status; then
+        log_msg "Process started successfully (PID ${pid})"
+    else
+        log_msg "Process failed to start or exited immediately"
+        fail "应用启动失败，请查看日志: ${LOG_FILE}"
+        return 1
+    fi
+    return 0
+}
+
+stop_process() {
+    log_msg "========== STOPPING =========="
+
+    if [ -f "${PID_FILE}" ]; then
+        local pid
+        pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
+        if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
+            log_msg "Sending SIGTERM to PID ${pid}"
+            kill "${pid}" 2>/dev/null
+            local wait_count=0
+            while kill -0 "${pid}" 2>/dev/null && [ $wait_count -lt 10 ]; do
+                sleep 1
+                wait_count=$((wait_count + 1))
+            done
+            if kill -0 "${pid}" 2>/dev/null; then
+                log_msg "SIGTERM timeout, sending SIGKILL to PID ${pid}"
+                kill -9 "${pid}" 2>/dev/null
+            fi
+            log_msg "Process terminated"
+        else
+            log_msg "PID file exists but process not running"
+        fi
+        rm -f "${PID_FILE}"
+    else
+        log_msg "No PID file found"
+    fi
+
+    log_msg "Cleanup complete"
+    return 0
+}
+
+reload_process() {
+    log_msg "========== RELOADING =========="
+    stop_process
+    sleep 1
+    start_process
+}
+
+case "$1" in
+start)
+    start_process
+    ;;
+stop)
+    stop_process
+    ;;
+restart)
+    stop_process
+    sleep 1
+    start_process
+    ;;
+reload)
+    reload_process
+    ;;
+status)
+    if status; then
+        echo "Running (PID $(head -n 1 "${PID_FILE}"))"
+        exit 0
+    else
+        echo "Not running"
+        exit 3
+    fi
+    ;;
+*)
+    echo "Usage: $0 {start|stop|restart|reload|status}"
+    exit 1
+    ;;
+esac
+
+exit 0

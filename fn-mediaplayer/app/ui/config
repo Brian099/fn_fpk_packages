@@ -1,0 +1,13 @@
+{
+    ".url": {
+        "mediaplayer.Application": {
+            "title": "MediaPlayer",
+            "icon": "images/icon_{0}.png",
+            "type": "url",
+            "protocol": "http",
+            "port": "${server_port}",
+            "url": "/",
+            "allUsers": false
+        }
+    }
+}

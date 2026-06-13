@@ -1,0 +1,56 @@
+#!/bin/bash
+
+echo "MediaPlayer 设置应用中..."
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_ROOT="$(dirname "$SCRIPT_DIR")"
+
+if [ -z "$TRIM_PKGVAR" ]; then
+    if [ -d "${APP_ROOT}/var" ]; then
+        TRIM_PKGVAR="${APP_ROOT}/var"
+    else
+        TRIM_PKGVAR="/var/apps/mediaplayer/var"
+    fi
+fi
+
+if [ -z "$TRIM_APPDEST" ]; then
+    if [ -d "${APP_ROOT}/app" ]; then
+        TRIM_APPDEST="${APP_ROOT}/app"
+    else
+        TRIM_APPDEST="/var/apps/mediaplayer/target"
+    fi
+fi
+
+TARGET_CONFIG="$TRIM_PKGVAR/config.yaml"
+CHANGED=0
+
+if [ -f "$TARGET_CONFIG" ]; then
+    # 如果用户输入了新的端口号且不为空
+    if [ -n "$server_port" ]; then
+        sed -i "s|port: [0-9]*|port: $server_port|g" "$TARGET_CONFIG"
+        echo "$server_port" > "$TRIM_PKGVAR/server_port"
+        echo "端口已修改为 $server_port"
+        CHANGED=1
+    fi
+
+    # 如果用户输入了新的管理员密码且不为空
+    if [ -n "$admin_password" ]; then
+        # 注意：转义特殊字符防止 sed 报错
+        ESCAPED_PWD=$(echo "$admin_password" | sed -e 's/[\/&]/\\&/g')
+        sed -i "s|admin_password: \".*\"|admin_password: \"$ESCAPED_PWD\"|g" "$TARGET_CONFIG"
+        echo "管理员密码已修改"
+        CHANGED=1
+    fi
+fi
+
+if [ "$CHANGED" -eq 1 ]; then
+    echo "配置已发生变更，正在重启服务以生效..."
+    if [ -x "${TRIM_APPDEST}/cmd/main" ]; then
+        "${TRIM_APPDEST}/cmd/main" restart
+    fi
+else
+    echo "未检测到任何修改。"
+fi
+
+echo "设置回调执行完毕。"
+exit 0

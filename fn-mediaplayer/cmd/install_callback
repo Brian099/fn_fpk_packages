@@ -1,0 +1,71 @@
+#!/bin/bash
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_ROOT="$(dirname "$SCRIPT_DIR")"
+
+if [ -z "$TRIM_APPDEST" ]; then
+    if [ -d "${APP_ROOT}/app" ]; then
+        TRIM_APPDEST="${APP_ROOT}/app"
+    else
+        TRIM_APPDEST="/var/apps/mediaplayer/target"
+    fi
+fi
+
+if [ -z "$TRIM_PKGVAR" ]; then
+    if [ -d "${APP_ROOT}/var" ]; then
+        TRIM_PKGVAR="${APP_ROOT}/var"
+    else
+        TRIM_PKGVAR="/var/apps/mediaplayer/var"
+    fi
+fi
+
+echo "开始安装 MediaPlayer..."
+
+# 1. 设置执行权限
+echo "正在设置权限..."
+chmod +x "$TRIM_APPDEST"/server/mediaplayer_* 2>/dev/null || true
+chmod +x "$TRIM_APPDEST"/ui/*.cgi 2>/dev/null || true
+
+# 2. 创建数据目录
+mkdir -p "$TRIM_PKGVAR/data/cache"
+
+# 3. 处理安装向导的变量并生成 config.yaml
+echo "正在生成配置文件..."
+TEMPLATE_FILE="$TRIM_APPDEST/server/config.yaml.template"
+TARGET_CONFIG="$TRIM_PKGVAR/config.yaml"
+
+if [ -f "$TEMPLATE_FILE" ]; then
+    # 获取向导变量，如未提供则使用默认值
+    PORT="${server_port:-9527}"
+    ADMIN_PWD="${admin_password:-admin123}"
+    
+    # 生成随机 jwt secret
+    SECRET_KEY=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1 2>/dev/null)
+    if [ -z "$SECRET_KEY" ]; then
+        SECRET_KEY="mediaplayer-fallback-secret-key-$(date +%s)"
+    fi
+
+    # 替换配置
+    sed -e "s|port: 9527|port: $PORT|g" \
+        -e "s|admin_password: \"admin123\"|admin_password: \"$ADMIN_PWD\"|g" \
+        -e "s|secret: \"mediaplayer-change-this-secret-key\"|secret: \"$SECRET_KEY\"|g" \
+        -e "s|path: \"./data/mediaplayer.db\"|path: \"$TRIM_PKGVAR/data/mediaplayer.db\"|g" \
+        -e "s|cache_dir: \"./data/cache\"|cache_dir: \"$TRIM_PKGVAR/data/cache\"|g" \
+        "$TEMPLATE_FILE" > "$TARGET_CONFIG"
+
+    # 核心修复：在 install_callback（拥有较高权限时）直接提前创建物理目录，并赋予权限
+    if [ -n "${wizard_data}" ]; then
+        mkdir -p "${wizard_data}" 2>/dev/null || true
+        chmod -R 777 "${wizard_data}" 2>/dev/null || true
+    fi
+
+    # 将端口号和数据目录记录在一个小文件，以便启动和代理脚本使用
+    echo "$PORT" > "$TRIM_PKGVAR/server_port"
+    echo "${wizard_data}" > "$TRIM_PKGVAR/wizard_data_path"
+    echo "配置文件生成成功: 端口 $PORT"
+else
+    echo "警告：未找到模板文件 $TEMPLATE_FILE"
+fi
+
+echo "安装回调执行完毕！"
+exit 0

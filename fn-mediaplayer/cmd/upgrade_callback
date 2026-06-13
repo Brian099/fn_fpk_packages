@@ -1,0 +1,22 @@
+#!/bin/bash
+
+echo "MediaPlayer 更新回调..."
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_ROOT="$(dirname "$SCRIPT_DIR")"
+
+if [ -z "$TRIM_APPDEST" ]; then
+    if [ -d "${APP_ROOT}/app" ]; then
+        TRIM_APPDEST="${APP_ROOT}/app"
+    else
+        TRIM_APPDEST="/var/apps/mediaplayer/target"
+    fi
+fi
+
+# 更新后重启服务
+if [ -x "${TRIM_APPDEST}/cmd/main" ]; then
+    echo "Starting service after upgrade..."
+    "${TRIM_APPDEST}/cmd/main" start
+fi
+
+exit 0

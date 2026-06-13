@@ -1,0 +1,31 @@
+[
+    {
+        "stepTitle": "MediaPlayer 设置修改",
+        "items": [
+            {
+                "type": "tips",
+                "helpText": "在此处修改的参数将覆盖当前运行的配置，并自动重启应用生效。若不修改请留空或保持原样。"
+            },
+            {
+                "type": "text",
+                "field": "server_port",
+                "label": "新的运行端口",
+                "initValue": "",
+                "placeholder": "若不修改请留空",
+                "rules": [
+                    { "pattern": "^[0-9]*$", "message": "端口号必须是数字" }
+                ]
+            },
+            {
+                "type": "password",
+                "field": "admin_password",
+                "label": "新的管理员密码",
+                "initValue": "",
+                "placeholder": "若不修改请留空",
+                "rules": [
+                    { "min": 6, "max": 64, "message": "密码长度在 6-64 位之间" }
+                ]
+            }
+        ]
+    }
+]
