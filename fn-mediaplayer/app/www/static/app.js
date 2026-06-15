@@ -199,6 +199,11 @@ function showSection(name, el) {
 
   if (el) {
     el.classList.add('active');
+    // On mobile/tablet (<1025px): after navigating, collapse sidebar
+    if (window.innerWidth < 1025) {
+      document.getElementById('sidebar').classList.remove('show');
+      document.getElementById('sidebar-overlay').classList.remove('show');
+    }
   } else {
     // Attempt to find and highlight the correct nav item if el is not provided
     const navItems = document.querySelectorAll('.nav-item');
@@ -225,6 +230,25 @@ function showSection(name, el) {
   };
   if (loaders[name]) loaders[name]();
 }
+
+// ═══ Mobile sidebar toggle ═══════════════════════════
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('show');
+  document.getElementById('sidebar-overlay').classList.toggle('show');
+}
+
+// ═══ Sidebar click to expand (mobile/tablet narrow mode) ═══
+// Capture phase ensures this runs BEFORE nav items' inline onclick handlers
+document.getElementById('sidebar').addEventListener('click', function(e) {
+  if (window.innerWidth >= 1025) return; // Desktop: no action needed
+  const sidebar = document.getElementById('sidebar');
+  // If sidebar is not expanded, expand it and block the nav item click
+  if (!sidebar.classList.contains('show')) {
+    e.stopPropagation();
+    sidebar.classList.add('show');
+    document.getElementById('sidebar-overlay').classList.add('show');
+  }
+}, true); // capture phase
 
 // ═══ Dashboard ════════════════════════════════════════
 async function loadDashboard() {
