@@ -609,7 +609,7 @@
                     <div class="fieldset">
                         <legend title="配置发往后端服务时的自定义请求头">自定义请求头 (Custom Headers)</legend>
                         <textarea id="customHeadersText" class="custom-headers-textarea"
-                            placeholder="每行一个请求头，格式为 名称: 值&#10;例如：&#10;Host: kami.laokhome.cn&#10;X-Forwarded-Proto: https"
+                            placeholder="每行一个请求头，格式为 名称: 值&#10;例如：&#10;Host: proxy.example.com&#10;X-Forwarded-Proto: https"
                             rows="4"></textarea>
                     </div>
                     <div class="form-check">
@@ -637,6 +637,38 @@
                                 <textarea id="blockIps" placeholder="优先于白名单&#10;例: 10.0.0.1" rows="3"
                                     style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-family: monospace;"></textarea>
                             </div>
+                        </div>
+                    </div>
+                    <div class="fieldset" style="margin-top: 15px;" id="realIPFieldset">
+                        <legend title="向后端服务传递真实客户端 IP 地址，解决多层代理下 IP 丢失的问题">真实IP传递 (Real IP)</legend>
+                        <div class="form-check">
+                            <input type="checkbox" id="addRealIP">
+                            <label for="addRealIP" title="在转发请求中自动添加真实客户端 IP 到指定 Header">启用真实IP传递</label>
+                        </div>
+                        <div class="form-group" style="margin-top: 8px;">
+                            <label for="realIPHeader" title="传递真实IP的Header名称，默认为 X-Real-IP">IP Header 名称</label>
+                            <input type="text" id="realIPHeader" placeholder="默认: X-Real-IP">
+                        </div>
+                        <div class="form-group">
+                            <label for="trustedCIDRs" title="信任的上游代理网段（CIDR格式），用于从 X-Forwarded-For 头部提取真实客户端 IP。留空则直接使用连接 IP。每行一个。">信任代理网段 (Trusted CIDRs)</label>
+                            <textarea id="trustedCIDRs" placeholder="留空则直接使用连接IP&#10;例: 10.0.0.0/8&#10;例: 172.16.0.0/12" rows="3"
+                                style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-family: monospace;"></textarea>
+                        </div>
+                    </div>
+                    <div class="fieldset" style="margin-top: 15px;" id="uaFilterFieldset">
+                        <legend title="根据 User-Agent 关键字允许或拒绝访问">User-Agent 过滤</legend>
+                        <div class="form-group">
+                            <label for="userAgentMode" title="选择 UA 过滤模式">过滤模式</label>
+                            <select id="userAgentMode">
+                                <option value="">不过滤</option>
+                                <option value="whitelist">白名单 (仅允许列表中的UA)</option>
+                                <option value="blacklist">黑名单 (拒绝列表中的UA)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-top: 8px;">
+                            <label for="userAgentList" title="UA 关键字列表，匹配时包含关键字即命中，每行一个">UA 关键字列表</label>
+                            <textarea id="userAgentList" placeholder="每行一个关键字&#10;例: Googlebot&#10;例: curl" rows="3"
+                                style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-family: monospace;"></textarea>
                         </div>
                     </div>
                 </div>
@@ -688,15 +720,20 @@
 
         async function loadProxies() {
             try {
-                const res = await request('api/proxies');
-                const proxies = await res.json();
-                renderProxies(proxies);
+                const [proxyRes, statusRes] = await Promise.all([
+                    request('api/proxies'),
+                    request('api/proxies/status')
+                ]);
+                const proxies = await proxyRes.json();
+                const listenErrors = await statusRes.json().catch(() => ({}));
+                renderProxies(proxies, listenErrors);
             } catch (e) {
                 console.error(e);
             }
         }
 
-        function renderProxies(proxies) {
+        function renderProxies(proxies, listenErrors) {
+            listenErrors = listenErrors || {};
             const el = document.getElementById('proxyList');
             if (!proxies || proxies.length === 0) {
                 el.innerHTML = `
@@ -710,6 +747,23 @@
                 `;
                 return;
             }
+
+            function getListenStatus(p) {
+                if (!p.enable) return '<span class="badge badge-danger">禁用</span>';
+                const proto = p.sourceProtocol || 'http';
+                const host = p.sourceHost || '';
+                const port = p.sourcePort || '80';
+                // Check all possible error keys
+                const addr = host ? host + ':' + port : ':' + port;
+                const keys = [proto + ':' + addr, addr, 'tcp:' + addr, 'udp:' + addr];
+                for (const k of keys) {
+                    if (listenErrors[k]) {
+                        return '<span class="badge badge-danger" title="' + listenErrors[k].replace(/"/g, '&quot;') + '" style="cursor:help">监听失败</span>';
+                    }
+                }
+                return '<span class="badge badge-success">正常</span>';
+            }
+
             el.innerHTML = `
                 <table class="table">
                     <thead>
@@ -727,7 +781,7 @@
                                 <td><strong>${p.name || '-'}</strong></td>
                                 <td>${p.sourceProtocol || 'http'}://${p.sourceHost || '*'}:${p.sourcePort || 80}</td>
                                 <td>${p.targetProtocol === 'unix' ? 'unix://' + (p.targetHost || '') : (p.targetProtocol || 'http') + '://' + (p.targetHost || '127.0.0.1') + ':' + (p.targetPort || 8080)}</td>
-                                <td><span class="badge ${p.enable ? 'badge-success' : 'badge-danger'}">${p.enable ? '启用' : '禁用'}</span></td>
+                                <td>${getListenStatus(p)}</td>
                                 <td class="actions">
                                     <button class="btn btn-sm btn-primary" onclick="editProxy('${p.id}')" title="编辑此规则">编辑</button>
                                     <button class="btn btn-sm btn-danger" onclick="deleteProxy('${p.id}')" title="删除此规则">删除</button>
@@ -782,6 +836,8 @@
             document.getElementById('forceHttps').closest('.form-check').style.display = isL4 ? 'none' : 'block';
             document.getElementById('preserveHost').closest('.form-check').style.display = isL4 ? 'none' : 'block';
             document.getElementById('customHeadersText').closest('.fieldset').style.display = isL4 ? 'none' : 'block';
+            document.getElementById('realIPFieldset').style.display = isL4 ? 'none' : 'block';
+            document.getElementById('uaFilterFieldset').style.display = isL4 ? 'none' : 'block';
 
             const targetSelect = document.getElementById('targetProtocol');
             const currentTarget = targetSelect.value;
@@ -846,6 +902,11 @@
             document.getElementById('customHeadersText').value = '';
             document.getElementById('allowIps').value = '';
             document.getElementById('blockIps').value = '';
+            document.getElementById('addRealIP').checked = false;
+            document.getElementById('realIPHeader').value = '';
+            document.getElementById('trustedCIDRs').value = '';
+            document.getElementById('userAgentMode').value = '';
+            document.getElementById('userAgentList').value = '';
             document.getElementById('proxyModal').classList.add('show');
         }
 
@@ -876,6 +937,11 @@
 
                     document.getElementById('allowIps').value = (proxy.allowIps || []).join('\n');
                     document.getElementById('blockIps').value = (proxy.blockIps || []).join('\n');
+                    document.getElementById('addRealIP').checked = !!proxy.addRealIP;
+                    document.getElementById('realIPHeader').value = proxy.realIPHeader || '';
+                    document.getElementById('trustedCIDRs').value = (proxy.trustedCIDRs || []).join('\n');
+                    document.getElementById('userAgentMode').value = proxy.userAgentMode || '';
+                    document.getElementById('userAgentList').value = (proxy.userAgentList || []).join('\n');
 
                     let headersText = '';
                     if (proxy.setHeaders) {
@@ -924,7 +990,7 @@
             return headers;
         }
 
-        async function validateRule(name, sourceProtocol, sourcePort, targetHost, targetPort, targetProtocol) {
+        async function validateRule(name, sourceProtocol, sourcePort, targetHost, targetPort, targetProtocol, sourceHost) {
             if (!name) return '请输入规则名称';
             if (!sourcePort) return '请输入来源端口';
             const srcPortNum = parseInt(sourcePort, 10);
@@ -944,9 +1010,13 @@
                     if (p.name === name) return '规则名称 "' + name + '" 已存在，请使用其他名称';
                     const pPort = p.sourcePort || '80';
                     const pProto = p.sourceProtocol || 'http';
-                    if (String(pPort) === String(sourcePort)) {
+                    const pHost = (p.sourceHost || '').trim();
+                    const rHost = (sourceHost || '').trim();
+                    // 同一主机+端口+协议才视为冲突
+                    if (String(pPort) === String(sourcePort) && pHost === rHost) {
                         if (pProto === sourceProtocol) {
-                            return '来源端口 ' + sourcePort + ' (' + sourceProtocol.toUpperCase() + ') 已被规则 "' + p.name + '" 使用，每个端口的每种协议只能被一条规则监听';
+                            const hostDesc = rHost ? rHost + ':' : '';
+                            return '来源 ' + hostDesc + sourceProtocol.toUpperCase() + ':' + sourcePort + ' 已被规则 "' + p.name + '" 使用';
                         }
                         if (sourceProtocol === 'tcp+udp' && (pProto === 'tcp' || pProto === 'udp')) {
                             return '来源端口 ' + sourcePort + ' 无法使用 tcp+udp，因为已被规则 "' + p.name + '" 占用了 ' + pProto.toUpperCase();
@@ -979,8 +1049,13 @@
             const setHeaders = getCustomHeaders();
             const allowIps = document.getElementById('allowIps').value.split('\n').map(ip => ip.trim()).filter(Boolean);
             const blockIps = document.getElementById('blockIps').value.split('\n').map(ip => ip.trim()).filter(Boolean);
+            const addRealIP = document.getElementById('addRealIP').checked;
+            const realIPHeader = document.getElementById('realIPHeader').value.trim();
+            const trustedCIDRs = document.getElementById('trustedCIDRs').value.split('\n').map(ip => ip.trim()).filter(Boolean);
+            const userAgentMode = document.getElementById('userAgentMode').value;
+            const userAgentList = document.getElementById('userAgentList').value.split('\n').map(ua => ua.trim()).filter(Boolean);
 
-            const errMsg = await validateRule(name, sourceProtocol, sourcePort, targetHost, targetPort, targetProtocol);
+            const errMsg = await validateRule(name, sourceProtocol, sourcePort, targetHost, targetPort, targetProtocol, sourceHost);
             if (errMsg) {
                 alert(errMsg);
                 return;
@@ -1003,7 +1078,12 @@
                 forceHttps,
                 allowIps,
                 blockIps,
-                preserveHost
+                preserveHost,
+                addRealIP,
+                realIPHeader: addRealIP ? realIPHeader : '',
+                trustedCIDRs,
+                userAgentMode,
+                userAgentList
             };
 
             try {

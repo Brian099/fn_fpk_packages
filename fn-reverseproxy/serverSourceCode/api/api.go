@@ -18,6 +18,7 @@ func SetupRoutes(r *gin.Engine) {
 	r.PUT("/api/proxies/:id", UpdateProxy)
 	r.DELETE("/api/proxies/:id", DeleteProxy)
 	r.POST("/api/proxies/:id/reload", ReloadProxy)
+	r.GET("/api/proxies/status", GetProxyStatus)
 }
 
 func auditLog(action, target, detail string) {
@@ -111,4 +112,8 @@ func ReloadProxy(c *gin.Context) {
 	auditLog("RELOAD", id, "proxy reloaded")
 
 	c.JSON(http.StatusOK, gin.H{"message": "Reloaded"})
+}
+
+func GetProxyStatus(c *gin.Context) {
+	c.JSON(http.StatusOK, proxy.GetListenErrors())
 }

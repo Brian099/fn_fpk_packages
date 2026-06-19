@@ -21,7 +21,7 @@ if [ -f "${WORKDIR}/manifest" ]; then
   if [ ! -z "$CUR_VERSION" ]; then
     BASE_VERSION=${CUR_VERSION%.*}
     PATCH_VERSION=${CUR_VERSION##*.}
-    NEW_PATCH=$((PATCH_VERSION + 1))
+    NEW_PATCH=$((PATCH_VERSION + 0))
     NEW_VERSION="${BASE_VERSION}.${NEW_PATCH}"
     # Use sed to replace the version line specifically
     sed -i "s/^version[[:space:]]*=.*/version               = ${NEW_VERSION}/" "${WORKDIR}/manifest"

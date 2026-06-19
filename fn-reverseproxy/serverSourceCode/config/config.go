@@ -24,16 +24,16 @@ type Config struct {
 }
 
 type ProxyRule struct {
-	ID             string   `json:"id"`
-	Name           string   `json:"name"`
-	Enable         bool     `json:"enable"`
-	Domains        []string `json:"domains"`
-	Target         string   `json:"target"`
-	SourceProtocol string   `json:"sourceProtocol,omitempty"`
-	SourceHost     string   `json:"sourceHost,omitempty"`
-	SourcePort     string   `json:"sourcePort,omitempty"`
-	TargetProtocol string   `json:"targetProtocol,omitempty"`
-	TargetHost     string   `json:"targetHost,omitempty"`
+	ID             string            `json:"id"`
+	Name           string            `json:"name"`
+	Enable         bool              `json:"enable"`
+	Domains        []string          `json:"domains"`
+	Target         string            `json:"target"`
+	SourceProtocol string            `json:"sourceProtocol,omitempty"`
+	SourceHost     string            `json:"sourceHost,omitempty"`
+	SourcePort     string            `json:"sourcePort,omitempty"`
+	TargetProtocol string            `json:"targetProtocol,omitempty"`
+	TargetHost     string            `json:"targetHost,omitempty"`
 	TargetPort     string            `json:"targetPort,omitempty"`
 	Timeout        string            `json:"timeout,omitempty"`
 	HSTS           bool              `json:"hsts,omitempty"`
@@ -44,6 +44,15 @@ type ProxyRule struct {
 	ForceHTTPS     bool              `json:"forceHttps,omitempty"`
 	AllowIPs       []string          `json:"allowIps,omitempty"`
 	BlockIPs       []string          `json:"blockIps,omitempty"`
+
+	// 真实IP传递
+	AddRealIP    bool     `json:"addRealIP,omitempty"`    // 启用添加X-Real-IP头
+	RealIPHeader string   `json:"realIPHeader,omitempty"` // 自定义真实IP头名称，默认X-Real-IP
+	TrustedCIDRs []string `json:"trustedCIDRs,omitempty"` // 信任的代理网段（CIDR），用于从X-Forwarded-For等头部提取真实IP
+
+	// User-Agent 过滤
+	UserAgentMode string   `json:"userAgentMode,omitempty"` // "", "whitelist", "blacklist"
+	UserAgentList []string `json:"userAgentList,omitempty"` // UA关键字列表
 }
 
 func Init(path string) error {
@@ -204,9 +213,18 @@ func ValidateProxy(rule ProxyRule, excludeID string) error {
 		if rProto == "" {
 			rProto = "http"
 		}
-		if pPort == srcPort && pProto == rProto {
-			return fmt.Errorf("来源端口 %s (%s) 已被规则 %q 使用，每个端口的每种协议只能被一条规则监听",
-				srcPort, strings.ToUpper(rProto), p.Name)
+		pHost := strings.TrimSpace(p.SourceHost)
+		rHost := strings.TrimSpace(rule.SourceHost)
+		// 同一主机+端口+协议才视为冲突
+		if pPort == srcPort && pProto == rProto && pHost == rHost {
+			return fmt.Errorf("来源 %s%s:%s 已被规则 %q 使用",
+				func() string {
+					if rHost == "" {
+						return ""
+					}
+					return rHost + ":"
+				}(),
+				strings.ToUpper(rProto), srcPort, p.Name)
 		}
 	}
 	return nil

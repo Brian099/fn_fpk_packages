@@ -60,6 +60,9 @@ var (
 
 	shutdownCtx    context.Context
 	shutdownCancel context.CancelFunc
+
+	// 监听错误状态：address -> error message
+	listenErrors sync.Map
 )
 
 func Init() {
@@ -93,6 +96,40 @@ func Shutdown() {
 	}
 	tcpListeners = make(map[string]context.CancelFunc)
 	udpListeners = make(map[string]context.CancelFunc)
+}
+
+// buildListenAddr 根据 SourceHost 和 SourcePort 构建监听地址
+// SourceHost 为空时监听所有接口 (0.0.0.0)
+func buildListenAddr(host, port string) string {
+	if port == "" {
+		return ":0"
+	}
+	if host != "" {
+		return net.JoinHostPort(host, port)
+	}
+	if len(port) > 0 && port[0] != ':' {
+		return ":" + port
+	}
+	return port
+}
+
+// setListenError 记录监听错误
+func setListenError(addr string, err error) {
+	if err != nil {
+		listenErrors.Store(addr, err.Error())
+	} else {
+		listenErrors.Delete(addr)
+	}
+}
+
+// GetListenErrors 返回所有监听错误状态
+func GetListenErrors() map[string]string {
+	result := make(map[string]string)
+	listenErrors.Range(func(key, value any) bool {
+		result[key.(string)] = value.(string)
+		return true
+	})
+	return result
 }
 
 func loadFnOSCerts() {
@@ -241,7 +278,7 @@ func createProxy(p *config.ProxyRule) error {
 	if realTargetProtocol == "" {
 		realTargetProtocol = "http"
 	}
-	
+
 	var targetURL *url.URL
 	var err error
 
@@ -289,6 +326,16 @@ func createProxy(p *config.ProxyRule) error {
 	}
 
 	originalDirector := rp.Director
+
+	// 预解析信任网段，避免每次请求重复解析
+	var trustedNets []*net.IPNet
+	for _, cidr := range p.TrustedCIDRs {
+		_, ipNet, err := net.ParseCIDR(cidr)
+		if err == nil {
+			trustedNets = append(trustedNets, ipNet)
+		}
+	}
+
 	rp.Director = func(req *http.Request) {
 		originalDirector(req)
 		if !p.PreserveHost {
@@ -319,6 +366,20 @@ func createProxy(p *config.ProxyRule) error {
 			}
 			req.Header.Set("X-Forwarded-Proto", proto)
 		}
+
+		// 真实IP传递
+		if p.AddRealIP {
+			headerName := p.RealIPHeader
+			if headerName == "" {
+				headerName = "X-Real-IP"
+			}
+			if req.Header.Get(headerName) == "" {
+				realIP := resolveRealIP(req, trustedNets)
+				if realIP != "" {
+					req.Header.Set(headerName, realIP)
+				}
+			}
+		}
 	}
 
 	rp.ModifyResponse = func(resp *http.Response) error {
@@ -333,7 +394,7 @@ func createProxy(p *config.ProxyRule) error {
 		if errors.Is(err, context.DeadlineExceeded) {
 			statusCode = http.StatusGatewayTimeout
 		}
-		
+
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(statusCode)
 		html := fmt.Sprintf(`
@@ -410,10 +471,7 @@ func GetListenAddrs() []ListenAddr {
 		if len(key) > 0 && key[:5] == "https" {
 			proto = "https"
 		}
-		addr := rule.SourcePort
-		if len(addr) > 0 && addr[0] != ':' {
-			addr = ":" + addr
-		}
+		addr := buildListenAddr(rule.SourceHost, rule.SourcePort)
 		info, ok := portInfos[addr]
 		if !ok {
 			info = &portInfo{addr: addr, enableTLS: proto == "https"}
@@ -422,9 +480,9 @@ func GetListenAddrs() []ListenAddr {
 		if proto == "http" {
 			info.enableTLS = false
 		}
-		
+
 		if rule.ForceHTTPS {
-			addr80 := ":80"
+			addr80 := buildListenAddr(rule.SourceHost, "80")
 			info80, ok80 := portInfos[addr80]
 			if !ok80 {
 				info80 = &portInfo{addr: addr80, enableTLS: false}
@@ -454,7 +512,7 @@ func Reload() {
 func SetHandler(h *gin.Engine) {
 	handler = h
 
-	// 性能优化: 
+	// 性能优化:
 	// 原来的 gin.CreateTestContext 会在"每次"请求时创建一个全新的 gin.Engine 实例，
 	// 在高并发反向代理场景下会导致海量的内存分配和 GC 压力。
 	// 这里预先创建一个干净的、独立的 Engine，专门用来处理代理流量，
@@ -462,7 +520,7 @@ func SetHandler(h *gin.Engine) {
 	proxyEngine := gin.New()
 	proxyEngine.Use(gin.Recovery()) // 防止单个代理请求的 panic 导致整个进程崩溃
 	proxyEngine.NoRoute(Handler)
-	
+
 	proxyHandler = proxyEngine
 }
 
@@ -503,8 +561,10 @@ func SyncListeners() {
 			listener, err = net.Listen("tcp", la.Addr)
 			if err != nil {
 				fmt.Printf("Failed to listen on %s: %v\n", la.Addr, err)
+				setListenError(la.Addr, err)
 				return
 			}
+			setListenError(la.Addr, nil) // 监听成功，清除错误
 
 			if la.EnableTLS {
 				tlsConf := &tls.Config{
@@ -537,12 +597,13 @@ func SyncListeners() {
 			}(addr, srv)
 			delete(listeners, addr)
 			delete(listenerTLS, addr)
+			listenErrors.Delete(addr) // 清除已停止监听的错误状态
 		}
 	}
-	
+
 	activeTCP := make(map[string]bool)
 	activeUDP := make(map[string]bool)
-	
+
 	portMapMu.RLock()
 	for key, rule := range portMap {
 		if rule.SourceProtocol == "tcp" || rule.SourceProtocol == "tcp+udp" {
@@ -551,7 +612,7 @@ func SyncListeners() {
 			if _, exists := tcpListeners[key]; !exists {
 				ctx, cancel := context.WithCancel(context.Background())
 				tcpListeners[key] = cancel
-				go startTCPProxy(ctx, rule)
+				go startTCPProxy(ctx, rule, key)
 			}
 			layer4Mu.Unlock()
 		}
@@ -561,7 +622,7 @@ func SyncListeners() {
 			if _, exists := udpListeners[key]; !exists {
 				ctx, cancel := context.WithCancel(context.Background())
 				udpListeners[key] = cancel
-				go startUDPProxy(ctx, rule)
+				go startUDPProxy(ctx, rule, key)
 			}
 			layer4Mu.Unlock()
 		}
@@ -573,6 +634,7 @@ func SyncListeners() {
 		if !activeTCP[key] {
 			cancel()
 			delete(tcpListeners, key)
+			listenErrors.Delete(key)
 			fmt.Printf("Stopped TCP proxy listener for rule key %s\n", key)
 		}
 	}
@@ -580,6 +642,7 @@ func SyncListeners() {
 		if !activeUDP[key] {
 			cancel()
 			delete(udpListeners, key)
+			listenErrors.Delete(key)
 			fmt.Printf("Stopped UDP proxy listener for rule key %s\n", key)
 		}
 	}
@@ -626,16 +689,97 @@ func checkIPAccess(clientIP net.IP, proxyRule *config.ProxyRule) error {
 	return nil
 }
 
-func startTCPProxy(ctx context.Context, rule *config.ProxyRule) {
-	addr := rule.SourcePort
-	if len(addr) > 0 && addr[0] != ':' {
-		addr = ":" + addr
+// resolveRealIP 从 X-Forwarded-For / X-Real-IP 等头部解析真实客户端IP
+// 当配置了 TrustedCIDRs 时，仅信任来自这些网段的代理服务器转发的头部
+func resolveRealIP(req *http.Request, trustedNets []*net.IPNet) string {
+	remoteIP, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err != nil {
+		remoteIP = req.RemoteAddr
 	}
+	parsedRemoteIP := net.ParseIP(remoteIP)
+	if parsedRemoteIP == nil {
+		return remoteIP
+	}
+
+	// 如果没有配置信任网段，直接返回连接IP
+	if len(trustedNets) == 0 {
+		return remoteIP
+	}
+
+	// 检查连接IP是否在信任网段内
+	trusted := false
+	for _, cidr := range trustedNets {
+		if cidr.Contains(parsedRemoteIP) {
+			trusted = true
+			break
+		}
+	}
+	if !trusted {
+		return remoteIP
+	}
+
+	// 从 X-Forwarded-For 提取最左边的非信任IP
+	xff := req.Header.Get("X-Forwarded-For")
+	if xff != "" {
+		parts := strings.Split(xff, ",")
+		for i := len(parts) - 1; i >= 0; i-- {
+			ipStr := strings.TrimSpace(parts[i])
+			ip := net.ParseIP(ipStr)
+			if ip == nil {
+				break
+			}
+			isTrusted := false
+			for _, cidr := range trustedNets {
+				if cidr.Contains(ip) {
+					isTrusted = true
+					break
+				}
+			}
+			if !isTrusted {
+				return ipStr
+			}
+		}
+	}
+
+	return remoteIP
+}
+
+// checkUserAgent 检查 User-Agent 是否通过过滤
+func checkUserAgent(ua string, rule *config.ProxyRule) bool {
+	if rule.UserAgentMode == "" {
+		return true
+	}
+	if len(rule.UserAgentList) == 0 {
+		return true
+	}
+
+	contains := false
+	for _, keyword := range rule.UserAgentList {
+		if strings.Contains(ua, keyword) {
+			contains = true
+			break
+		}
+	}
+
+	switch rule.UserAgentMode {
+	case "whitelist":
+		return contains
+	case "blacklist":
+		return !contains
+	default:
+		return true
+	}
+}
+
+func startTCPProxy(ctx context.Context, rule *config.ProxyRule, portMapKey string) {
+	addr := buildListenAddr(rule.SourceHost, rule.SourcePort)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		fmt.Printf("Failed to listen on TCP %s: %v\n", addr, err)
+		setListenError(portMapKey, err)
 		return
 	}
+	setListenError(portMapKey, nil)
 	fmt.Printf("TCP Proxy listening on %s\n", addr)
 
 	go func() {
@@ -690,21 +834,21 @@ func startTCPProxy(ctx context.Context, rule *config.ProxyRule) {
 	}
 }
 
-func startUDPProxy(ctx context.Context, rule *config.ProxyRule) {
-	addr := rule.SourcePort
-	if len(addr) > 0 && addr[0] != ':' {
-		addr = ":" + addr
-	}
+func startUDPProxy(ctx context.Context, rule *config.ProxyRule, portMapKey string) {
+	addr := buildListenAddr(rule.SourceHost, rule.SourcePort)
 	udpAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		fmt.Printf("Failed to resolve UDP %s: %v\n", addr, err)
+		setListenError(portMapKey, err)
 		return
 	}
 	conn, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
 		fmt.Printf("Failed to listen on UDP %s: %v\n", addr, err)
+		setListenError(portMapKey, err)
 		return
 	}
+	setListenError(portMapKey, nil)
 	fmt.Printf("UDP Proxy listening on %s\n", addr)
 
 	go func() {
@@ -854,19 +998,18 @@ func Handler(c *gin.Context) {
 		return
 	}
 
+	// User-Agent 过滤
+	if !checkUserAgent(c.Request.UserAgent(), proxyRule) {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Access Denied by UserAgent"})
+		return
+	}
+
 	if proxyRule.ForceHTTPS && c.Request.TLS == nil {
-		targetPort := proxyRule.SourcePort
-		if targetPort == "" || targetPort == "80" {
-			targetPort = "443" // fallback
-		}
+		// 强制 HTTPS 重定向：始终使用标准 443 端口
+		// 源端口是 HTTP 端口，不能用作 HTTPS 目标端口
 		host := c.Request.Host
-		if !strings.Contains(host, ":") && targetPort != "443" {
-			host = host + ":" + targetPort
-		} else if strings.Contains(host, ":") {
+		if strings.Contains(host, ":") {
 			host = strings.Split(host, ":")[0]
-			if targetPort != "443" {
-				host = host + ":" + targetPort
-			}
 		}
 		targetURL := "https://" + host + c.Request.URL.RequestURI()
 		c.Redirect(http.StatusMovedPermanently, targetURL)

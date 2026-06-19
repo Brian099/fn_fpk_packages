@@ -1,7 +1,7 @@
 appname               = fn-reverseproxy
-version               = 1.0.9
+version               = 1.0.10
 display_name          = 反向代理服务器
-desc                  = 轻量级反向代理管理工具，专为飞牛 OS 设计。无需占用额外 TCP 端口，通过 Unix Socket 安全通信。<br><strong>核心功能</strong><br>• 域名路由：按域名自动将请求分发到后端服务<br>• 多端口监听：同一应用支持 HTTP/HTTPS 多端口同时运行<br>• SSL/TLS 证书自动发现：从飞牛 OS 证书管理中按域名智能匹配<br>• 通配符证书支持（如 *.example.com）<br>• SNI 多域名同一端口复用<br>• 动态规则管理：Web 界面添加/编辑/删除规则，保存即生效<br>• 规则校验：名称唯一性、端口冲突检测，前后端双重校验<br><strong>使用说明</strong><br>1. 安装后在桌面打开应用进入管理界面<br>2. 在「系统设置 → 证书管理」中预先添加您的域名 SSL 证书<br>3. 添加代理规则时填写来源（协议/端口/域名）和目标地址即可
+desc                  = 轻量级反向代理管理工具，专为飞牛 OS 设计。无需占用额外 TCP 端口，通过 Unix Socket 安全通信。W<strong>核心功能</strong><br>• 域名路由：按域名自动将请求分发到后端服务<br>• 多端口监听：同一应用支持 HTTP/HTTPS 多端口同时运行<br>• SSL/TLS 证书自动发现：从飞牛 OS 证书管理中按域名智能匹配<br>• 通配符证书支持（如 *.example.com）<br>• SNI 多域名同一端口复用<br>• 动态规则管理：Web 界面添加/编辑/删除规则，保存即生效<br>• 规则校验：名称唯一性、端口冲突检测，前后端双重校验<br><strong>使用说明</strong><br>1. 安装后在桌面打开应用进入管理界面<br>2. 在「系统设置 → 证书管理」中预先添加您的域名 SSL 证书<br>3. 添加代理规则时填写来源（协议/端口/域名）和目标地址即可
 platform              = all
 source                = thirdparty
 os_min_version        = 0.9.0
