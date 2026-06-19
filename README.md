@@ -22,12 +22,12 @@
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-php8.3/ICON.PNG" width="48" height="48"> | php8.3 | v1.0.1 | all | 16.89 MB | 为飞牛系统环境提供底层 PHP 8.3 与扩展插件的离线部署及一体化参数管理，搭载精美的界面供高级开发调整各项核心参数、上传限制和加速控制。 |
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-php8.4/ICON.PNG" width="48" height="48"> | php8.4 | v1.0.1 | all | 18.18 MB | 为飞牛系统环境提供底层 PHP 8.4 与扩展插件的离线部署及一体化参数管理，搭载精美的界面供高级开发调整各项核心参数、上传限制和加速控制。 |
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-phpmyadmin/ICON.PNG" width="48" height="48"> | phpMyAdmin | v1.0.4 | all | 70.93 MB | phpMyAdmin 是一款功能强大的 MySQL / MariaDB 数据库 Web 管理工具，提供直观的图形界面进行数据库管理、SQL 查询、数据导入导出等操作。安装后即可通过浏览器轻松管理您的 MariaDB 数据库。 |
-| <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-reverseproxy/ICON.PNG" width="48" height="48"> | fn-reverseproxy | v1.0.9 | all | 7.21 MB | 轻量级反向代理管理工具，专为飞牛 OS 设计。无需占用额外 TCP 端口，通过 Unix Socket 安全通信。<br><strong>核心功能</strong><br>• 域名路由：按域名自动将请求分发到后端服务<br>• 多端口监听：同一应用支持 HTTP/HTTPS 多端口同时运行<br>• SSL/TLS 证书自动发现：从飞牛 OS 证书管理中按域名智能匹配<br>• 通配符证书支持（如 *.example.com）<br>• SNI 多域名同一端口复用<br>• 动态规则管理：Web 界面添加/编辑/删除规则，保存即生效<br>• 规则校验：名称唯一性、端口冲突检测，前后端双重校验<br><strong>使用说明</strong><br>1. 安装后在桌面打开应用进入管理界面<br>2. 在「系统设置 → 证书管理」中预先添加您的域名 SSL 证书<br>3. 添加代理规则时填写来源（协议/端口/域名）和目标地址即可 |
+| <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-reverseproxy/ICON.PNG" width="48" height="48"> | fn-reverseproxy | v1.0.10 | all | 7.22 MB | 轻量级反向代理管理工具，专为飞牛 OS 设计。无需占用额外 TCP 端口，通过 Unix Socket 安全通信。W<strong>核心功能</strong><br>• 域名路由：按域名自动将请求分发到后端服务<br>• 多端口监听：同一应用支持 HTTP/HTTPS 多端口同时运行<br>• SSL/TLS 证书自动发现：从飞牛 OS 证书管理中按域名智能匹配<br>• 通配符证书支持（如 *.example.com）<br>• SNI 多域名同一端口复用<br>• 动态规则管理：Web 界面添加/编辑/删除规则，保存即生效<br>• 规则校验：名称唯一性、端口冲突检测，前后端双重校验<br><strong>使用说明</strong><br>1. 安装后在桌面打开应用进入管理界面<br>2. 在「系统设置 → 证书管理」中预先添加您的域名 SSL 证书<br>3. 添加代理规则时填写来源（协议/端口/域名）和目标地址即可 |
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-scheduledtask/ICON.PNG" width="48" height="48"> | fn-scheduledtask | v1.0.11 | all | 0.11 MB | <p>计划任务管理应用，支持 Cron 表达式、间隔执行、指定时间执行以及开机/关机事件触发。</p><p>可创建 Python 函数任务和 Shell 脚本任务，满足自动化运维需求。</p> |
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-video_transfer/ICON.PNG" width="48" height="48"> | video_transfer | v1.0.1 | x86 | 0.38 MB | 一个基于 FFmpeg 和 FastAPI 的高性能视频转码服务。支持多种格式互转，集成 NVIDIA CUDA、Intel QSV 和 VAAPI 硬件加速功能。提供直观的 Web 界面用于任务管理、进度监控和文件处理，并支持用户认证与权限管理。 |
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-xlist-strm/ICON.PNG" width="48" height="48"> | xlist-strm | v1.0.0 | all | 0.02 MB | XList Strm 是一个用于获取alist/openlist strm文件的容器。 |
 
-![](https://img.shields.io/github/downloads/Brian099/fn_fpk_packages/2026.06.16-0139/total)
+![](https://img.shields.io/github/downloads/Brian099/fn_fpk_packages/2026.06.19-2255/total)
 
 <!-- APPS_LIST_END -->
 
