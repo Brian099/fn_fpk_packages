@@ -1845,16 +1845,74 @@ function onUpdateAssetChange() {
   const tagSelect = document.getElementById('update-tag-select');
   const assetSelect = document.getElementById('update-asset-select');
   const btn = document.getElementById('btn-update-download');
+  const btnPull = document.getElementById('btn-update-pull');
   
   const releaseIndex = parseInt(tagSelect.value);
   const assetIndex = parseInt(assetSelect.value);
   
   if (isNaN(releaseIndex) || isNaN(assetIndex) || !githubReleasesCache[releaseIndex] || !githubReleasesCache[releaseIndex].assets[assetIndex]) {
     btn.style.display = 'none';
+    if(btnPull) btnPull.style.display = 'none';
     return;
   }
   
   const asset = githubReleasesCache[releaseIndex].assets[assetIndex];
   btn.dataset.href = asset.browser_download_url;
   btn.style.display = 'inline-flex';
+  
+  if (btnPull) {
+    if (asset.name.includes('.apk')) {
+      btnPull.style.display = 'inline-flex';
+    } else {
+      btnPull.style.display = 'none';
+    }
+  }
+}
+
+async function pullUpdateToServer(btn) {
+  const tagSelect = document.getElementById('update-tag-select');
+  const assetSelect = document.getElementById('update-asset-select');
+  
+  const releaseIndex = parseInt(tagSelect.value);
+  const assetIndex = parseInt(assetSelect.value);
+  
+  if (isNaN(releaseIndex) || isNaN(assetIndex)) return;
+  const release = githubReleasesCache[releaseIndex];
+  const asset = release.assets[assetIndex];
+  
+  if (!confirm(`确定要将版本 ${release.tag_name} (${asset.name}) 拉取至服务端并提供更新吗？这需要服务端具备网络访问条件，下载可能需要几十秒。`)) {
+    return;
+  }
+
+  const originalText = btn.textContent;
+  btn.textContent = '正在服务端下载...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(API + '/admin/settings/pull-update', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        version_name: release.tag_name,
+        download_url: asset.browser_download_url,
+        update_log: release.body || ''
+      })
+    });
+    
+    const data = await res.json();
+    if (res.ok && data.code === 0) {
+      alert('下载并发布成功！');
+      closeModal('update-modal');
+    } else {
+      alert('操作失败: ' + (data.message || '未知错误'));
+    }
+  } catch (e) {
+    alert('请求错误: ' + e.message);
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
 }

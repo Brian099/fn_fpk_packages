@@ -1,5 +1,5 @@
 appname               = mediaplayer
-version               = 1.0.69
+version               = 1.0.71
 display_name          = MediaPlayer
 desc                  = MediaPlayer 智能电视流媒体中心，致力于将海量、杂乱的 M3U 直播源和 EPG 电子节目单，转化为如同“有线电视”一般顺滑、有组织的观影体验。通过引入强悍的服务端鉴权与代理机制，让您的直播源从此告别被盗链、被抓包的风险。
 platform              = all

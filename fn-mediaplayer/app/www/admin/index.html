@@ -463,8 +463,15 @@
             <div class="form-group" style="margin-bottom: 16px;">
               <label style="color: var(--text); font-weight: 500; font-size: 13px;">自定义服务器外网域名/地址 (Server URL)</label>
               <div class="input-with-copy" style="margin-top:6px">
-                <input type="text" id="set-server-url" placeholder="例如：http://tv.example.com (留空则默认使用当前识别的地址)" style="height: 38px;">
-                <button class="btn-copy" type="button" onclick="copyText(document.getElementById('set-server-url').value)" title="复制服务器地址" style="height:38px;width:38px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                <input type="text" id="set-server-url" placeholder="例如：http://tv.example.com (留空则默认使用当前识别的地址)"
+                  style="height: 38px;">
+                <button class="btn-copy" type="button"
+                  onclick="copyText(document.getElementById('set-server-url').value)" title="复制服务器地址"
+                  style="height:38px;width:38px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg></button>
               </div>
               <div style="font-size: 11px; color: var(--text2); margin-top: 4px;">
                 用于生成客户端授权信息、订阅链接以及订阅文件内的播放代理地址。末尾请勿添加斜杠 /。</div>
@@ -479,8 +486,11 @@
                 id="server-base64-text">
                 -
               </div>
-              <button class="btn-copy" onclick="copyServerBase64()"
-                style="height: 38px; width: 38px;" title="复制授权码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+              <button class="btn-copy" onclick="copyServerBase64()" style="height: 38px; width: 38px;"
+                title="复制授权码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg></button>
             </div>
             <div style="font-size: 11px; color: var(--text2); margin-top: 8px;">
               当前自动识别的本地访问地址：<span id="server-raw-url" style="font-family: monospace; color: var(--text);">-</span>
@@ -613,7 +623,14 @@
           <div class="form-row">
             <div class="form-group" style="flex: 2;">
               <label>开机广告媒体 URL</label>
-              <div class="input-with-copy"><input type="text" id="set-startup-media-url" placeholder="http://example.com/ad.mp4 或 /ad/test.jpg"><button class="btn-copy" type="button" onclick="copyText(document.getElementById('set-startup-media-url').value)" title="复制广告媒体URL"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div>
+              <div class="input-with-copy"><input type="text" id="set-startup-media-url"
+                  placeholder="http://example.com/ad.mp4 或 /ad/test.jpg"><button class="btn-copy" type="button"
+                  onclick="copyText(document.getElementById('set-startup-media-url').value)" title="复制广告媒体URL"><svg
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg></button></div>
+            </div>
             <div class="form-group" style="flex: 1;">
               <label>解析类型</label>
               <select id="set-startup-media-type">
@@ -655,7 +672,14 @@
           </div>
           <div class="form-group">
             <label>APK 下载地址</label>
-            <div class="input-with-copy"><input type="text" id="set-update-download-url" placeholder="http://example.com/app.apk"><button class="btn-copy" type="button" onclick="copyText(document.getElementById('set-update-download-url').value)" title="复制APK下载地址"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div>
+            <div class="input-with-copy"><input type="text" id="set-update-download-url"
+                placeholder="http://example.com/app.apk"><button class="btn-copy" type="button"
+                onclick="copyText(document.getElementById('set-update-download-url').value)" title="复制APK下载地址"><svg
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg></button></div>
+          </div>
           <div class="form-group">
             <label>更新日志</label>
             <textarea id="set-update-log" rows="3" placeholder="填写新版本修复或增加的内容..."></textarea>
@@ -696,8 +720,10 @@
           <h1>系统更新</h1>
         </div>
         <div class="card" style="padding:24px">
-          <div class="form-group" style="background: rgba(22, 186, 170, 0.05); border: 1px dashed var(--accent); padding: 16px; border-radius: var(--radius); margin-bottom: 24px;">
-            <h3 style="margin-bottom: 12px; color: var(--accent); display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; border-bottom: none; padding-bottom: 0;">
+          <div class="form-group"
+            style="background: rgba(22, 186, 170, 0.05); border: 1px dashed var(--accent); padding: 16px; border-radius: var(--radius); margin-bottom: 24px;">
+            <h3
+              style="margin-bottom: 12px; color: var(--accent); display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; border-bottom: none; padding-bottom: 0;">
               当前版本：<span id="update-current-version">-</span>
             </h3>
             <div style="font-size: 13px; color: var(--text2);">
@@ -708,10 +734,13 @@
           <div id="update-loading" style="text-align:center; padding:40px; color:var(--text2)">
             正在拉取 GitHub 获取最新版本信息...
           </div>
-          
-          <div id="update-error" style="display:none; text-align:center; padding:30px; border:1px solid #ff4d4f; border-radius:var(--radius); background:rgba(255,77,79,0.05); margin-bottom:20px;">
+
+          <div id="update-error"
+            style="display:none; text-align:center; padding:30px; border:1px solid #ff4d4f; border-radius:var(--radius); background:rgba(255,77,79,0.05); margin-bottom:20px;">
             <p style="color:#ff4d4f; margin-bottom:15px">无法连接至 GitHub，请检查您的服务器网络状态是否正常。</p>
-            <button class="btn btn-primary" onclick="window.open('https://github.com/kuai410022283/mediaplayer/releases', '_blank')">直接访问仓库 Releases 页面下载</button>
+            <button class="btn btn-primary"
+              onclick="window.open('https://github.com/kuai410022283/mediaplayer/releases', '_blank')">直接访问仓库 Releases
+              页面下载</button>
           </div>
 
           <div id="update-content" style="display:none">
@@ -728,10 +757,15 @@
                 <select id="update-asset-select" onchange="onUpdateAssetChange()"></select>
               </div>
             </div>
-            
+
             <div class="form-actions" style="justify-content:flex-start; margin-top: 10px;">
-              <button id="btn-update-download" class="btn btn-primary" style="display:none;" onclick="window.open(this.dataset.href, '_blank')">下载选中的文件</button>
-              <button class="btn btn-ghost" style="margin-left: 10px;" onclick="window.open('https://github.com/kuai410022283/mediaplayer/releases', '_blank')">在 GitHub 仓库查看更新日志</button>
+              <button id="btn-update-download" class="btn btn-ghost" style="display:none;"
+                onclick="window.open(this.dataset.href, '_blank')">下载至客户端</button>
+              <button id="btn-update-pull" class="btn btn-primary" style="display:none; margin-left: 10px;"
+                onclick="pullUpdateToServer(this)">下载至服务端</button>
+              <button class="btn btn-ghost" style="margin-left: 10px;"
+                onclick="window.open('https://github.com/kuai410022283/mediaplayer/releases', '_blank')">在 GitHub
+                仓库查看更新日志</button>
             </div>
           </div>
         </div>
@@ -746,7 +780,13 @@
         <div class="form-group"><label>名称</label><input type="text" id="ch-name"></div>
         <div class="form-group"><label>分组</label><select id="ch-group"></select></div>
         <div class="form-group"><label>流地址</label>
-          <div class="input-with-copy"><input type="text" id="ch-url" placeholder="https://..."><button class="btn-copy" type="button" onclick="copyText(document.getElementById('ch-url').value)" title="复制流地址"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div>
+          <div class="input-with-copy"><input type="text" id="ch-url" placeholder="https://..."><button class="btn-copy"
+              type="button" onclick="copyText(document.getElementById('ch-url').value)" title="复制流地址"><svg
+                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg></button></div>
+        </div>
         <div class="form-group"><label>流类型 (留空自动探测)</label>
           <input type="text" id="ch-type" list="stream-types" placeholder="例如: hls, ts, mp4">
           <datalist id="stream-types">
@@ -772,9 +812,21 @@
           </select>
         </div>
         <div class="form-group"><label>Logo URL</label>
-          <div class="input-with-copy"><input type="text" id="ch-logo"><button class="btn-copy" type="button" onclick="copyText(document.getElementById('ch-logo').value)" title="复制Logo URL"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div>
+          <div class="input-with-copy"><input type="text" id="ch-logo"><button class="btn-copy" type="button"
+              onclick="copyText(document.getElementById('ch-logo').value)" title="复制Logo URL"><svg viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg></button></div>
+        </div>
         <div class="form-group"><label>EPG频道ID</label>
-          <div class="input-with-copy"><input type="text" id="ch-epg"><button class="btn-copy" type="button" onclick="copyText(document.getElementById('ch-epg').value)" title="复制EPG频道ID"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div>
+          <div class="input-with-copy"><input type="text" id="ch-epg"><button class="btn-copy" type="button"
+              onclick="copyText(document.getElementById('ch-epg').value)" title="复制EPG频道ID"><svg viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg></button></div>
+        </div>
         <div class="form-group"><label>User-Agent (重写)</label><input type="text" id="ch-user-agent"
             placeholder="留空使用群组默认或系统默认"></div>
         <div class="form-group"><label>自定义 Request Headers (JSON 格式)</label><textarea id="ch-headers" rows="2"
@@ -821,7 +873,14 @@
         <input type="hidden" id="src-edit-id">
         <div class="form-group"><label>来源名称</label><input type="text" id="src-name"></div>
         <div class="form-group"><label>URL</label>
-          <div class="input-with-copy"><input type="text" id="src-url" placeholder="https://example.com/playlist.m3u"><button class="btn-copy" type="button" onclick="copyText(document.getElementById('src-url').value)" title="复制源URL"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div>
+          <div class="input-with-copy"><input type="text" id="src-url"
+              placeholder="https://example.com/playlist.m3u"><button class="btn-copy" type="button"
+              onclick="copyText(document.getElementById('src-url').value)" title="复制源URL"><svg viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg></button></div>
+        </div>
         <div class="form-row">
           <div class="form-group">
             <label>自动同步</label>
