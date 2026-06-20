@@ -95,6 +95,14 @@
         </svg>
         <span>全局设置</span>
       </div>
+      <div class="nav-item" onclick="showSection('update',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+        <span>检查更新</span>
+      </div>
       <div class="nav-section">账户</div>
       <div class="nav-item" onclick="showModal('password-modal')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -678,6 +686,53 @@
             <button class="btn btn-primary" onclick="saveAllClientSettings()">保存设置</button>
             <button class="btn btn-ghost" onclick="saveAppUpdateSettings()"
               style="margin-left: 10px; background: var(--primary); color: white; border: none;">独立保存升级配置</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- System Update -->
+      <div id="sec-update" style="display:none">
+        <div class="header">
+          <h1>系统更新</h1>
+        </div>
+        <div class="card" style="padding:24px">
+          <div class="form-group" style="background: rgba(22, 186, 170, 0.05); border: 1px dashed var(--accent); padding: 16px; border-radius: var(--radius); margin-bottom: 24px;">
+            <h3 style="margin-bottom: 12px; color: var(--accent); display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; border-bottom: none; padding-bottom: 0;">
+              当前版本：<span id="update-current-version">-</span>
+            </h3>
+            <div style="font-size: 13px; color: var(--text2);">
+              如果您使用的是 Docker 部署的服务端，建议直接通过 Watchtower 等工具自动拉取 latest 镜像进行服务端更新。客户端的更新可以通过下方选择对应的版本下载覆盖安装。
+            </div>
+          </div>
+
+          <div id="update-loading" style="text-align:center; padding:40px; color:var(--text2)">
+            正在拉取 GitHub 获取最新版本信息...
+          </div>
+          
+          <div id="update-error" style="display:none; text-align:center; padding:30px; border:1px solid #ff4d4f; border-radius:var(--radius); background:rgba(255,77,79,0.05); margin-bottom:20px;">
+            <p style="color:#ff4d4f; margin-bottom:15px">无法连接至 GitHub，请检查您的服务器网络状态是否正常。</p>
+            <button class="btn btn-primary" onclick="window.open('https://github.com/kuai410022283/mediaplayer/releases', '_blank')">直接访问仓库 Releases 页面下载</button>
+          </div>
+
+          <div id="update-content" style="display:none">
+            <div class="form-group">
+              <h3 style="margin-bottom: 12px;" id="update-latest-notice">最新版本：获取中...</h3>
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="flex:1">
+                <label>选择想要下载的版本 (Tag)</label>
+                <select id="update-tag-select" onchange="onUpdateTagChange()"></select>
+              </div>
+              <div class="form-group" style="flex:2">
+                <label>选择对应平台的安装包或文件</label>
+                <select id="update-asset-select" onchange="onUpdateAssetChange()"></select>
+              </div>
+            </div>
+            
+            <div class="form-actions" style="justify-content:flex-start; margin-top: 10px;">
+              <button id="btn-update-download" class="btn btn-primary" style="display:none;" onclick="window.open(this.dataset.href, '_blank')">下载选中的文件</button>
+              <button class="btn btn-ghost" style="margin-left: 10px;" onclick="window.open('https://github.com/kuai410022283/mediaplayer/releases', '_blank')">在 GitHub 仓库查看更新日志</button>
+            </div>
           </div>
         </div>
       </div>
