@@ -49,10 +49,10 @@ jobs:
             # ./fnpack create ${APP} --without-ui true  # 如果不需要 UI, 可以启用此行
             ./fnpack build --directory ${APP}
 
-            APPNAME=$(grep -E '^appname[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
-            VERSION=$(grep -E '^version[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
-            DESC=$(grep -E '^desc[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
-            PLATFORM=$(grep -E '^platform[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
+            APPNAME=$(grep -E '^appname[[:space:]]*=' "$APP/manifest" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
+            VERSION=$(grep -E '^version[[:space:]]*=' "$APP/manifest" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
+            DESC=$(grep -E '^desc[[:space:]]*=' "$APP/manifest" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
+            PLATFORM=$(grep -E '^platform[[:space:]]*=' "$APP/manifest" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
             [ -z "$PLATFORM" ] && PLATFORM="x86"
 
             mv -f "${APPNAME}.fpk" "${APPNAME}_v${VERSION}.fpk"
@@ -60,14 +60,15 @@ jobs:
             ICON_URL="https://github.com/${{ github.repository }}/raw/main/${APP}/ICON.PNG"
             SIZE=$(stat -c%s "${APPNAME}_v${VERSION}.fpk" 2>/dev/null | awk '{printf "%.2f MB",$1/1024/1024}')
 
-            echo "| <img src=\"${ICON_URL}\" width=\"48\" height=\"48\"> | ${APPNAME} | v${VERSION} | ${PLATFORM} | ${SIZE} | ${DESC} |" >> apps-list.md
+            README_DESC=$(echo "$DESC" | sed -E 's/<img[^>]*>//g')
+            echo "| <img src=\"${ICON_URL}\" width=\"48\" height=\"48\"> | ${APPNAME} | v${VERSION} | ${PLATFORM} | ${SIZE} | ${README_DESC} |" >> apps-list.md
 
             # For fnpack.json
             SIZE_NUM=$(stat -c%s "${APPNAME}_v${VERSION}.fpk" 2>/dev/null | awk '{printf "%10.3f",$1/1024/1024}')
-            NAME=$(grep -E '^display_name[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
-            TYPE=$(grep -E '^install_type[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
-            MAINTAINER=$(grep -E '^maintainer[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
-            MAINTAINER_URL=$(grep -E '^maintainer_url[[:space:]]*=' "$APP/manifest" | awk -F= '{print $2}' | xargs)
+            NAME=$(grep -E '^display_name[[:space:]]*=' "$APP/manifest" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
+            TYPE=$(grep -E '^install_type[[:space:]]*=' "$APP/manifest" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
+            MAINTAINER=$(grep -E '^maintainer[[:space:]]*=' "$APP/manifest" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
+            MAINTAINER_URL=$(grep -E '^maintainer_url[[:space:]]*=' "$APP/manifest" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
             [ -z "$MAINTAINER" ] && MAINTAINER="Ing"
             [ -z "$MAINTAINER_URL" ] && MAINTAINER_URL="https://github.com/${REPO}"
             LABELS="工具"
@@ -180,14 +181,14 @@ jobs:
 
                   # 提取元数据
                   MANIFEST="$SOURCE_DIR/manifest"
-                  DISPLAY_NAME=$(grep -E '^display_name[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
-                  DESC=$(grep -E '^desc[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
-                  MAINTAINER=$(grep -E '^maintainer[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
-                  MAINTAINER_URL=$(grep -E '^maintainer_url[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
-                  DISTRIBUTOR=$(grep -E '^distributor[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
-                  DISTRIBUTOR_URL=$(grep -E '^distributor_url[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
-                  RAW_TYPE=$(grep -E '^install_type[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
-                  PLATFORM=$(grep -E '^platform[[:space:]]*=' "$MANIFEST" | awk -F= '{print $2}' | xargs)
+                  DISPLAY_NAME=$(grep -E '^display_name[[:space:]]*=' "$MANIFEST" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
+                  DESC=$(grep -E '^desc[[:space:]]*=' "$MANIFEST" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
+                  MAINTAINER=$(grep -E '^maintainer[[:space:]]*=' "$MANIFEST" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
+                  MAINTAINER_URL=$(grep -E '^maintainer_url[[:space:]]*=' "$MANIFEST" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
+                  DISTRIBUTOR=$(grep -E '^distributor[[:space:]]*=' "$MANIFEST" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
+                  DISTRIBUTOR_URL=$(grep -E '^distributor_url[[:space:]]*=' "$MANIFEST" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
+                  RAW_TYPE=$(grep -E '^install_type[[:space:]]*=' "$MANIFEST" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
+                  PLATFORM=$(grep -E '^platform[[:space:]]*=' "$MANIFEST" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
                   [ -z "$PLATFORM" ] && PLATFORM="x86"
                   
                   LABELS="工具"
