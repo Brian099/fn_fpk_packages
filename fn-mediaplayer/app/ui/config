@@ -6,7 +6,7 @@
             "type": "url",
             "protocol": "http",
             "port": "${server_port}",
-            "url": "/",
+            "url": "/admin",
             "allUsers": false
         }
     }
