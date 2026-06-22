@@ -74,7 +74,9 @@ jobs:
             LABELS="工具"
             [ -f "$APP/labels.txt" ] && LABELS=$(cat "$APP/labels.txt" | xargs)
             
-            APPS+=("\"${APP}\": {\"display_name\": \"${NAME}\", \"desc\": \"${DESC}\", \"labels\": \"${LABELS}\", \"version\": \"${VERSION}\", \"download_url\": \"https://github.com/${{ github.repository }}/releases/download/${TAG}/${APPNAME}_v${VERSION}.fpk\", \"author\": \"${MAINTAINER}\", \"author_url\": \"${MAINTAINER_URL}\", \"bug_report_url\": \"https://github.com/${{ github.repository }}/issues\", \"install_type\": \"${TYPE}\", \"size\": \"${SIZE_NUM}\", \"history\": {\"v${VERSION}\": \"Initial release of ${APPNAME} package.\"}}")
+            DESC_ESCAPED="${DESC//\\/\\\\}"
+            DESC_ESCAPED="${DESC_ESCAPED//\"/\\\"}"
+            APPS+=("\"${APP}\": {\"display_name\": \"${NAME}\", \"desc\": \"${DESC_ESCAPED}\", \"labels\": \"${LABELS}\", \"version\": \"${VERSION}\", \"download_url\": \"https://github.com/${{ github.repository }}/releases/download/${TAG}/${APPNAME}_v${VERSION}.fpk\", \"author\": \"${MAINTAINER}\", \"author_url\": \"${MAINTAINER_URL}\", \"bug_report_url\": \"https://github.com/${{ github.repository }}/issues\", \"install_type\": \"${TYPE}\", \"size\": \"${SIZE_NUM}\", \"history\": {\"v${VERSION}\": \"Initial release of ${APPNAME} package.\"}}")
           done
 
           echo "" >> apps-list.md
