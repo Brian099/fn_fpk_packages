@@ -1,5 +1,5 @@
 appname               = mediaplayer
-version               = 1.0.73
+version               = 1.0.75
 display_name          = MediaPlayer
 desc                  = """<b>MediaPlayer</b> 智能电视流媒体中心，致力于将海量、杂乱的 M3U 直播源和 EPG 电子节目单，转化为如同“有线电视”一般顺滑、有组织的观影体验。通过引入强悍的服务端鉴权与代理机制，让您的直播源从此告别被盗链、被抓包的风险。<br/><br/><b>⚡ 核心功能</b><br/>📝 <b>极致的安全防御（防盗链）</b><br/>🏷️ <b>强大的多端设备管控</b><br/>🔄 <b>大屏沉浸式体验</b><br/>📌 <b>全能订阅托管与频道整理</b><br/><img width="100%" height="auto" src="https://raw.githubusercontent.com/kuai410022283/mediaplayer/main/images/home01.png" alt="MediaPlayer" style="margin-top:0.3em"><img width="100%" height="auto" src="https://raw.githubusercontent.com/kuai410022283/mediaplayer/main/images/player02.png" alt="MediaPlayer" style="margin-top:0.3em">"""
 platform              = all

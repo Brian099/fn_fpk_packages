@@ -5,6 +5,7 @@
 const API = '/api/v1';
 let groups = [], selectedClientIds = new Set(), selectedGroupIds = new Set();
 let adminToken = localStorage.getItem('admin_token') || '';
+let masterStatusInterval = null;
 let channelPage = 1, clientPage = 1, groupPage = 1, sourcePage = 1, streamPage = 1, planPage = 1, clientLogPage = 1;
 const PAGE_SIZE = 20;
 let localLogoEnabled = false;
@@ -193,6 +194,10 @@ if (!adminToken) { showLogin(); }
 
 // ═══ Navigation ═══════════════════════════════════════
 function showSection(name, el) {
+  if (name !== 'sync' && masterStatusInterval) {
+    clearInterval(masterStatusInterval);
+    masterStatusInterval = null;
+  }
   document.querySelectorAll('.main > div[id^="sec-"]').forEach(e => e.style.display = 'none');
   document.getElementById('sec-' + name).style.display = 'block';
   document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
@@ -227,7 +232,8 @@ function showSection(name, el) {
     clients: loadClients,
     'client-logs': loadClientLogs,
     'client-settings': loadClientSettings,
-    'update': loadUpdates
+    'update': loadUpdates,
+    'sync': loadSyncSettings
   };
   if (loaders[name]) loaders[name]();
 }
@@ -315,6 +321,11 @@ async function loadChannels(search = currentChannelSearch, groupId = currentChan
   const body = document.getElementById('channels-body');
   if (chRes.data && chRes.data.items) {
     channelTotal = chRes.data.total || 0;
+    if (chRes.data.items.length === 0 && channelPage > 1) {
+      channelPage--;
+      loadChannels(search, groupId);
+      return;
+    }
     body.innerHTML = chRes.data.items.map((c, i) => {
       let logoHtml = '<span style="color:#999">-</span>';
       if (c.logo) {
@@ -556,7 +567,16 @@ async function loadGroups() {
   const r = await api('/admin/groups' + q);
   const items = r.data ? r.data.items || [] : [];
   groupTotal = r.data ? r.data.total || 0 : 0;
+
+  if (items.length === 0 && groupPage > 1) {
+    groupPage--;
+    loadGroups();
+    return;
+  }
+
   selectedGroupIds.clear();
+  const checkAllBox = document.getElementById('check-all-groups');
+  if (checkAllBox) checkAllBox.checked = false;
 
   // Merge items into global groups array
   items.forEach(item => {
@@ -1916,3 +1936,154 @@ async function pullUpdateToServer(btn) {
     btn.disabled = false;
   }
 }
+
+// ═══ Sync (主备同步) ════════════════════════════════════
+
+function onSyncEnableChange(val) {
+  document.getElementById('sync-standby-settings').style.display = val === 'true' ? 'block' : 'none';
+}
+
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+async function loadSyncSettings() {
+  const res = await api('/settings').catch(() => ({ data: {} }));
+  const data = res.data || {};
+  
+  if (data.sync_serve_token !== undefined) document.getElementById('set-sync-serve-token').value = data.sync_serve_token;
+  if (data.sync_enable !== undefined) {
+    document.getElementById('set-sync-enable').value = data.sync_enable;
+    onSyncEnableChange(data.sync_enable);
+  }
+  if (data.sync_master_url !== undefined) document.getElementById('set-sync-master-url').value = data.sync_master_url;
+  if (data.sync_master_token !== undefined) document.getElementById('set-sync-master-token').value = data.sync_master_token;
+  if (data.sync_interval_min !== undefined) document.getElementById('set-sync-interval').value = data.sync_interval_min;
+
+  if (data.sync_enable === 'true') {
+    checkMasterConnection();
+    if (!masterStatusInterval) {
+      masterStatusInterval = setInterval(checkMasterConnection, 10000); // 10 seconds
+    }
+  } else {
+    document.getElementById('master-status-badge').style.display = 'none';
+  }
+}
+
+async function checkMasterConnection() {
+  const badge = document.getElementById('master-status-badge');
+  const url = document.getElementById('set-sync-master-url').value.trim();
+  
+  if (!url) {
+    badge.style.display = 'inline-block';
+    badge.style.background = 'var(--bg3)';
+    badge.style.color = 'var(--text2)';
+    badge.innerText = '未配置地址';
+    return;
+  }
+
+  badge.style.display = 'inline-block';
+  badge.style.background = 'var(--bg3)';
+  badge.style.color = 'var(--text2)';
+  badge.innerText = '检测中...';
+
+  try {
+    const res = await fetch('/api/v1/admin/system/ping-master', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + adminToken
+      },
+      body: JSON.stringify({ master_url: url })
+    });
+    
+    if (res.ok) {
+      badge.style.background = 'rgba(22, 186, 170, 0.15)';
+      badge.style.color = '#16baaa';
+      badge.innerText = '状态正常 (Ping 200)';
+    } else {
+      throw new Error('Non-200 response');
+    }
+  } catch (e) {
+    badge.style.background = 'rgba(230, 83, 107, 0.15)';
+    badge.style.color = '#e6536b';
+    badge.innerText = '连接失败';
+  }
+}
+
+async function saveSyncSettings() {
+  try {
+    const settings = {
+      sync_serve_token: document.getElementById('set-sync-serve-token').value.trim(),
+      sync_enable: document.getElementById('set-sync-enable').value,
+      sync_master_url: document.getElementById('set-sync-master-url').value.trim(),
+      sync_master_token: document.getElementById('set-sync-master-token').value.trim(),
+      sync_interval_min: document.getElementById('set-sync-interval').value
+    };
+
+    if (settings.sync_enable === 'true') {
+      if (!settings.sync_master_url) {
+        toast('保存失败：必须填写主节点通信地址', 'error');
+        return;
+      }
+      // 提前校验主节点是否联通
+      try {
+        await api('/admin/system/ping-master', { 
+          method: 'POST', 
+          body: JSON.stringify({ master_url: settings.sync_master_url }) 
+        });
+      } catch (e) {
+        toast('主节点连接失败，请检查地址是否正确或网络是否畅通', 'error');
+        return;
+      }
+    }
+
+    for (const [k, v] of Object.entries(settings)) {
+      await api('/settings', { method: 'POST', body: JSON.stringify({ key: k, value: String(v) }) });
+    }
+
+    if (settings.sync_enable === 'true') {
+      toast('配置已保存，正在执行初次同步...', 'success');
+      try {
+        const res = await api('/admin/system/sync_from_master', {
+          method: 'POST',
+          body: JSON.stringify({ master_url: settings.sync_master_url, master_token: settings.sync_master_token })
+        });
+        toast(res.message || '初次同步成功，正在刷新页面...', 'success');
+        setTimeout(() => location.reload(), 1500);
+      } catch (e) {
+        // API 函数会处理错误提示
+      }
+    } else {
+      toast('同步配置已保存', 'success');
+    }
+  } catch (e) {
+    toast('保存失败: ' + e.message, 'error');
+    console.error(e);
+  }
+}
+
+async function forceSyncFromMaster() {
+  const url = document.getElementById('set-sync-master-url').value;
+  const token = document.getElementById('set-sync-master-token').value;
+  
+  if (!url) { toast('请填写主节点通信地址', 'error'); return; }
+  
+  if (!confirm('确定要强制从主节点拉取数据覆盖当前节点的频道/分组数据吗？')) return;
+  
+  toast('正在同步，请勿刷新页面...');
+  try {
+    const res = await api('/admin/system/sync_from_master', {
+      method: 'POST',
+      body: JSON.stringify({ master_url: url, master_token: token })
+    });
+    toast(res.message || '同步成功，正在刷新页面...', 'success');
+    setTimeout(() => location.reload(), 1500);
+  } catch (e) {
+    // api func handles error toast
+  }
+}
+

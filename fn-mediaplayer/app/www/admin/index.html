@@ -103,6 +103,12 @@
         </svg>
         <span>检查更新</span>
       </div>
+      <div class="nav-item" onclick="showSection('sync',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2v20M17 5l-5-3-5 3M7 19l5 3 5-3M2 12h20" />
+        </svg>
+        <span>主备同步</span>
+      </div>
       <div class="nav-section">账户</div>
       <div class="nav-item" onclick="showModal('password-modal')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -767,6 +773,75 @@
                 onclick="window.open('https://github.com/kuai410022283/mediaplayer/releases', '_blank')">在 GitHub
                 仓库查看更新日志</button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sync -->
+      <div id="sec-sync" style="display:none">
+        <div class="header">
+          <h1>主备同步</h1>
+        </div>
+        <div class="card" style="padding:24px">
+          <div class="form-group" style="background: rgba(22, 186, 170, 0.05); border: 1px dashed var(--accent); padding: 16px; border-radius: var(--radius); margin-bottom: 24px;">
+            <h3 style="margin-bottom: 12px; color: var(--accent); display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; border-bottom: none; padding-bottom: 0;">
+              主服务器授权设置区 (供备机连接用)
+            </h3>
+            <div style="font-size: 13px; color: var(--text2); margin-bottom: 12px;">
+              如果当前节点是“主服务器”，请配置用于备用节点拉取数据的授权通讯秘钥。
+            </div>
+            <div class="form-group" style="margin-bottom: 16px;">
+              <label>数据拉取授权码 (Sync Serve Token)</label>
+              <div class="input-with-copy" style="margin-top:6px">
+                <input type="text" id="set-sync-serve-token" placeholder="输入复杂的密码，或点击右侧生成随机秘钥" style="height: 38px;">
+                <button class="btn-copy" type="button" onclick="document.getElementById('set-sync-serve-token').value = generateUUID()" title="随机生成秘钥" style="height:38px;width:38px;background:var(--bg3)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.13 15.57a9 9 0 1 0 3.12-11.45L2 6"></path></svg>
+                </button>
+                <button class="btn-copy" type="button" onclick="copyText(document.getElementById('set-sync-serve-token').value)" title="复制通讯秘钥" style="height:38px;width:38px;background:var(--bg3)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="saveSyncSettings()">保存主节点通讯秘钥</button>
+          </div>
+
+          <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
+
+          <div class="form-group">
+            <h3 style="margin-bottom: 12px;">备用节点运行设置区 (拉取外部数据用)</h3>
+          </div>
+          <div class="form-group">
+            <label>是否作为备用边缘节点运行</label>
+            <select id="set-sync-enable" onchange="onSyncEnableChange(this.value)">
+              <option value="false">关闭 (独立节点或主节点)</option>
+              <option value="true">开启 (作为备机，自动拉取主节点数据)</option>
+            </select>
+          </div>
+          <div id="sync-standby-settings" style="display:none">
+            <div class="form-group">
+              <label style="display:flex; justify-content:space-between; align-items:center;">
+                <span>主节点通信地址 (Master Node URL)</span>
+                <span id="master-status-badge" style="font-size:12px; padding:2px 8px; border-radius:10px; background:var(--bg3); color:var(--text2); display:none;">检测中...</span>
+              </label>
+              <input type="text" id="set-sync-master-url" placeholder="例如：http://192.168.1.10:9527">
+            </div>
+            <div class="form-group">
+              <label>主节点通讯秘钥 (Master Node Auth Token)</label>
+              <input type="password" id="set-sync-master-token" placeholder="填入上方主节点的 Sync Serve Token">
+            </div>
+            <div class="form-group">
+              <label>自动同步间隔 (分钟)</label>
+              <input type="number" id="set-sync-interval" min="1" placeholder="请填入分钟数，例如 60（表示1小时），1440（表示24小时）">
+            </div>
+            <div class="form-actions" style="justify-content:flex-start">
+              <button class="btn btn-danger" onclick="forceSyncFromMaster()">强制立即覆盖拉取 (危险操作)</button>
+            </div>
+          </div>
+          <div class="form-actions" style="justify-content:flex-start; margin-top: 20px;">
+            <button class="btn btn-primary" onclick="saveSyncSettings()">保存备机配置并生效</button>
           </div>
         </div>
       </div>
