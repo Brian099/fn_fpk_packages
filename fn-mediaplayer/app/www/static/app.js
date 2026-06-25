@@ -1453,6 +1453,7 @@ async function loadClientSettings() {
     if (document.getElementById('set-epg-source-url')) {
       document.getElementById('set-epg-source-url').value = setRes.data.epg_source_url || '';
       document.getElementById('set-epg-refresh-hours').value = setRes.data.epg_refresh_hours || '12';
+      document.getElementById('set-epg-time-shift').value = setRes.data.epg_time_shift || '0';
     }
 
     // 台标配置
@@ -1525,6 +1526,7 @@ async function saveAllClientSettings() {
   if (document.getElementById('set-epg-source-url')) {
     settings.epg_source_url = document.getElementById('set-epg-source-url').value.trim();
     settings.epg_refresh_hours = document.getElementById('set-epg-refresh-hours').value;
+    settings.epg_time_shift = document.getElementById('set-epg-time-shift').value || '0';
   }
 
   if (document.getElementById('set-logo-strategy')) {
@@ -1811,7 +1813,9 @@ async function loadUpdates() {
   document.getElementById('update-error').style.display = 'none';
 
   try {
-    const res = await fetch('https://api.github.com/repos/kuai410022283/mediaplayer/releases');
+    const savedProxy = localStorage.getItem('ghProxy') || '';
+    const apiUrl = savedProxy + 'https://api.github.com/repos/kuai410022283/mediaplayer/releases';
+    const res = await fetch(apiUrl);
     if (!res.ok) throw new Error('Network response was not ok');
     githubReleasesCache = await res.json();
     document.getElementById('update-loading').style.display = 'none';
@@ -1832,6 +1836,14 @@ function renderUpdateReleases(releases) {
   const tagSelect = document.getElementById('update-tag-select');
   tagSelect.innerHTML = releases.map((r, i) => `<option value="${i}">${r.tag_name}${i === 0 ? ' (最新)' : ''}</option>`).join('');
   
+  const savedProxy = localStorage.getItem('ghProxy');
+  if (savedProxy) {
+    const proxySelect = document.getElementById('update-proxy-select');
+    if (proxySelect) {
+      proxySelect.value = savedProxy;
+    }
+  }
+
   onUpdateTagChange();
 }
 
@@ -1877,7 +1889,16 @@ function onUpdateAssetChange() {
   }
   
   const asset = githubReleasesCache[releaseIndex].assets[assetIndex];
-  btn.dataset.href = asset.browser_download_url;
+  
+  const proxySelect = document.getElementById('update-proxy-select');
+  let proxyUrl = proxySelect ? proxySelect.value : "";
+  if (proxyUrl) {
+    localStorage.setItem('ghProxy', proxyUrl);
+  } else {
+    localStorage.removeItem('ghProxy');
+  }
+  
+  btn.dataset.href = proxyUrl + asset.browser_download_url;
   btn.style.display = 'inline-flex';
   
   if (btnPull) {
@@ -1905,8 +1926,12 @@ async function pullUpdateToServer(btn) {
   }
 
   const originalText = btn.textContent;
-  btn.textContent = '正在服务端下载...';
+  btn.textContent = '准备下载...';
   btn.disabled = true;
+
+  const proxySelect = document.getElementById('update-proxy-select');
+  const proxyUrl = proxySelect ? proxySelect.value : "";
+  const finalDownloadUrl = proxyUrl + asset.browser_download_url;
 
   try {
     const res = await fetch(API + '/admin/settings/pull-update', {
@@ -1917,21 +1942,46 @@ async function pullUpdateToServer(btn) {
       },
       body: JSON.stringify({
         version_name: release.tag_name,
-        download_url: asset.browser_download_url,
+        download_url: finalDownloadUrl,
         update_log: release.body || ''
       })
     });
     
     const data = await res.json();
-    if (res.ok && data.code === 0) {
-      alert('下载并发布成功！');
-      closeModal('update-modal');
-    } else {
+    if (!res.ok || data.code !== 0) {
       alert('操作失败: ' + (data.message || '未知错误'));
+      btn.textContent = originalText;
+      btn.disabled = false;
+      return;
     }
+
+    let pollInterval = setInterval(async () => {
+      try {
+        const pRes = await fetch(API + '/admin/settings/pull-update/progress', {
+          headers: { 'Authorization': `Bearer ${adminToken}` }
+        });
+        const pData = await pRes.json();
+        if (pData && pData.code === 0 && pData.data) {
+          const state = pData.data;
+          if (state.status === "downloading") {
+             btn.textContent = `正在下载 (${state.progress}%)`;
+          } else if (state.status === "success") {
+             clearInterval(pollInterval);
+             btn.textContent = originalText;
+             btn.disabled = false;
+             alert('下载并发布成功！');
+          } else if (state.status === "error") {
+             clearInterval(pollInterval);
+             btn.textContent = originalText;
+             btn.disabled = false;
+             alert('下载失败: ' + state.message);
+          }
+        }
+      } catch(e) {}
+    }, 1000);
+
   } catch (e) {
     alert('请求错误: ' + e.message);
-  } finally {
     btn.textContent = originalText;
     btn.disabled = false;
   }

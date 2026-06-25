@@ -585,6 +585,10 @@
               <label>EPG 自动刷新间隔 (小时)</label>
               <input type="number" id="set-epg-refresh-hours" value="12" min="1" max="72">
             </div>
+            <div class="form-group">
+              <label>EPG 全局时差 (小时)</label>
+              <input type="number" id="set-epg-time-shift" value="0" placeholder="例如: 8 或 -2">
+            </div>
             <div class="form-group" style="display:flex;align-items:flex-end">
               <button class="btn btn-ghost" onclick="refreshEPGCache()">强制拉取 EPG</button>
             </div>
@@ -761,6 +765,20 @@
               <div class="form-group" style="flex:2">
                 <label>选择对应平台的安装包或文件</label>
                 <select id="update-asset-select" onchange="onUpdateAssetChange()"></select>
+              </div>
+            </div>
+            <div class="form-row" style="margin-top: 10px;">
+              <div class="form-group" style="flex:1">
+                <label>GitHub 下载加速代理 (解决国内下载慢/失败)</label>
+                <select id="update-proxy-select" onchange="onUpdateAssetChange()">
+                  <option value="">直连 (无加速)</option>
+                  <option value="https://cf.612526.xyz/">https://cf.612526.xyz</option>
+                  <option value="https://gh.felicity.ac.cn/">https://gh.felicity.ac.cn</option>
+                  <option value="https://gh-proxy.org/">https://gh-proxy.org</option>
+                  <option value="https://hk.gh-proxy.org/">https://hk.gh-proxy.org</option>
+                  <option value="https://cdn.gh-proxy.org/">https://cdn.gh-proxy.org</option>
+                  <option value="https://edgeone.gh-proxy.org/">https://edgeone.gh-proxy.org</option>
+                </select>
               </div>
             </div>
 
