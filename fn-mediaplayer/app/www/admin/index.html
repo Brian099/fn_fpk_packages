@@ -223,7 +223,7 @@
                 <th>EPG匹配ID</th>
                 <th>分组</th>
                 <th>来源</th>
-                <th>类型</th>
+                <th>直连模式</th>
                 <th>状态</th>
                 <th>复用状态</th>
 
@@ -259,7 +259,9 @@
                 <th>排序</th>
                 <th>来源</th>
                 <th>直连模式</th>
-                <th>复用状态</th>
+                <th>批量复用</th>
+                <th>支持复用</th>
+                <th>不支持复用</th>
                 <th>频道数</th>
                 <th>操作</th>
               </tr>
@@ -372,6 +374,7 @@
                 <th>设备型号</th>
                 <th>IP</th>
                 <th>状态</th>
+                <th>测试机</th>
                 <th>设备过期时间</th>
                 <th>播放时长</th>
                 <th>最近在线</th>
@@ -479,8 +482,13 @@
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                   </svg></button>
               </div>
-              <div style="font-size: 11px; color: var(--text2); margin-top: 4px;">
-                用于生成客户端授权信息、订阅链接以及订阅文件内的播放代理地址。末尾请勿添加斜杠 /。</div>
+              <div style="margin-top: 12px;">
+                <label style="color: var(--text); font-weight: 500; font-size: 13px;">备用服务器外网地址 (Backup URLs)</label>
+                <textarea id="set-server-backup-urls" rows="2" placeholder="填写备用地址，支持多行，每行一个。如：&#10;http://backup1.com&#10;http://backup2.com" style="margin-top:6px"></textarea>
+                <div style="font-size: 11px; color: var(--text2); margin-top: 4px;">可选。当主地址故障时，客户端将按顺序尝试连接备用地址。</div>
+              </div>
+              <div style="font-size: 11px; color: var(--text2); margin-top: 12px;">
+                仅供客户端授权信息以及 m3u8 里的播放地址。末尾不要带 /。</div>
             </div>
 
             <div style="font-size: 13px; color: var(--text2); margin-bottom: 12px; word-break: break-all;">
@@ -488,7 +496,7 @@
             </div>
             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
               <div
-                style="flex: 1; min-width: 280px; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; font-family: monospace; font-size: 13px; word-break: break-all; color: var(--accent); user-select: all;"
+                style="flex: 1; min-width: 280px; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; font-family: monospace; font-size: 13px; word-break: break-all; white-space: pre-wrap; color: var(--accent); user-select: all;"
                 id="server-base64-text">
                 -
               </div>
@@ -569,6 +577,7 @@
             <div style="font-size:11px;color:var(--text2);margin-top:4px">0 = 仅换台和启动时显示。大于0 = 每隔几分钟自动在屏幕上方横向滚动播报一次。
             </div>
           </div>
+
           <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
           <div class="form-group">
             <h3 style="margin-bottom: 12px;">EPG 节目源配置</h3>
@@ -701,6 +710,20 @@
               <option value="true">是 (必须更新才能使用)</option>
             </select>
           </div>
+          <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
+          <div class="form-group"
+            style="background: rgba(220, 38, 38, 0.05); border: 1px dashed var(--danger); padding: 16px; border-radius: var(--radius);">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <h3 style="margin-bottom:4px;color:var(--danger)">系统维护模式</h3>
+                <div style="font-size:12px;color:var(--text2)">开启后，非测试设备在连接时将进入全屏维护提示，自动停止播放视频，以便您进行系统级维护。</div>
+              </div>
+              <label class="switch" style="transform: scale(1.1)">
+                <input type="checkbox" id="set-maintenance-mode">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
           <div style="display: none;">
             <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
             <div class="form-group">
@@ -801,8 +824,10 @@
           <h1>主备同步</h1>
         </div>
         <div class="card" style="padding:24px">
-          <div class="form-group" style="background: rgba(22, 186, 170, 0.05); border: 1px dashed var(--accent); padding: 16px; border-radius: var(--radius); margin-bottom: 24px;">
-            <h3 style="margin-bottom: 12px; color: var(--accent); display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; border-bottom: none; padding-bottom: 0;">
+          <div class="form-group"
+            style="background: rgba(22, 186, 170, 0.05); border: 1px dashed var(--accent); padding: 16px; border-radius: var(--radius); margin-bottom: 24px;">
+            <h3
+              style="margin-bottom: 12px; color: var(--accent); display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; border-bottom: none; padding-bottom: 0;">
               主服务器授权设置区 (供备机连接用)
             </h3>
             <div style="font-size: 13px; color: var(--text2); margin-bottom: 12px;">
@@ -812,10 +837,16 @@
               <label>数据拉取授权码 (Sync Serve Token)</label>
               <div class="input-with-copy" style="margin-top:6px">
                 <input type="text" id="set-sync-serve-token" placeholder="输入复杂的密码，或点击右侧生成随机秘钥" style="height: 38px;">
-                <button class="btn-copy" type="button" onclick="document.getElementById('set-sync-serve-token').value = generateUUID()" title="随机生成秘钥" style="height:38px;width:38px;background:var(--bg3)">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.13 15.57a9 9 0 1 0 3.12-11.45L2 6"></path></svg>
+                <button class="btn-copy" type="button"
+                  onclick="document.getElementById('set-sync-serve-token').value = generateUUID()" title="随机生成秘钥"
+                  style="height:38px;width:38px;background:var(--bg3)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21.5 2v6h-6M2.13 15.57a9 9 0 1 0 3.12-11.45L2 6"></path>
+                  </svg>
                 </button>
-                <button class="btn-copy" type="button" onclick="copyText(document.getElementById('set-sync-serve-token').value)" title="复制通讯秘钥" style="height:38px;width:38px;background:var(--bg3)">
+                <button class="btn-copy" type="button"
+                  onclick="copyText(document.getElementById('set-sync-serve-token').value)" title="复制通讯秘钥"
+                  style="height:38px;width:38px;background:var(--bg3)">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
@@ -842,7 +873,8 @@
             <div class="form-group">
               <label style="display:flex; justify-content:space-between; align-items:center;">
                 <span>主节点通信地址 (Master Node URL)</span>
-                <span id="master-status-badge" style="font-size:12px; padding:2px 8px; border-radius:10px; background:var(--bg3); color:var(--text2); display:none;">检测中...</span>
+                <span id="master-status-badge"
+                  style="font-size:12px; padding:2px 8px; border-radius:10px; background:var(--bg3); color:var(--text2); display:none;">检测中...</span>
               </label>
               <input type="text" id="set-sync-master-url" placeholder="例如：http://192.168.1.10:9527">
             </div>
@@ -893,16 +925,21 @@
           </datalist>
         </div>
         <div class="form-group"><label>直连模式</label>
-          <select id="ch-is-direct">
-            <option value="true">开启 (默认，省宽带)</option>
-            <option value="false">关闭 (经代理加密源)</option>
-          </select>
+          <div style="margin-top: 8px;">
+            <label class="switch">
+              <input type="checkbox" id="ch-is-direct">
+              <span class="slider"></span>
+            </label>
+          </div>
         </div>
-        <div class="form-group" id="ch-multiplex-group"><label>启用线路复用 (限直连关闭+可复用流)</label>
-          <select id="ch-enable-multiplex">
-            <option value="0">关闭</option>
-            <option value="1">开启 (多用户共享单条线路)</option>
-          </select>
+        <div class="form-group" id="ch-multiplex-group">
+          <label>复用流 (需直连关闭+代理分发)</label>
+          <div style="margin-top: 8px;">
+            <label class="switch">
+              <input type="checkbox" id="ch-enable-multiplex">
+              <span class="slider"></span>
+            </label>
+          </div>
         </div>
         <div class="form-group"><label>Logo URL</label>
           <div class="input-with-copy"><input type="text" id="ch-logo"><button class="btn-copy" type="button"
@@ -933,21 +970,25 @@
 
     <div class="modal-overlay" id="group-modal">
       <div class="modal">
-        <h3>添加分组</h3>
+        <h3 id="group-modal-title">添加分组</h3>
         <input type="hidden" id="grp-edit-id">
         <div class="form-group"><label>名称</label><input type="text" id="grp-name"></div>
         <div class="form-group"><label>排序</label><input type="number" id="grp-sort" value="0"></div>
         <div class="form-group"><label>所有频道直连模式</label>
-          <select id="grp-is-direct">
-            <option value="true">开启 (默认，省宽带)</option>
-            <option value="false">关闭 (经代理加密源)</option>
-          </select>
+          <div style="margin-top: 8px;">
+            <label class="switch">
+              <input type="checkbox" id="grp-is-direct">
+              <span class="slider"></span>
+            </label>
+          </div>
         </div>
         <div class="form-group" id="grp-multiplex-group"><label>批量线路复用 (限全组支持复用)</label>
-          <select id="grp-enable-multiplex">
-            <option value="0">关闭</option>
-            <option value="1">开启 (统一切换组内频道为复用)</option>
-          </select>
+          <div style="margin-top: 8px;">
+            <label class="switch">
+              <input type="checkbox" id="grp-enable-multiplex">
+              <span class="slider"></span>
+            </label>
+          </div>
         </div>
         <div class="form-group"><label>User-Agent (群组默认)</label><input type="text" id="grp-user-agent"
             placeholder="留空使用订阅源或系统默认"></div>

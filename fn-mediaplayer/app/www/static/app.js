@@ -10,6 +10,7 @@ let channelPage = 1, clientPage = 1, groupPage = 1, sourcePage = 1, streamPage =
 const PAGE_SIZE = 20;
 let localLogoEnabled = false;
 let serverUrlSetting = '';
+let serverBackupUrlsSetting = '';
 let enableExternalSubSetting = 'false';
 
 // ═══ API helpers ══════════════════════════════════════
@@ -303,15 +304,18 @@ let channelTotal = 0;
 
 let currentChannelSearch = '';
 let currentChannelGroupId = 0;
+let currentMuxSupport = null;
 
-async function loadChannels(search = currentChannelSearch, groupId = currentChannelGroupId) {
+async function loadChannels(search = currentChannelSearch, groupId = currentChannelGroupId, muxSupport = currentMuxSupport) {
   currentChannelSearch = search;
   currentChannelGroupId = groupId;
+  currentMuxSupport = muxSupport;
   const gen = nextGen('channels');
 
   let q = `?page=${channelPage}&page_size=${PAGE_SIZE}`;
   if (search) q += `&search=${encodeURIComponent(search)}`;
   if (groupId > 0) q += `&group_id=${groupId}`;
+  if (muxSupport !== null) q += `&mux_support=${muxSupport}`;
 
   const [chRes, grpRes] = await Promise.all([api('/channels' + q), api('/groups')]).catch(() => []);
   if (isStale('channels', gen)) return;
@@ -323,7 +327,7 @@ async function loadChannels(search = currentChannelSearch, groupId = currentChan
     channelTotal = chRes.data.total || 0;
     if (chRes.data.items.length === 0 && channelPage > 1) {
       channelPage--;
-      loadChannels(search, groupId);
+      loadChannels(search, groupId, currentMuxSupport);
       return;
     }
     body.innerHTML = chRes.data.items.map((c, i) => {
@@ -343,9 +347,15 @@ async function loadChannels(search = currentChannelSearch, groupId = currentChan
       <td>${c.epg_channel_id ? esc(c.epg_channel_id) : '<span style="color:#999">-</span>'}</td>
       <td>${gm[c.group_id] || '-'}</td>
       <td><span style="font-size:12px;color:var(--text2);background:var(--surface);padding:2px 6px;border-radius:4px">${esc(c.source || '手动')}</span></td>
-      <td><span class="badge badge-${c.stream_type}">${c.stream_type.toUpperCase()}</span></td>
+      <td><label class="switch" style="transform: scale(0.8); margin: 0">
+        <input type="checkbox" onchange="toggleChannelDirect(${c.id}, this.checked)" ${c.is_direct !== false ? 'checked' : ''}>
+        <span class="slider"></span>
+      </label></td>
       <td>${badge(c.status)}</td>
-      <td>${c.can_multiplex ? (c.enable_multiplex === 1 ? '<span style="color:var(--success)">✅ 通行(已开)</span>' : '<span style="color:var(--success)">✅ 通行(未开)</span>') : '<span style="color:var(--danger)">🚫 禁用</span>'}</td>
+      <td>${c.can_multiplex ? `<label class="switch" style="transform: scale(0.8); margin: 0">
+        <input type="checkbox" onchange="toggleChannelMultiplex(${c.id}, this.checked)" ${c.enable_multiplex === 1 ? 'checked' : ''}>
+        <span class="slider"></span>
+      </label>` : '<span class="badge" style="color:var(--text3);background:var(--bg3);border:1px solid var(--border)">不支持</span>'}</td>
       <td><div class="btn-group">
         <button class="btn btn-ghost btn-sm" onclick="editChannel(${c.id})">编辑</button>
         <button class="btn btn-danger btn-sm" onclick="deleteChannel(${c.id})">删除</button>
@@ -465,6 +475,7 @@ function searchChannels() {
   window._st = setTimeout(() => {
     channelPage = 1;
     currentChannelGroupId = 0; // Reset group filter on new text search
+    currentMuxSupport = null;
     loadChannels(document.getElementById('channel-search').value);
   }, 300);
 }
@@ -472,11 +483,24 @@ function searchChannels() {
 function filterChannelsByGroup(groupId, groupName, sourceName) {
   channelPage = 1;
   currentChannelGroupId = groupId;
+  currentMuxSupport = null;
   currentChannelSearch = '';
   document.getElementById('channel-search').value = '';
   showSection('channels');
   // Highlight the group name in search bar placeholder or show a toast
   document.getElementById('channel-search').placeholder = `已过滤: [${sourceName}] ${groupName} ...`;
+  loadChannels();
+}
+
+function filterChannelsByGroupMux(groupId, groupName, sourceName, muxSupport) {
+  channelPage = 1;
+  currentChannelGroupId = groupId;
+  currentMuxSupport = muxSupport;
+  currentChannelSearch = '';
+  document.getElementById('channel-search').value = '';
+  showSection('channels');
+  let muxDesc = muxSupport === 1 ? '支持复用' : '不支持复用';
+  document.getElementById('channel-search').placeholder = `已过滤: [${sourceName}] ${groupName} (${muxDesc}) ...`;
   loadChannels();
 }
 
@@ -491,8 +515,8 @@ function showAddChannelModal() {
   document.getElementById('ch-type').value = '';
   document.getElementById('ch-logo').value = '';
   document.getElementById('ch-epg').value = '';
-  document.getElementById('ch-is-direct').value = 'true';
-  document.getElementById('ch-enable-multiplex').value = '0';
+  document.getElementById('ch-is-direct').checked = true;
+  document.getElementById('ch-enable-multiplex').checked = false;
   document.getElementById('ch-multiplex-group').style.display = 'none';
   document.getElementById('ch-user-agent').value = '';
   document.getElementById('ch-headers').value = '';
@@ -508,8 +532,8 @@ async function saveChannel() {
     stream_type: document.getElementById('ch-type').value,
     logo: document.getElementById('ch-logo').value,
     epg_channel_id: document.getElementById('ch-epg').value,
-    is_direct: document.getElementById('ch-is-direct').value === 'true',
-    enable_multiplex: parseInt(document.getElementById('ch-enable-multiplex').value) || 0,
+    is_direct: document.getElementById('ch-is-direct').checked,
+    enable_multiplex: document.getElementById('ch-enable-multiplex').checked ? 1 : 0,
     user_agent: document.getElementById('ch-user-agent').value,
     custom_headers: document.getElementById('ch-headers').value
   };
@@ -539,13 +563,53 @@ async function editChannel(id) {
   document.getElementById('ch-type').value = c.stream_type;
   document.getElementById('ch-logo').value = c.logo || '';
   document.getElementById('ch-epg').value = c.epg_channel_id || '';
-  document.getElementById('ch-is-direct').value = c.is_direct !== false ? 'true' : 'false';
-  document.getElementById('ch-enable-multiplex').value = c.enable_multiplex === 1 ? '1' : '0';
+  document.getElementById('ch-is-direct').checked = c.is_direct !== false;
+  document.getElementById('ch-enable-multiplex').checked = c.enable_multiplex === 1;
   document.getElementById('ch-multiplex-group').style.display = c.can_multiplex ? 'block' : 'none';
   document.getElementById('ch-user-agent').value = c.user_agent || '';
   document.getElementById('ch-headers').value = c.custom_headers || '';
   document.getElementById('channel-modal-title').textContent = '编辑频道';
   showModal('channel-modal');
+}
+
+async function toggleChannelDirect(id, enable) {
+  try {
+    const res = await api(`/channels/${id}`);
+    const ch = res.data;
+    if (!ch) return;
+    
+    ch.is_direct = enable;
+    
+    await api(`/channels/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(ch)
+    });
+    toast(enable ? '直连模式已开启' : '直连模式已关闭');
+  } catch (err) {
+    console.error(err);
+    toast('操作失败', 'error');
+    loadChannels(); // revert UI switch
+  }
+}
+
+async function toggleChannelMultiplex(id, enable) {
+  try {
+    const res = await api(`/channels/${id}`);
+    const ch = res.data;
+    if (!ch) return;
+    
+    ch.enable_multiplex = enable ? 1 : 0;
+    
+    await api(`/channels/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(ch)
+    });
+    toast(enable ? '复用流已开启' : '复用流已关闭');
+  } catch (err) {
+    console.error(err);
+    toast('操作失败', 'error');
+    loadChannels(); // revert UI switch
+  }
 }
 
 async function deleteChannel(id) {
@@ -594,8 +658,16 @@ async function loadGroups() {
     <td>${isDefault ? '' : `<input type="checkbox" class="group-check" value="${g.id}" onchange="updateSelectedGroups()">`}</td>
     <td style="color:var(--text3)">${(groupPage - 1) * PAGE_SIZE + i + 1}</td><td>${esc(g.name)}</td><td>${g.sort_order}</td>
     <td><span style="font-size:12px;color:var(--text2);background:var(--surface);padding:2px 6px;border-radius:4px">${esc(g.source || '手动')}</span></td>
-    <td>${g.is_direct ? '<span class="badge badge-success">开启</span>' : '<span class="badge badge-warn">关闭</span>'}</td>
-    <td>${g.can_multiplex ? (g.enable_multiplex === 1 ? '<span style="color:var(--success)">✅ 通行(已开)</span>' : '<span style="color:var(--success)">✅ 通行(未开)</span>') : '<span style="color:var(--danger)">🚫 禁用</span>'}</td>
+    <td><label class="switch" style="transform: scale(0.8); margin: 0">
+      <input type="checkbox" onchange="toggleGroupDirect(${g.id}, this.checked)" ${g.is_direct !== false ? 'checked' : ''}>
+      <span class="slider"></span>
+    </label></td>
+    <td>${g.can_multiplex ? `<label class="switch" style="transform: scale(0.8); margin: 0">
+      <input type="checkbox" onchange="toggleGroupMultiplex(${g.id}, this.checked)" ${g.enable_multiplex === 1 ? 'checked' : ''}>
+      <span class="slider"></span>
+    </label>` : '<span class="badge" style="color:var(--text3);background:var(--bg3);border:1px solid var(--border)">不支持</span>'}</td>
+    <td><a href="javascript:void(0)" onclick="filterChannelsByGroupMux(${g.id}, '${esc(g.name)}', '${esc(g.source || '手动')}', 1)" style="font-weight:bold;color:var(--success);text-decoration:underline;">${(g.channel_count || 0) - (g.non_mux_count || 0)}</a></td>
+    <td><a href="javascript:void(0)" onclick="filterChannelsByGroupMux(${g.id}, '${esc(g.name)}', '${esc(g.source || '手动')}', 0)" style="font-weight:bold;color:var(--danger);text-decoration:underline;">${g.non_mux_count || 0}</a></td>
     <td><a href="javascript:void(0)" onclick="filterChannelsByGroup(${g.id}, '${esc(g.name)}', '${esc(g.source || '手动')}')" style="font-weight:bold;color:var(--primary);text-decoration:underline;">${g.channel_count || 0}</a></td>
     <td>
       ${isDefault ? '<span style="color:var(--text3);font-size:12px;user-select:none">系统内置</span>' : `<div class="btn-group">
@@ -641,11 +713,12 @@ function showAddGroupModal() {
   document.getElementById('grp-edit-id').value = '';
   document.getElementById('grp-name').value = '';
   document.getElementById('grp-sort').value = '0';
-  document.getElementById('grp-is-direct').value = 'true';
-  document.getElementById('grp-enable-multiplex').value = '0';
+  document.getElementById('grp-is-direct').checked = true;
+  document.getElementById('grp-enable-multiplex').checked = false;
   document.getElementById('grp-multiplex-group').style.display = 'none';
   document.getElementById('grp-user-agent').value = '';
   document.getElementById('grp-headers').value = '';
+  document.getElementById('group-modal-title').textContent = '添加分组';
   showModal('group-modal');
 }
 
@@ -654,8 +727,8 @@ async function saveGroup() {
   const d = {
     name: document.getElementById('grp-name').value,
     sort_order: +document.getElementById('grp-sort').value || 0,
-    is_direct: document.getElementById('grp-is-direct').value === 'true',
-    enable_multiplex: parseInt(document.getElementById('grp-enable-multiplex').value) || 0,
+    is_direct: document.getElementById('grp-is-direct').checked,
+    enable_multiplex: document.getElementById('grp-enable-multiplex').checked ? 1 : 0,
     user_agent: document.getElementById('grp-user-agent').value,
     custom_headers: document.getElementById('grp-headers').value
   };
@@ -680,12 +753,53 @@ function editGroup(id) {
   document.getElementById('grp-edit-id').value = g.id;
   document.getElementById('grp-name').value = g.name;
   document.getElementById('grp-sort').value = g.sort_order;
-  document.getElementById('grp-is-direct').value = g.is_direct !== false ? 'true' : 'false';
-  document.getElementById('grp-enable-multiplex').value = g.enable_multiplex === 1 ? '1' : '0';
+  document.getElementById('grp-is-direct').checked = g.is_direct !== false;
+  document.getElementById('grp-enable-multiplex').checked = g.enable_multiplex === 1;
   document.getElementById('grp-multiplex-group').style.display = g.can_multiplex ? 'block' : 'none';
   document.getElementById('grp-user-agent').value = g.user_agent || '';
   document.getElementById('grp-headers').value = g.custom_headers || '';
+  document.getElementById('group-modal-title').textContent = '编辑分组';
   showModal('group-modal');
+}
+
+async function toggleGroupDirect(id, enable) {
+  try {
+    const g = groups.find(x => x.id === id);
+    if (!g) return;
+    
+    const updateData = { ...g, is_direct: enable };
+    
+    await api(`/groups/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData)
+    });
+    g.is_direct = enable;
+    toast(enable ? '分组直连已开启' : '分组直连已关闭');
+  } catch (err) {
+    console.error(err);
+    toast('操作失败', 'error');
+    loadGroups();
+  }
+}
+
+async function toggleGroupMultiplex(id, enable) {
+  try {
+    const g = groups.find(x => x.id === id);
+    if (!g) return;
+    
+    const updateData = { ...g, enable_multiplex: enable ? 1 : 0 };
+    
+    await api(`/groups/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData)
+    });
+    g.enable_multiplex = enable ? 1 : 0;
+    toast(enable ? '分组复用已开启' : '分组复用已关闭');
+  } catch (err) {
+    console.error(err);
+    toast('操作失败', 'error');
+    loadGroups();
+  }
 }
 
 async function deleteGroup(id, source, name, count) {
@@ -922,6 +1036,12 @@ async function loadClients() {
       <td>${esc(c.device_model)}<br><span style="font-size:11px;color:var(--text2)">${esc(c.device_os)}</span></td>
       <td style="font-family:monospace;font-size:12px">${esc(c.ip)}</td>
       <td>${badge(c.status)}</td>
+      <td>
+        <label class="switch" style="transform: scale(0.8)">
+          <input type="checkbox" onchange="toggleTester(${c.id}, this.checked)" ${c.is_tester ? 'checked' : ''}>
+          <span class="slider"></span>
+        </label>
+      </td>
       <td>${fmtExpiresAt(c.expires_at)}</td>
       <td>${c.total_play_minutes}分钟</td>
       <td>${timeAgo(c.last_seen)}</td>
@@ -1302,6 +1422,19 @@ async function unbanClient(id) {
   loadClients();
 }
 
+async function toggleTester(id, isTester) {
+  try {
+    await api(`/admin/clients/${id}/tester`, {
+      method: 'POST',
+      body: JSON.stringify({ is_tester: isTester })
+    });
+    toast(isTester ? '已设为测试机' : '已取消测试机');
+  } catch (err) {
+    console.error(err);
+    loadClients(); // revert checkbox visually
+  }
+}
+
 async function deleteClient(id) {
   if (!confirm('确定删除此设备？删除后无法恢复。')) return;
   await api(`/admin/clients/${id}`, { method: 'DELETE' });
@@ -1441,6 +1574,10 @@ async function loadClientSettings() {
       document.getElementById('set-system-announcement-interval').value = setRes.data.system_announcement_interval || '0';
     }
 
+    if (document.getElementById('set-maintenance-mode')) {
+      document.getElementById('set-maintenance-mode').checked = (setRes.data.maintenance_mode === 'true');
+    }
+
     if (document.getElementById('set-startup-media-url')) {
       document.getElementById('set-startup-media-enabled').value = setRes.data.startup_media_enabled || 'false';
       document.getElementById('set-startup-media-url').value = setRes.data.startup_media_url || '';
@@ -1476,6 +1613,10 @@ async function loadClientSettings() {
       serverUrlSetting = setRes.data.server_url || '';
       document.getElementById('set-server-url').value = serverUrlSetting;
     }
+    if (document.getElementById('set-server-backup-urls')) {
+      serverBackupUrlsSetting = setRes.data.server_backup_urls || '';
+      document.getElementById('set-server-backup-urls').value = serverBackupUrlsSetting;
+    }
   }
 
   // Update 配置
@@ -1489,9 +1630,16 @@ async function loadClientSettings() {
     }
   }
 
-  // 服务器地址 URL 转 Base64 逻辑
+  // 服务器地址 URL 转 Base64 逻辑 (支持多行备用地址)
   const serverRawUrl = serverUrlSetting || window.location.origin;
-  const serverBase64 = btoa(unescape(encodeURIComponent(serverRawUrl)));
+  
+  let allUrls = [serverRawUrl];
+  if (serverBackupUrlsSetting) {
+    const backupLines = serverBackupUrlsSetting.split('\n').map(s => s.trim()).filter(s => s);
+    allUrls = allUrls.concat(backupLines);
+  }
+  
+  const serverBase64 = allUrls.map(url => btoa(unescape(encodeURIComponent(url)))).join('\n');
 
   const rawUrlEl = document.getElementById('server-raw-url');
   const base64TextEl = document.getElementById('server-base64-text');
@@ -1503,6 +1651,7 @@ async function saveAllClientSettings() {
   const settings = {
     enable_external_sub: document.getElementById('set-enable-external-sub').value,
     server_url: document.getElementById('set-server-url').value.trim(),
+    server_backup_urls: document.getElementById('set-server-backup-urls') ? document.getElementById('set-server-backup-urls').value.trim() : '',
     enable_url_token: document.getElementById('set-enable-url-token') ? document.getElementById('set-enable-url-token').value : 'false',
     auto_approve: document.getElementById('set-auto-approve').value,
     default_plan_id: document.getElementById('set-default-plan-id').value,
@@ -1513,6 +1662,10 @@ async function saveAllClientSettings() {
   if (document.getElementById('set-system-announcement')) {
     settings.system_announcement = document.getElementById('set-system-announcement').value.trim();
     settings.system_announcement_interval = document.getElementById('set-system-announcement-interval').value;
+  }
+
+  if (document.getElementById('set-maintenance-mode')) {
+    settings.maintenance_mode = document.getElementById('set-maintenance-mode').checked ? 'true' : 'false';
   }
 
   if (document.getElementById('set-startup-media-url')) {
@@ -1541,9 +1694,17 @@ async function saveAllClientSettings() {
   enableExternalSubSetting = settings.enable_external_sub;
   serverUrlSetting = settings.server_url;
 
-  // 更新前端服务器地址与 Base64 授权码预览
+  // 更新前端服务器地址与 Base64 授权码预览 (支持多行备用地址)
+  serverBackupUrlsSetting = settings.server_backup_urls || '';
   const serverRawUrl = serverUrlSetting || window.location.origin;
-  const serverBase64 = btoa(unescape(encodeURIComponent(serverRawUrl)));
+  
+  let allUrls = [serverRawUrl];
+  if (serverBackupUrlsSetting) {
+    const backupLines = serverBackupUrlsSetting.split('\n').map(s => s.trim()).filter(s => s);
+    allUrls = allUrls.concat(backupLines);
+  }
+  
+  const serverBase64 = allUrls.map(url => btoa(unescape(encodeURIComponent(url)))).join('\n');
   const rawUrlEl = document.getElementById('server-raw-url');
   const base64TextEl = document.getElementById('server-base64-text');
   if (rawUrlEl) rawUrlEl.textContent = serverRawUrl;
