@@ -39,7 +39,7 @@ async function api(path, opts = {}) {
 
   const headers = { 'Content-Type': 'application/json' };
   if (adminToken) headers['Authorization'] = 'Bearer ' + adminToken;
-  showLoading();
+  if (!opts.silent) showLoading();
   try {
     const res = await fetch(API + path, { headers, ...opts });
     let data = {};
@@ -57,11 +57,11 @@ async function api(path, opts = {}) {
     return data;
   } catch (e) {
     // AbortError 是主动取消，不属于错误，静默处理
-    if (e.name === 'AbortError') { hideLoading(); throw e; }
-    toast('请求失败: ' + e.message, 'error');
+    if (e.name === 'AbortError') { if (!opts.silent) hideLoading(); throw e; }
+    if (!opts.silent) toast('请求失败: ' + e.message, 'error');
     throw e;
   } finally {
-    hideLoading();
+    if (!opts.silent) hideLoading();
   }
 }
 
@@ -520,6 +520,8 @@ function showAddChannelModal() {
   document.getElementById('ch-multiplex-group').style.display = 'none';
   document.getElementById('ch-user-agent').value = '';
   document.getElementById('ch-headers').value = '';
+  document.getElementById('ch-fcc').value = '';
+  document.getElementById('ch-fcc-type').value = '';
   showModal('channel-modal');
 }
 
@@ -535,7 +537,9 @@ async function saveChannel() {
     is_direct: document.getElementById('ch-is-direct').checked,
     enable_multiplex: document.getElementById('ch-enable-multiplex').checked ? 1 : 0,
     user_agent: document.getElementById('ch-user-agent').value,
-    custom_headers: document.getElementById('ch-headers').value
+    custom_headers: document.getElementById('ch-headers').value,
+    fcc: document.getElementById('ch-fcc').value,
+    fcc_type: document.getElementById('ch-fcc-type').value
   };
   if (!d.name || !d.stream_url) { toast('请填写名称和流地址', 'error'); return; }
   if (d.custom_headers) {
@@ -568,6 +572,8 @@ async function editChannel(id) {
   document.getElementById('ch-multiplex-group').style.display = c.can_multiplex ? 'block' : 'none';
   document.getElementById('ch-user-agent').value = c.user_agent || '';
   document.getElementById('ch-headers').value = c.custom_headers || '';
+  document.getElementById('ch-fcc').value = c.fcc || '';
+  document.getElementById('ch-fcc-type').value = c.fcc_type || '';
   document.getElementById('channel-modal-title').textContent = '编辑频道';
   showModal('channel-modal');
 }
@@ -653,7 +659,7 @@ async function loadGroups() {
   });
 
   document.getElementById('groups-body').innerHTML = items.map((g, i) => {
-    const isDefault = g.name === '未分类';
+    const isDefault = g.name === '未分类' && (!g.source || g.source === '手动');
     return `<tr>
     <td>${isDefault ? '' : `<input type="checkbox" class="group-check" value="${g.id}" onchange="updateSelectedGroups()">`}</td>
     <td style="color:var(--text3)">${(groupPage - 1) * PAGE_SIZE + i + 1}</td><td>${esc(g.name)}</td><td>${g.sort_order}</td>
@@ -809,10 +815,17 @@ async function deleteGroup(id, source, name, count) {
 }
 
 let sourcesList = [];
-async function loadSources() {
-  const r = await api('/m3u');
+let syncPollTimeout = null;
+
+async function loadSources(silent = false) {
+  const r = await api('/m3u', { silent: silent });
   sourcesList = r.data || [];
   renderSourcesTable();
+
+  if (syncPollTimeout) clearTimeout(syncPollTimeout);
+  if (sourcesList.some(s => s.sync_status === 'syncing')) {
+    syncPollTimeout = setTimeout(() => loadSources(true), 3000);
+  }
 }
 
 function renderSourcesTable() {
@@ -829,7 +842,12 @@ function renderSourcesTable() {
       <td><strong>${esc(s.name)}</strong></td>
       <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis" title="${esc(s.url)}">${esc(s.url)}</td>
       <td>${s.auto_sync ? `<span class="badge badge-online">开启 (${s.sync_interval}h)</span>` : '<span class="badge badge-offline">关闭</span>'}</td>
-      <td>${fmtDate(s.last_sync)}</td>
+      <td>
+        ${s.sync_status === 'syncing' ? '<span style="color:var(--primary); font-weight:500">🔄 正在同步...</span>' : 
+          s.sync_status === 'error' ? `<span style="color:#ff4d4f;cursor:help;font-weight:500" title="${esc(s.sync_error)}">❌ 同步失败</span><div style="font-size:11px;color:var(--text3);margin-top:2px" title="${esc(s.sync_error)}">${esc(s.sync_error).length > 20 ? esc(s.sync_error).substring(0, 20) + '...' : esc(s.sync_error)}</div>` : 
+          s.sync_status === 'idle' && s.last_sync ? `<span style="color:#52c41a;font-weight:500">✅ 正常</span><div style="font-size:11px;color:var(--text3);margin-top:2px">${fmtDate(s.last_sync)}</div>` : 
+          `<span style="color:var(--text3)">未同步</span>`}
+      </td>
       <td><div class="btn-group">
         <button class="btn btn-primary btn-sm" onclick="importSource(${s.id})">同步</button>
         <button class="btn btn-ghost btn-sm" onclick="editSource(${s.id})">编辑</button>
@@ -900,15 +918,16 @@ async function saveSource() {
 }
 
 async function importSource(id) {
-  toast('已发起后台同步...');
-  const r = await api(`/m3u/${id}/import`, { method: 'POST' });
-  if (r.data && r.data.message) {
-    toast(r.data.message, 'success');
-  } else {
-    toast('失败', 'error');
+  toast('已发起后台同步指令...');
+  try {
+    const r = await api(`/m3u/${id}/import`, { method: 'POST' });
+    if (r.data && r.data.message) {
+      toast(r.data.message, 'success');
+    }
+  } catch (e) {
+    toast('指令下发失败: ' + e.message, 'error');
   }
-  // 3秒后刷新列表查看同步状态
-  setTimeout(loadSources, 3000);
+  loadSources(true);
 }
 
 async function deleteSource(id) {
@@ -1592,6 +1611,14 @@ async function loadClientSettings() {
       document.getElementById('set-epg-refresh-hours').value = setRes.data.epg_refresh_hours || '12';
       document.getElementById('set-epg-time-shift').value = setRes.data.epg_time_shift || '0';
     }
+    
+    if (document.getElementById('set-fcc-enabled')) {
+      document.getElementById('set-fcc-enabled').value = setRes.data.fcc_enabled || 'false';
+      document.getElementById('set-fcc-port-start').value = setRes.data.fcc_port_start || '40000';
+      document.getElementById('set-fcc-port-end').value = setRes.data.fcc_port_end || '40050';
+      document.getElementById('set-fcc-default-server').value = setRes.data.fcc_default_server || '';
+      document.getElementById('set-fcc-type').value = setRes.data.fcc_type || 'telecom';
+    }
 
     // 台标配置
     if (document.getElementById('set-logo-strategy')) {
@@ -1680,6 +1707,14 @@ async function saveAllClientSettings() {
     settings.epg_source_url = document.getElementById('set-epg-source-url').value.trim();
     settings.epg_refresh_hours = document.getElementById('set-epg-refresh-hours').value;
     settings.epg_time_shift = document.getElementById('set-epg-time-shift').value || '0';
+  }
+
+  if (document.getElementById('set-fcc-enabled')) {
+    settings.fcc_enabled = document.getElementById('set-fcc-enabled').value;
+    settings.fcc_port_start = document.getElementById('set-fcc-port-start').value;
+    settings.fcc_port_end = document.getElementById('set-fcc-port-end').value;
+    settings.fcc_default_server = document.getElementById('set-fcc-default-server').value.trim();
+    settings.fcc_type = document.getElementById('set-fcc-type').value;
   }
 
   if (document.getElementById('set-logo-strategy')) {

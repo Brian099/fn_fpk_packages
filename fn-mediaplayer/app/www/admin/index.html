@@ -292,7 +292,7 @@
                 <th>名称</th>
                 <th>URL</th>
                 <th>自动同步</th>
-                <th>上次同步</th>
+                <th>同步状态 / 时间</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -711,6 +711,45 @@
             </select>
           </div>
           <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
+          <div class="form-group">
+            <h3 style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; color: var(--accent);">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+              </svg>
+              FCC (Fast Channel Change) 毫秒级换台加速
+            </h3>
+          </div>
+          <div class="form-group">
+            <label>FCC 全局开关</label>
+            <select id="set-fcc-enabled">
+              <option value="false">关闭 (使用标准 IGMP 组播)</option>
+              <option value="true">开启 (启用毫秒级起播与换台)</option>
+            </select>
+            <div style="font-size:11px;color:var(--text2);margin-top:4px">开启后，客户端通过代理播放 UDP/RTP 组播流时，后端将尝试与运营商的 FCC 服务器进行握手并拉取历史流，实现秒开。</div>
+            <div style="font-size:12px;color:var(--danger);margin-top:6px;font-weight:bold;">⚠️ 警告：要使 FCC 正常工作，Docker 必须使用 <code>network_mode: host</code> 或 <code>macvlan</code>，并且必须在主路由器中将下方的 UDP 端口范围映射到本服务器！</div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>UDP 接收端口范围 (起始)</label>
+              <input type="number" id="set-fcc-port-start" value="40000" min="1024" max="65535">
+            </div>
+            <div class="form-group">
+              <label>UDP 接收端口范围 (结束)</label>
+              <input type="number" id="set-fcc-port-end" value="40050" min="1024" max="65535">
+            </div>
+            <div class="form-group">
+              <label>默认 FCC 服务器</label>
+              <input type="text" id="set-fcc-default-server" placeholder="例: 182.139.234.40:8027">
+            </div>
+            <div class="form-group">
+              <label>默认 FCC 协议</label>
+              <select id="set-fcc-type">
+                <option value="telecom">电信 (Telecom UDP)</option>
+                <option value="huawei">华为 (Huawei RTSP)</option>
+              </select>
+            </div>
+          </div>
+          <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
           <div class="form-group"
             style="background: rgba(220, 38, 38, 0.05); border: 1px dashed var(--danger); padding: 16px; border-radius: var(--radius);">
             <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -961,6 +1000,15 @@
             placeholder="留空使用群组默认或系统默认"></div>
         <div class="form-group"><label>自定义 Request Headers (JSON 格式)</label><textarea id="ch-headers" rows="2"
             placeholder='例如: {"Referer": "https://example.com"}'></textarea></div>
+        <div class="form-group"><label>自定义 FCC 服务器 (格式: IP:Port)</label><input type="text" id="ch-fcc"
+            placeholder="留空使用系统全局默认 FCC 设置"></div>
+        <div class="form-group"><label>自定义 FCC 厂商协议</label>
+          <select id="ch-fcc-type">
+            <option value="">-- 使用系统全局默认 --</option>
+            <option value="telecom">电信 (Telecom)</option>
+            <option value="huawei">华为 (Huawei) - 暂未实现</option>
+          </select>
+        </div>
         <div class="form-actions">
           <button class="btn btn-ghost" onclick="hideModal('channel-modal')">取消</button>
           <button class="btn btn-primary" onclick="saveChannel()">保存</button>

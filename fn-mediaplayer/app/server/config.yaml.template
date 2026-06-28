@@ -1,4 +1,4 @@
-# MediaPlayer v1.0.0配置文件
+# MediaPlayer v1.0.84配置文件
 # ⚠️ 部署前必须修改 auth.secret 和 auth.admin_password
 
 server:
@@ -10,8 +10,8 @@ database:
 
 stream:
   cache_dir: "./data/cache"
-  max_concurrent: 50       # 最大并发流数
-  buffer_size: 4096        # 流缓冲区大小 (bytes)
+  max_concurrent: 1000       # 最大并发流数，建议外网访问部署请把这个改成 50
+  buffer_size: 8192       # 流缓冲区大小 (bytes)，建议外网访问部署请把这个改成 4096
 
 auth:
   # ⚠️ 必须修改！使用随机生成的长字符串
@@ -31,7 +31,8 @@ cors:
     - "*"
 
 # IP 级请求频率限制 (次/分钟/IP)
+# 建议外网访问部署请把这个改成 300/600/60
 rate_limit:
-  api: 300          # 通用 API（频道列表、分组、管理等）
-  logo: 600         # 台标接口（Coil 加载台标）
-  stream: 60        # 流代理接口（播放换台）
+  api: 1000          # 通用 API（频道列表、分组、管理等）
+  logo: 1000         # 台标接口（Coil 加载台标）
+  stream: 2000        # 流代理接口（播放换台）
