@@ -317,7 +317,7 @@ async function loadChannels(search = currentChannelSearch, groupId = currentChan
   if (groupId > 0) q += `&group_id=${groupId}`;
   if (muxSupport !== null) q += `&mux_support=${muxSupport}`;
 
-  const [chRes, grpRes] = await Promise.all([api('/channels' + q), api('/groups')]).catch(() => []);
+  const [chRes, grpRes] = await Promise.all([api('/channels' + q), api('/groups', { cache: 'no-store' })]).catch(() => []);
   if (isStale('channels', gen)) return;
   groups = (grpRes && grpRes.data) || [];
   const gm = {};
@@ -508,6 +508,7 @@ function showAddChannelModal() {
   document.getElementById('channel-modal-title').textContent = '添加频道';
   document.getElementById('ch-edit-id').value = '';
   document.getElementById('ch-name').value = '';
+  document.getElementById('ch-group').innerHTML = groups.map(g => `<option value="${g.id}">${g.name} ${g.source && g.source !== '手动' ? '(' + esc(g.source) + ')' : ''}</option>`).join('');
   if (groups.length > 0) {
     document.getElementById('ch-group').value = groups[0].id;
   }
@@ -562,6 +563,7 @@ async function editChannel(id) {
   const c = r.data;
   document.getElementById('ch-edit-id').value = c.id;
   document.getElementById('ch-name').value = c.name;
+  document.getElementById('ch-group').innerHTML = groups.map(g => `<option value="${g.id}">${g.name} ${g.source && g.source !== '手动' ? '(' + esc(g.source) + ')' : ''}</option>`).join('');
   document.getElementById('ch-group').value = c.group_id;
   document.getElementById('ch-url').value = c.stream_url;
   document.getElementById('ch-type').value = c.stream_type;
