@@ -109,6 +109,15 @@
         </svg>
         <span>主备同步</span>
       </div>
+      <div class="nav-item" onclick="showSection('system-logs',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4" />
+          <polyline points="14 2 14 8 20 8" />
+          <path d="M2 15h10" />
+          <path d="M2 18h10" />
+        </svg>
+        <span>系统日志</span>
+      </div>
       <div class="nav-section">账户</div>
       <div class="nav-item" onclick="showModal('password-modal')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -133,6 +142,11 @@
     <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
     <div class="main">
+      <!-- System Logs Iframe -->
+      <div id="sec-system-logs" style="display:none; height:100%;">
+        <iframe id="logs-iframe" src="about:blank" style="width:100%; height:100%; border:none; display:block;"></iframe>
+      </div>
+
       <!-- Dashboard -->
       <div id="sec-dashboard">
         <div class="header">
@@ -849,6 +863,8 @@
                 onclick="window.open(this.dataset.href, '_blank')">下载至客户端</button>
               <button id="btn-update-pull" class="btn btn-primary" style="display:none; margin-left: 10px;"
                 onclick="pullUpdateToServer(this)">下载至服务端</button>
+              <button id="btn-update-cancel" class="btn btn-danger" style="display:none; margin-left: 10px;"
+                onclick="cancelPullUpdateToServer()">停止下载</button>
               <button class="btn btn-ghost" style="margin-left: 10px;"
                 onclick="window.open('https://github.com/kuai410022283/mediaplayer/releases', '_blank')">在 GitHub
                 仓库查看更新日志</button>
