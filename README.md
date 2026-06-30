@@ -15,7 +15,7 @@
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-appcenterThirdParty/ICON.PNG" width="48" height="48"> | appcenterThirdParty | v1.0.113 | all | 7.48 MB | <p>应用精选，用于管理和安装第三方飞牛应用。</p><p>功能特性：</p><ul><li>浏览和搜索第三方应用</li><li>支持多源管理，类似群晖套件中心</li><li>自动发现本地源目录</li><li>应用下载和安装</li></ul> |
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-fnosnassign/ICON.PNG" width="48" height="48"> | fnosnassign | v1.0.0 | all | 11.51 MB | <p>飞牛club签到是一款专门为飞牛私有云（FNOS）用户打造的飞牛社区（club.fnnas.com）自动打卡签到工具。</p><ul><li>支持网页Cookie和账号密码快速配置</li><li>支持一键手动测试打卡</li><li>支持每日定时自动签到（Cron任务）</li><li>提供完整的签到日志记录与运行控制</li></ul> |
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-mariaDB12/ICON.PNG" width="48" height="48"> | MariaDB12 | v12.2.2 | all | 85.42 MB | MariaDB 数据库服务器 12.2 版本，专为飞牛 fnOS 优化的原生应用。支持自定义端口并运行于系统分区。 |
-| <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-mediaplayer/ICON.PNG" width="48" height="48"> | mediaplayer | v1.0.86 | all | 12.93 MB | <b>MediaPlayer</b> 智能电视流媒体中心，致力于将海量、杂乱的 M3U 直播源和 EPG 电子节目单，转化为如同“有线电视”一般顺滑、有组织的观影体验。通过引入强悍的服务端鉴权与代理机制，让您的直播源从此告别被盗链、被抓包的风险。<br/><br/><b>⚡ 核心功能</b><br/>📝 <b>极致的安全防御（防盗链）</b><br/>🏷️ <b>强大的多端设备管控 </b><br/>🔄 <b>大屏沉浸式体验</b><br/>📌 <b>全能订阅托管与频道整理</b><br/>📥 <b>客户端下载：</b><br/> 1、<b><a href="https://mediaplayere.laokhome.cn" >客户端下载MediaPlayer</a> </b><br/> |
+| <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-mediaplayer/ICON.PNG" width="48" height="48"> | mediaplayer | v1.0.86 | all | 13.04 MB | <b>MediaPlayer</b> 智能电视流媒体中心，致力于将海量、杂乱的 M3U 直播源和 EPG 电子节目单，转化为如同“有线电视”一般顺滑、有组织的观影体验。通过引入强悍的服务端鉴权与代理机制，让您的直播源从此告别被盗链、被抓包的风险。<br/><br/><b>⚡ 核心功能</b><br/>📝 <b>极致的安全防御（防盗链）</b><br/>🏷️ <b>强大的多端设备管控 </b><br/>🔄 <b>大屏沉浸式体验</b><br/>📌 <b>全能订阅托管与频道整理</b><br/>📥 <b>客户端下载：</b><br/> 1、<b><a href="https://mediaplayere.laokhome.cn" >客户端下载MediaPlayer</a> </b><br/> |
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-mytvAdmin/ICON.PNG" width="48" height="48"> | mytvadmin | v3.1.8 | all | 0.04 MB | 一个聚合播放源管理及客户端授权管理系统。 |
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-notepad/ICON.PNG" width="48" height="48"> | notepad | v1.0.4 | all | 8.45 MB | <p>便签记事本是一款简约记事本应用。</p><ul><li>支持毛玻璃质感，美观大方</li><li>支持颜色分类，快速记录</li><li>支持按日期管理备忘事项</li></ul> |
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-php8.2/ICON.PNG" width="48" height="48"> | php8.2 | v1.0.1 | all | 15.23 MB | 为飞牛系统环境提供底层 PHP 8.2 与扩展插件的离线部署及一体化参数管理，搭载精美的界面供高级开发调整各项核心参数、上传限制和加速控制。 |
@@ -27,7 +27,7 @@
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-video_transfer/ICON.PNG" width="48" height="48"> | video_transfer | v1.0.1 | x86 | 0.38 MB | 一个基于 FFmpeg 和 FastAPI 的高性能视频转码服务。支持多种格式互转，集成 NVIDIA CUDA、Intel QSV 和 VAAPI 硬件加速功能。提供直观的 Web 界面用于任务管理、进度监控和文件处理，并支持用户认证与权限管理。 |
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-xlist-strm/ICON.PNG" width="48" height="48"> | xlist-strm | v1.0.0 | all | 0.02 MB | XList Strm 是一个用于获取alist/openlist strm文件的容器。 |
 
-![](https://img.shields.io/github/downloads/Brian099/fn_fpk_packages/2026.06.29-1859/total)
+![](https://img.shields.io/github/downloads/Brian099/fn_fpk_packages/2026.06.30-1721/total)
 
 <!-- APPS_LIST_END -->
 
