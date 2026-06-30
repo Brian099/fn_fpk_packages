@@ -763,6 +763,16 @@
               </select>
             </div>
           </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>FCC 公网 IP (可选)</label>
+              <input type="text" id="set-fcc-public-ip" placeholder="例: 123.45.67.89 或 ddns.example.com 或 auto">
+              <div style="font-size:11px;color:var(--text2);margin-top:4px">
+                如果服务器在内网(NAT后)，需要填写路由器的公网IP或DDNS域名。<br>
+                填写 <code>auto</code> 可自动检测公网IP（需要服务器能访问外网）。
+              </div>
+            </div>
+          </div>
           <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
           <div class="form-group"
             style="background: rgba(220, 38, 38, 0.05); border: 1px dashed var(--danger); padding: 16px; border-radius: var(--radius);">

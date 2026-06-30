@@ -1626,6 +1626,9 @@ async function loadClientSettings() {
       document.getElementById('set-fcc-port-end').value = setRes.data.fcc_port_end || '40050';
       document.getElementById('set-fcc-default-server').value = setRes.data.fcc_default_server || '';
       document.getElementById('set-fcc-type').value = setRes.data.fcc_type || 'telecom';
+      if (document.getElementById('set-fcc-public-ip')) {
+        document.getElementById('set-fcc-public-ip').value = setRes.data.fcc_public_ip || '';
+      }
     }
 
     // 台标配置
@@ -1723,6 +1726,9 @@ async function saveAllClientSettings() {
     settings.fcc_port_end = document.getElementById('set-fcc-port-end').value;
     settings.fcc_default_server = document.getElementById('set-fcc-default-server').value.trim();
     settings.fcc_type = document.getElementById('set-fcc-type').value;
+    if (document.getElementById('set-fcc-public-ip')) {
+      settings.fcc_public_ip = document.getElementById('set-fcc-public-ip').value.trim();
+    }
   }
 
   if (document.getElementById('set-logo-strategy')) {
