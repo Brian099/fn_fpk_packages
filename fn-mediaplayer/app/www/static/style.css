@@ -155,3 +155,19 @@ input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; c
 .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
 input:checked + .slider { background-color: #5fb878; }
 input:checked + .slider:before { transform: translateX(16px); }
+
+/* ── Drag & Drop Sort ── */
+.drag-handle{cursor:grab;color:var(--text2);font-size:16px;user-select:none;padding:4px;display:inline-block;line-height:1}
+.drag-handle:active{cursor:grabbing}
+.sortable-ghost{opacity:.4;background:rgba(22,186,170,.08)}
+.sortable-chosen{box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.sortable-drag{background:var(--bg2)}
+tr.no-drag .drag-handle{cursor:default;opacity:.3;pointer-events:none}
+
+/* ── Plan Group Tags ── */
+.plan-group-tag{transition:all .2s ease}
+.plan-group-tag:hover{opacity:.9;transform:scale(1.02)}
+.plan-group-tag .plan-group-remove{cursor:pointer;font-size:14px;opacity:.7;transition:opacity .2s}
+.plan-group-tag .plan-group-remove:hover{opacity:1}
+.plan-group-tag-unselected{transition:all .2s ease}
+.plan-group-tag-unselected:hover{background:var(--accent)!important;color:#fff!important}

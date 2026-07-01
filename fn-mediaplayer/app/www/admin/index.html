@@ -219,6 +219,10 @@
         <div class="header">
           <h1>频道管理</h1>
           <div class="search">
+            <button class="btn btn-primary btn-sm" id="btn-save-channel-sort" style="display:none;background:#ff9800;border-color:#ff9800" onclick="saveChannelOrder()">💾 保存排序</button>
+            <select id="channel-source-filter" onchange="filterChannelsBySource(this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg2);color:var(--text)">
+              <option value="">全部来源</option>
+            </select>
             <input type="text" placeholder="搜索频道..." id="channel-search" oninput="searchChannels()">
             <button class="btn btn-ghost" id="btn-health-check" onclick="showModal('health-check-modal')"
               style="background:var(--accent);color:white;border:none;">健康检查</button>
@@ -231,9 +235,11 @@
             <thead>
               <tr>
                 <th width="40"><input type="checkbox" id="check-all-channels" onchange="toggleAllChannels(this)"></th>
+                <th width="40"></th>
                 <th width="60">序号</th>
                 <th>台标</th>
                 <th>名称</th>
+                <th>排序</th>
                 <th>EPG匹配ID</th>
                 <th>分组</th>
                 <th>来源</th>
@@ -258,6 +264,7 @@
         <div class="header">
           <h1>分组管理</h1>
           <div class="search">
+            <button class="btn btn-primary btn-sm" id="btn-save-sort" style="display:none;background:#ff9800;border-color:#ff9800" onclick="saveGroupOrder()">💾 保存排序</button>
             <input type="text" placeholder="搜索分组..." id="group-search" oninput="searchGroups()">
             <button class="btn btn-danger btn-sm" onclick="showModal('group-batch-modal')">批量操作</button>
             <button class="btn btn-primary" onclick="showAddGroupModal()">+ 添加分组</button>
@@ -268,6 +275,7 @@
             <thead>
               <tr>
                 <th width="40"><input type="checkbox" id="check-all-groups" onchange="toggleAllGroups(this)"></th>
+                <th width="40"></th>
                 <th width="60">序号</th>
                 <th>名称</th>
                 <th>排序</th>
@@ -482,6 +490,16 @@
               服务器授权与网络配置
             </h3>
 
+            <!-- 服务器名称配置 -->
+            <div class="form-group" style="margin-bottom: 16px;">
+              <label style="color: var(--text); font-weight: 500; font-size: 13px;">服务器名称</label>
+              <input type="text" id="set-server-name" placeholder="例如：我的电视服务器 (留空则客户端不显示)"
+                maxlength="20" style="height: 38px; margin-top: 6px;"
+                oninput="this.value=this.value.replace(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/g,'')">
+              <div style="font-size: 11px; color: var(--text2); margin-top: 4px;">
+                最多 20 个字符，仅支持中文、英文、数字、空格。留空时客户端不显示服务器名称。</div>
+            </div>
+
             <!-- 服务器域名/地址配置 -->
             <div class="form-group" style="margin-bottom: 16px;">
               <label style="color: var(--text); font-weight: 500; font-size: 13px;">自定义服务器外网域名/地址 (Server URL)</label>
@@ -539,6 +557,22 @@
               开启后，可在套餐管理页面复制 M3U/TXT 订阅地址，分享给用户导入第三方播放器（如 VLC、Tivimate 等）直接使用，<strong
                 style="color:var(--accent)">无需开启开发调试模式</strong>。
               订阅地址内的代理流链接采用专属验证参数，仅允许通过套餐订阅 Token 鉴权，不会影响普通设备 Token 的安全边界。
+            </div>
+          </div>
+          <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
+
+          <div class="form-group">
+            <h3 style="margin-bottom: 12px;">频道源配置</h3>
+          </div>
+          <div class="form-group">
+            <label>允许本地文件路径</label>
+            <select id="set-allow-local-file">
+              <option value="false">关闭 (仅允许网络地址)</option>
+              <option value="true">开启 (允许本地文件、FTP、WebDAV)</option>
+            </select>
+            <div style="font-size:11px;color:var(--text2);margin-top:4px">
+              开启后，添加频道时可使用本地文件路径（如 <code>/vol1/media/video.mp4</code>）、<code>file://</code>、<code>ftp://</code>、<code>webdav://</code> 等协议。
+              <strong style="color:#ff6b6b;">注意：请确保服务器有对应文件的访问权限。</strong>
             </div>
           </div>
           <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
@@ -1035,6 +1069,7 @@
             <option value="huawei">华为 (Huawei UDP)</option>
           </select>
         </div>
+        <div class="form-group"><label>排序</label><input type="number" id="ch-sort" value="0" placeholder="数字越小越靠前"></div>
         <div class="form-actions">
           <button class="btn btn-ghost" onclick="hideModal('channel-modal')">取消</button>
           <button class="btn btn-primary" onclick="saveChannel()">保存</button>
@@ -1275,9 +1310,19 @@
         </div>
         <div class="form-group">
           <label>关联频道分组 <span
-              style="font-size:12px;color:var(--text2);font-weight:normal;">(不勾选则没有任何频道的访问权限)</span></label>
+              style="font-size:12px;color:var(--text2);font-weight:normal;">(不勾选则没有任何频道的访问权限，已选分组可拖拽排序)</span></label>
+          <div style="margin-bottom: 6px;">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleAllPlanGroups(true)">全选</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleAllPlanGroups(false)" style="margin-left:4px;">取消全选</button>
+          </div>
+          <div id="plan-groups-selected-container"
+            style="min-height:40px;margin-bottom:10px;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg1);max-height:200px;overflow-y:auto;">
+            <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">已选分组（可拖拽排序）</div>
+            <div id="plan-groups-selected" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+          </div>
           <div id="plan-groups-container"
             style="display:flex;flex-wrap:wrap;gap:10px;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg1);max-height:200px;overflow-y:auto;">
+            <div style="font-size:12px;color:var(--text2);margin-bottom:6px;width:100%;">未选分组</div>
           </div>
         </div>
         <div class="modal-footer">
@@ -1314,6 +1359,8 @@
       <div class="loading-spinner"></div><span>加载中...</span>
     </div>
 
+    <!-- <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script> -->
+    <script src="/static/Sortable.min.js"></script>
     <script src="/static/app.js"></script>
 </body>
 

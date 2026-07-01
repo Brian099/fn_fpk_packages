@@ -225,7 +225,7 @@ function showSection(name, el) {
 
   const loaders = {
     dashboard: loadDashboard,
-    channels: loadChannels,
+    channels: () => { loadChannels(); loadChannelSources(); },
     groups: loadGroups,
     plans: loadPlans,
     sources: loadSources,
@@ -310,17 +310,20 @@ let channelTotal = 0;
 
 let currentChannelSearch = '';
 let currentChannelGroupId = 0;
+let currentChannelSource = '';
 let currentMuxSupport = null;
 
-async function loadChannels(search = currentChannelSearch, groupId = currentChannelGroupId, muxSupport = currentMuxSupport) {
+async function loadChannels(search = currentChannelSearch, groupId = currentChannelGroupId, source = currentChannelSource, muxSupport = currentMuxSupport) {
   currentChannelSearch = search;
   currentChannelGroupId = groupId;
+  currentChannelSource = source;
   currentMuxSupport = muxSupport;
   const gen = nextGen('channels');
 
   let q = `?page=${channelPage}&page_size=${PAGE_SIZE}`;
   if (search) q += `&search=${encodeURIComponent(search)}`;
   if (groupId > 0) q += `&group_id=${groupId}`;
+  if (source) q += `&source=${encodeURIComponent(source)}`;
   if (muxSupport !== null) q += `&mux_support=${muxSupport}`;
 
   const [chRes, grpRes] = await Promise.all([api('/channels' + q), api('/groups', { cache: 'no-store' })]).catch(() => []);
@@ -333,7 +336,7 @@ async function loadChannels(search = currentChannelSearch, groupId = currentChan
     channelTotal = chRes.data.total || 0;
     if (chRes.data.items.length === 0 && channelPage > 1) {
       channelPage--;
-      loadChannels(search, groupId, currentMuxSupport);
+      loadChannels(search, groupId, source, currentMuxSupport);
       return;
     }
     body.innerHTML = chRes.data.items.map((c, i) => {
@@ -345,11 +348,13 @@ async function loadChannels(search = currentChannelSearch, groupId = currentChan
           logoHtml = `<img src="${c.logo}" loading="lazy" style="max-width:40px;max-height:24px;border-radius:2px;vertical-align:middle;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><span style="display:none;color:#999">-</span>`;
         }
       }
-      return `<tr>
+      return `<tr data-id="${c.id}" data-source="${esc(c.source || '手动')}" data-group-id="${c.group_id}">
       <td><input type="checkbox" class="ch-check" value="${c.id}" onchange="updateSelectedChannels()"></td>
+      <td><span class="drag-handle" title="拖拽排序">⠿</span></td>
       <td style="color:var(--text3)">${(channelPage - 1) * PAGE_SIZE + i + 1}</td>
       <td>${logoHtml}</td>
       <td><strong class="text-ellipsis" title="${esc(c.name)}">${esc(c.name)}</strong></td>
+      <td style="color:var(--text3)">${c.sort_order}</td>
       <td>${c.epg_channel_id ? esc(c.epg_channel_id) : '<span style="color:#999">-</span>'}</td>
       <td>${gm[c.group_id] || '-'}</td>
       <td><span style="font-size:12px;color:var(--text2);background:var(--surface);padding:2px 6px;border-radius:4px">${esc(c.source || '手动')}</span></td>
@@ -399,6 +404,7 @@ async function loadChannels(search = currentChannelSearch, groupId = currentChan
   const chTotalPages = Math.max(1, Math.ceil(channelTotal / PAGE_SIZE));
   renderPagination('channels-pagination', channelPage, chTotalPages, 'channelGoToPage');
   document.getElementById('channels-info').textContent = `共 ${channelTotal} 个频道`;
+  initChannelSort();
 
   // 每次加载频道列表时，触发一次状态轮询
   pollHealthCheckStatus();
@@ -480,8 +486,10 @@ function searchChannels() {
   clearTimeout(window._st);
   window._st = setTimeout(() => {
     channelPage = 1;
-    currentChannelGroupId = 0; // Reset group filter on new text search
+    currentChannelGroupId = 0;
+    currentChannelSource = '';
     currentMuxSupport = null;
+    document.getElementById('channel-source-filter').value = '';
     loadChannels(document.getElementById('channel-search').value);
   }, 300);
 }
@@ -491,9 +499,10 @@ function filterChannelsByGroup(groupId, groupName, sourceName) {
   currentChannelGroupId = groupId;
   currentMuxSupport = null;
   currentChannelSearch = '';
+  currentChannelSource = '';
   document.getElementById('channel-search').value = '';
+  document.getElementById('channel-source-filter').value = '';
   showSection('channels');
-  // Highlight the group name in search bar placeholder or show a toast
   document.getElementById('channel-search').placeholder = `已过滤: [${sourceName}] ${groupName} ...`;
   loadChannels();
 }
@@ -503,11 +512,98 @@ function filterChannelsByGroupMux(groupId, groupName, sourceName, muxSupport) {
   currentChannelGroupId = groupId;
   currentMuxSupport = muxSupport;
   currentChannelSearch = '';
+  currentChannelSource = '';
   document.getElementById('channel-search').value = '';
+  document.getElementById('channel-source-filter').value = '';
   showSection('channels');
   let muxDesc = muxSupport === 1 ? '支持复用' : '不支持复用';
   document.getElementById('channel-search').placeholder = `已过滤: [${sourceName}] ${groupName} (${muxDesc}) ...`;
   loadChannels();
+}
+
+function filterChannelsBySource(source) {
+  channelPage = 1;
+  currentChannelSource = source;
+  document.getElementById('channel-search').value = '';
+  loadChannels();
+}
+
+// ── 频道来源筛选下拉框加载 ──
+async function loadChannelSources() {
+  try {
+    const res = await api('/admin/channels/sources', { silent: true });
+    if (res && res.data) {
+      const select = document.getElementById('channel-source-filter');
+      if (select) {
+        const currentVal = select.value;
+        select.innerHTML = '<option value="">全部来源</option>' +
+          res.data.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+        select.value = currentVal;
+      }
+    }
+  } catch (e) { /* ignore */ }
+}
+
+// ── 频道拖拽排序 ──
+function initChannelSort() {
+  const tbody = document.getElementById('channels-body');
+  if (!tbody || typeof Sortable === 'undefined') return;
+  if (window._channelSortable) { window._channelSortable.destroy(); window._channelSortable = null; }
+  // 搜索状态下不初始化拖拽
+  const searchVal = document.getElementById('channel-search')?.value.trim();
+  if (searchVal) return;
+  window._channelSortable = new Sortable(tbody, {
+    handle: '.drag-handle',
+    animation: 150,
+    onMove: function(evt) {
+      // 只允许在同一来源+分组内拖拽
+      const dragged = evt.dragged;
+      const related = evt.related;
+      return dragged.dataset.source === related.dataset.source
+          && dragged.dataset.groupId === related.dataset.groupId;
+    },
+    onEnd: function(evt) {
+      // 记录被拖拽的来源+分组
+      window._draggedSource = evt.item.dataset.source;
+      window._draggedGroupId = evt.item.dataset.groupId;
+      document.getElementById('btn-save-channel-sort').style.display = 'inline-block';
+    }
+  });
+}
+
+async function saveChannelOrder() {
+  const tbody = document.getElementById('channels-body');
+  const rows = tbody.querySelectorAll('tr');
+  const draggedSource = window._draggedSource;
+  const draggedGroupId = window._draggedGroupId;
+  const items = [];
+  let index = 0;
+  rows.forEach((row) => {
+    const id = parseInt(row.getAttribute('data-id'));
+    if (isNaN(id)) return;
+    // 只保存被拖拽的来源+分组块
+    if (row.dataset.source === draggedSource && row.dataset.groupId === draggedGroupId) {
+      items.push({ id: id, sort_order: index });
+      index++;
+    }
+  });
+  if (items.length === 0) return;
+  try {
+    await api('/admin/channels/sort', {
+      method: 'PUT',
+      body: JSON.stringify({
+        items: items,
+        group_id: currentChannelGroupId || 0,
+        source: currentChannelSource || ''
+      })
+    });
+    toast('排序已保存');
+    document.getElementById('btn-save-channel-sort').style.display = 'none';
+    loadChannels();
+  } catch (e) {
+    toast('保存排序失败: ' + (e.message || e), 'error');
+    loadChannels();
+  }
 }
 
 function showAddChannelModal() {
@@ -529,6 +625,7 @@ function showAddChannelModal() {
   document.getElementById('ch-headers').value = '';
   document.getElementById('ch-fcc').value = '';
   document.getElementById('ch-fcc-type').value = '';
+  document.getElementById('ch-sort').value = '0';
   showModal('channel-modal');
 }
 
@@ -546,7 +643,8 @@ async function saveChannel() {
     user_agent: document.getElementById('ch-user-agent').value,
     custom_headers: document.getElementById('ch-headers').value,
     fcc: document.getElementById('ch-fcc').value,
-    fcc_type: document.getElementById('ch-fcc-type').value
+    fcc_type: document.getElementById('ch-fcc-type').value,
+    sort_order: parseInt(document.getElementById('ch-sort').value) || 0
   };
   if (!d.name || !d.stream_url) { toast('请填写名称和流地址', 'error'); return; }
   if (d.custom_headers) {
@@ -582,6 +680,7 @@ async function editChannel(id) {
   document.getElementById('ch-headers').value = c.custom_headers || '';
   document.getElementById('ch-fcc').value = c.fcc || '';
   document.getElementById('ch-fcc-type').value = c.fcc_type || '';
+  document.getElementById('ch-sort').value = c.sort_order || 0;
   document.getElementById('channel-modal-title').textContent = '编辑频道';
   showModal('channel-modal');
 }
@@ -668,8 +767,11 @@ async function loadGroups() {
 
   document.getElementById('groups-body').innerHTML = items.map((g, i) => {
     const isDefault = g.name === '未分类' && (!g.source || g.source === '手动');
-    return `<tr>
+    const rowClass = isDefault ? 'no-drag' : '';
+    const dragHandle = isDefault ? '<span style="color:var(--text2);font-size:11px">锁定</span>' : '<span class="drag-handle" title="拖拽排序">⠿</span>';
+    return `<tr data-id="${g.id}" class="${rowClass}">
     <td>${isDefault ? '' : `<input type="checkbox" class="group-check" value="${g.id}" onchange="updateSelectedGroups()">`}</td>
+    <td>${dragHandle}</td>
     <td style="color:var(--text3)">${(groupPage - 1) * PAGE_SIZE + i + 1}</td><td>${esc(g.name)}</td><td>${g.sort_order}</td>
     <td><span style="font-size:12px;color:var(--text2);background:var(--surface);padding:2px 6px;border-radius:4px">${esc(g.source || '手动')}</span></td>
     <td><label class="switch" style="transform: scale(0.8); margin: 0">
@@ -694,13 +796,72 @@ async function loadGroups() {
   const grpTotalPages = Math.max(1, Math.ceil(groupTotal / PAGE_SIZE));
   renderPagination('groups-pagination', groupPage, grpTotalPages, 'groupGoToPage');
   document.getElementById('groups-info').textContent = `共 ${groupTotal} 个分组`;
+  initGroupSort();
 }
 
 function groupGoToPage(p) {
   const grpTotalPages = Math.max(1, Math.ceil(groupTotal / PAGE_SIZE));
   if (p >= 1 && p <= grpTotalPages) { groupPage = p; loadGroups(); }
 }
-function searchGroups() { clearTimeout(window._gt); window._gt = setTimeout(() => { groupPage = 1; loadGroups(); }, 300); }
+function searchGroups() {
+  clearTimeout(window._gt);
+  window._gt = setTimeout(() => {
+    groupPage = 1;
+    loadGroups();
+    // 搜索时禁用拖拽，清空搜索后恢复
+    const searchVal = document.getElementById('group-search').value.trim();
+    if (searchVal && window._groupSortable) {
+      window._groupSortable.option('disabled', true);
+    }
+  }, 300);
+}
+
+// ── 分组拖拽排序 ──
+function initGroupSort() {
+  const tbody = document.getElementById('groups-body');
+  if (!tbody || typeof Sortable === 'undefined') return;
+  if (window._groupSortable) { window._groupSortable.destroy(); window._groupSortable = null; }
+  // 搜索状态下不初始化拖拽
+  const searchVal = document.getElementById('group-search')?.value.trim();
+  if (searchVal) return;
+  window._groupSortable = new Sortable(tbody, {
+    handle: '.drag-handle',
+    animation: 150,
+    filter: '.no-drag',
+    onEnd: function() {
+      document.getElementById('btn-save-sort').style.display = 'inline-block';
+    }
+  });
+}
+
+async function saveGroupOrder() {
+  const tbody = document.getElementById('groups-body');
+  const rows = tbody.querySelectorAll('tr');
+  const items = [];
+  rows.forEach((row, i) => {
+    const id = parseInt(row.getAttribute('data-id'));
+    if (!isNaN(id) && !row.classList.contains('no-drag')) {
+      items.push({ id: id, sort_order: (groupPage - 1) * PAGE_SIZE + i });
+    }
+  });
+  // "未分类" 固定 sort_order = 99999
+  rows.forEach(row => {
+    if (row.classList.contains('no-drag')) {
+      const id = parseInt(row.getAttribute('data-id'));
+      if (!isNaN(id)) items.push({ id: id, sort_order: 99999 });
+    }
+  });
+  if (items.length === 0) return;
+  try {
+    await api('/admin/groups/sort', { method: 'PUT', body: JSON.stringify({ items }) });
+    toast('排序已保存');
+    document.getElementById('btn-save-sort').style.display = 'none';
+    loadGroups();
+  } catch (e) {
+    toast('保存排序失败: ' + (e.message || e), 'error');
+    loadGroups();
+  }
+}
 
 function toggleAllGroups(el) {
   document.querySelectorAll('.group-check').forEach(cb => { cb.checked = el.checked; });
@@ -1256,12 +1417,32 @@ function planGoToPage(p) {
   if (p >= 1 && p <= totalPages) { planPage = p; renderPlansTable(); }
 }
 
+function toggleAllPlanGroups(selectAll) {
+  if (selectAll) {
+    // 全选：将所有未选分组移到已选列表
+    const unselectedContainer = document.getElementById('plan-groups-container');
+    const unselectedTags = unselectedContainer.querySelectorAll('.plan-group-tag-unselected');
+    unselectedTags.forEach(tag => {
+      const groupId = parseInt(tag.getAttribute('data-id'));
+      addPlanGroup(groupId);
+    });
+  } else {
+    // 取消全选：将所有已选分组移到未选列表
+    const selectedContainer = document.getElementById('plan-groups-selected');
+    const selectedTags = selectedContainer.querySelectorAll('.plan-group-tag');
+    selectedTags.forEach(tag => {
+      const groupId = parseInt(tag.getAttribute('data-id'));
+      removePlanGroup(groupId);
+    });
+  }
+}
+
 async function savePlan() {
   const id = document.getElementById('plan-edit-id').value;
 
-  // Collect selected groups
-  const checkboxes = document.querySelectorAll('#plan-groups-container input[type="checkbox"]:checked');
-  const groupIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+  // Collect selected groups (in order from sortable)
+  const selectedTags = document.querySelectorAll('#plan-groups-selected .plan-group-tag');
+  const groupIds = Array.from(selectedTags).map(tag => parseInt(tag.getAttribute('data-id')));
 
   const d = {
     name: document.getElementById('plan-name').value,
@@ -1290,16 +1471,59 @@ async function editPlan(id) {
     if (found) p = found;
   }
 
-  // Render checkboxes
-  const container = document.getElementById('plan-groups-container');
-  container.innerHTML = groups.map(g => {
-    const isChecked = p.group_ids && p.group_ids.includes(g.id);
-    const sourceTag = g.source && g.source !== '手动' ? ` <span style="font-size:11px;color:var(--text2)">(${esc(g.source)})</span>` : '';
-    return `<label style="display:flex;align-items:center;gap:5px;cursor:pointer;background:var(--bg2);padding:4px 10px;border-radius:4px;">
-      <input type="checkbox" value="${g.id}" ${isChecked ? 'checked' : ''}>
+  // 分离已选和未选分组，保持已选分组的顺序
+  const selectedGroups = [];
+  const unselectedGroups = [];
+  const selectedIds = new Set(p.group_ids || []);
+  
+  // 按照 group_ids 的顺序添加已选分组
+  for (const gid of (p.group_ids || [])) {
+    const g = groups.find(x => x.id === gid);
+    if (g) selectedGroups.push(g);
+  }
+  // 添加未选分组
+  for (const g of groups) {
+    if (!selectedIds.has(g.id)) unselectedGroups.push(g);
+  }
+
+  // 渲染已选分组（可拖拽）
+  const selectedContainer = document.getElementById('plan-groups-selected');
+  selectedContainer.innerHTML = selectedGroups.map(g => {
+    const source = g.source && g.source !== '手动' ? g.source : '';
+    const sourceTag = source ? ` <span style="font-size:11px;opacity:0.7">(${esc(source)})</span>` : '';
+    return `<div class="plan-group-tag" data-id="${g.id}" data-name="${esc(g.name)}"${source ? ` data-source="${esc(source)}"` : ''} style="display:flex;align-items:center;gap:5px;cursor:grab;background:var(--accent);color:#fff;padding:4px 10px;border-radius:4px;user-select:none;">
+      <span style="cursor:pointer;font-size:14px;" onclick="removePlanGroup(${g.id})">✕</span>
       ${esc(g.name)}${sourceTag}
-    </label>`;
+    </div>`;
   }).join('');
+
+  // 渲染未选分组
+  const unselectedContainer = document.getElementById('plan-groups-container');
+  const unselectedHeader = unselectedContainer.querySelector('div:first-child');
+  unselectedContainer.innerHTML = '';
+  if (unselectedHeader) unselectedContainer.appendChild(unselectedHeader);
+  unselectedGroups.forEach(g => {
+    const source = g.source && g.source !== '手动' ? g.source : '';
+    const sourceTag = source ? ` <span style="font-size:11px;opacity:0.7">(${esc(source)})</span>` : '';
+    const tag = document.createElement('div');
+    tag.className = 'plan-group-tag-unselected';
+    tag.setAttribute('data-id', g.id);
+    tag.setAttribute('data-name', g.name);
+    if (source) tag.setAttribute('data-source', source);
+    tag.style.cssText = 'display:flex;align-items:center;gap:5px;cursor:pointer;background:var(--bg2);padding:4px 10px;border-radius:4px;';
+    tag.innerHTML = `<span style="font-size:14px;">+</span> ${esc(g.name)}${sourceTag}`;
+    tag.onclick = () => addPlanGroup(g.id);
+    unselectedContainer.appendChild(tag);
+  });
+
+  // 初始化拖拽排序
+  if (window.planGroupsSortable) {
+    window.planGroupsSortable.destroy();
+  }
+  window.planGroupsSortable = new Sortable(selectedContainer, {
+    animation: 150,
+    ghostClass: 'sortable-ghost'
+  });
 
   document.getElementById('plan-edit-id').value = id || '';
   document.getElementById('plan-name').value = p.name;
@@ -1328,6 +1552,59 @@ async function editPlan(id) {
   }
 
   showModal('plan-modal');
+}
+
+// 添加分组到已选列表
+function addPlanGroup(groupId) {
+  const selectedContainer = document.getElementById('plan-groups-selected');
+  const unselectedContainer = document.getElementById('plan-groups-container');
+  
+  // 从未选列表移除
+  const unselectedTag = unselectedContainer.querySelector(`[data-id="${groupId}"]`);
+  if (unselectedTag) {
+    const gName = unselectedTag.getAttribute('data-name') || '';
+    const source = unselectedTag.getAttribute('data-source') || '';
+    const sourceTag = source ? ` <span style="font-size:11px;opacity:0.7">(${esc(source)})</span>` : '';
+    
+    // 添加到已选列表
+    const tag = document.createElement('div');
+    tag.className = 'plan-group-tag';
+    tag.setAttribute('data-id', groupId);
+    tag.setAttribute('data-name', gName);
+    if (source) tag.setAttribute('data-source', source);
+    tag.style.cssText = 'display:flex;align-items:center;gap:5px;cursor:grab;background:var(--accent);color:#fff;padding:4px 10px;border-radius:4px;user-select:none;';
+    tag.innerHTML = `<span style="cursor:pointer;font-size:14px;" onclick="removePlanGroup(${groupId})">✕</span> ${esc(gName)}${sourceTag}`;
+    selectedContainer.appendChild(tag);
+    
+    unselectedTag.remove();
+  }
+}
+
+// 从已选列表移除分组
+function removePlanGroup(groupId) {
+  const selectedContainer = document.getElementById('plan-groups-selected');
+  const unselectedContainer = document.getElementById('plan-groups-container');
+  
+  // 从已选列表移除
+  const selectedTag = selectedContainer.querySelector(`[data-id="${groupId}"]`);
+  if (selectedTag) {
+    const gName = selectedTag.getAttribute('data-name') || '';
+    const source = selectedTag.getAttribute('data-source') || '';
+    const sourceTag = source ? ` <span style="font-size:11px;opacity:0.7">(${esc(source)})</span>` : '';
+    
+    // 添加到未选列表
+    const tag = document.createElement('div');
+    tag.className = 'plan-group-tag-unselected';
+    tag.setAttribute('data-id', groupId);
+    tag.setAttribute('data-name', gName);
+    if (source) tag.setAttribute('data-source', source);
+    tag.style.cssText = 'display:flex;align-items:center;gap:5px;cursor:pointer;background:var(--bg2);padding:4px 10px;border-radius:4px;';
+    tag.innerHTML = `<span style="font-size:14px;">+</span> ${esc(gName)}${sourceTag}`;
+    tag.onclick = () => addPlanGroup(groupId);
+    unselectedContainer.appendChild(tag);
+    
+    selectedTag.remove();
+  }
 }
 
 async function deletePlan(id) {
@@ -1642,6 +1919,9 @@ async function loadClientSettings() {
     }
 
     // 服务器网络配置
+    if (document.getElementById('set-server-name')) {
+      document.getElementById('set-server-name').value = setRes.data.server_name || '';
+    }
     if (document.getElementById('set-enable-external-sub')) {
       const isExternalSub = setRes.data.enable_external_sub || 'false';
       enableExternalSubSetting = isExternalSub;
@@ -1654,6 +1934,11 @@ async function loadClientSettings() {
     if (document.getElementById('set-server-backup-urls')) {
       serverBackupUrlsSetting = setRes.data.server_backup_urls || '';
       document.getElementById('set-server-backup-urls').value = serverBackupUrlsSetting;
+    }
+
+    // 本地文件路径开关
+    if (document.getElementById('set-allow-local-file')) {
+      document.getElementById('set-allow-local-file').value = setRes.data.allow_local_file || 'false';
     }
   }
 
@@ -1686,7 +1971,16 @@ async function loadClientSettings() {
 }
 
 async function saveAllClientSettings() {
+  // 服务器名称验证：只允许中文、英文、数字、空格，最多20字符
+  let serverName = '';
+  if (document.getElementById('set-server-name')) {
+    serverName = document.getElementById('set-server-name').value.trim();
+    serverName = serverName.replace(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/g, '').substring(0, 20);
+    document.getElementById('set-server-name').value = serverName;
+  }
+
   const settings = {
+    server_name: serverName,
     enable_external_sub: document.getElementById('set-enable-external-sub').value,
     server_url: document.getElementById('set-server-url').value.trim(),
     server_backup_urls: document.getElementById('set-server-backup-urls') ? document.getElementById('set-server-backup-urls').value.trim() : '',
@@ -1734,6 +2028,11 @@ async function saveAllClientSettings() {
   if (document.getElementById('set-logo-strategy')) {
     settings.logo_strategy = document.getElementById('set-logo-strategy').value;
     settings.local_logo_urls = document.getElementById('set-local-logo-urls').value.trim();
+  }
+
+  // 本地文件路径开关
+  if (document.getElementById('set-allow-local-file')) {
+    settings.allow_local_file = document.getElementById('set-allow-local-file').value;
   }
 
   for (const [k, v] of Object.entries(settings)) {
