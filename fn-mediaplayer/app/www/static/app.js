@@ -574,17 +574,12 @@ function initChannelSort() {
 async function saveChannelOrder() {
   const tbody = document.getElementById('channels-body');
   const rows = tbody.querySelectorAll('tr');
-  const draggedSource = window._draggedSource;
-  const draggedGroupId = window._draggedGroupId;
   const items = [];
-  let index = 0;
-  rows.forEach((row) => {
+  // 使用行的全局索引，和分组排序逻辑一致
+  rows.forEach((row, i) => {
     const id = parseInt(row.getAttribute('data-id'));
-    if (isNaN(id)) return;
-    // 只保存被拖拽的来源+分组块
-    if (row.dataset.source === draggedSource && row.dataset.groupId === draggedGroupId) {
-      items.push({ id: id, sort_order: index });
-      index++;
+    if (!isNaN(id)) {
+      items.push({ id: id, sort_order: (channelPage - 1) * PAGE_SIZE + i });
     }
   });
   if (items.length === 0) return;
