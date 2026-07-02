@@ -7,7 +7,7 @@ let groups = [], selectedClientIds = new Set(), selectedGroupIds = new Set();
 let adminToken = localStorage.getItem('admin_token') || '';
 let masterStatusInterval = null;
 let channelPage = 1, clientPage = 1, groupPage = 1, sourcePage = 1, streamPage = 1, planPage = 1, clientLogPage = 1;
-const PAGE_SIZE = 20;
+let channelPageSize = 20, clientPageSize = 20, groupPageSize = 20, sourcePageSize = 20, streamPageSize = 20, planPageSize = 20, clientLogPageSize = 20;
 let localLogoEnabled = false;
 let serverUrlSetting = '';
 let serverBackupUrlsSetting = '';
@@ -320,7 +320,7 @@ async function loadChannels(search = currentChannelSearch, groupId = currentChan
   currentMuxSupport = muxSupport;
   const gen = nextGen('channels');
 
-  let q = `?page=${channelPage}&page_size=${PAGE_SIZE}`;
+  let q = `?page=${channelPage}&page_size=${channelPageSize}`;
   if (search) q += `&search=${encodeURIComponent(search)}`;
   if (groupId > 0) q += `&group_id=${groupId}`;
   if (source) q += `&source=${encodeURIComponent(source)}`;
@@ -351,7 +351,7 @@ async function loadChannels(search = currentChannelSearch, groupId = currentChan
       return `<tr data-id="${c.id}" data-source="${esc(c.source || '手动')}" data-group-id="${c.group_id}">
       <td><input type="checkbox" class="ch-check" value="${c.id}" onchange="updateSelectedChannels()"></td>
       <td><span class="drag-handle" title="拖拽排序">⠿</span></td>
-      <td style="color:var(--text3)">${(channelPage - 1) * PAGE_SIZE + i + 1}</td>
+      <td style="color:var(--text3)">${(channelPage - 1) * channelPageSize + i + 1}</td>
       <td>${logoHtml}</td>
       <td><strong class="text-ellipsis" title="${esc(c.name)}">${esc(c.name)}</strong></td>
       <td style="color:var(--text3)">${c.sort_order}</td>
@@ -401,8 +401,8 @@ async function loadChannels(search = currentChannelSearch, groupId = currentChan
 
   document.getElementById('check-all-channels').checked = false;
   document.getElementById('ch-group').innerHTML = groups.map(g => `<option value="${g.id}">${g.name} ${g.source && g.source !== '手动' ? '(' + esc(g.source) + ')' : ''}</option>`).join('');
-  const chTotalPages = Math.max(1, Math.ceil(channelTotal / PAGE_SIZE));
-  renderPagination('channels-pagination', channelPage, chTotalPages, 'channelGoToPage');
+  const chTotalPages = Math.max(1, Math.ceil(channelTotal / channelPageSize));
+  renderPagination('channels-pagination', channelPage, chTotalPages, 'channelGoToPage', channelPageSize);
   document.getElementById('channels-info').textContent = `共 ${channelTotal} 个频道`;
   initChannelSort();
 
@@ -478,7 +478,7 @@ async function pollHealthCheckStatus() {
 }
 
 function channelGoToPage(p) {
-  const chTotalPages = Math.max(1, Math.ceil(channelTotal / PAGE_SIZE));
+  const chTotalPages = Math.max(1, Math.ceil(channelTotal / channelPageSize));
   if (p >= 1 && p <= chTotalPages) { channelPage = p; loadChannels(); }
 }
 
@@ -579,7 +579,7 @@ async function saveChannelOrder() {
   rows.forEach((row, i) => {
     const id = parseInt(row.getAttribute('data-id'));
     if (!isNaN(id)) {
-      items.push({ id: id, sort_order: (channelPage - 1) * PAGE_SIZE + i });
+      items.push({ id: id, sort_order: (channelPage - 1) * channelPageSize + i });
     }
   });
   if (items.length === 0) return;
@@ -735,7 +735,7 @@ let groupTotal = 0;
 
 async function loadGroups() {
   const search = document.getElementById('group-search').value;
-  let q = `?page=${groupPage}&page_size=${PAGE_SIZE}`;
+  let q = `?page=${groupPage}&page_size=${groupPageSize}`;
   if (search) q += '&search=' + encodeURIComponent(search);
 
   const r = await api('/admin/groups' + q);
@@ -769,7 +769,7 @@ async function loadGroups() {
     return `<tr data-id="${g.id}" class="${rowClass}">
     <td>${isDefault ? '' : `<input type="checkbox" class="group-check" value="${g.id}" onchange="updateSelectedGroups()">`}</td>
     <td>${dragHandle}</td>
-    <td style="color:var(--text3)">${(groupPage - 1) * PAGE_SIZE + i + 1}</td><td>${esc(g.name)}</td><td>${g.sort_order}</td>
+    <td style="color:var(--text3)">${(groupPage - 1) * groupPageSize + i + 1}</td><td>${esc(g.name)}</td><td>${g.sort_order}</td>
     <td><span style="font-size:12px;color:var(--text2);background:var(--surface);padding:2px 6px;border-radius:4px">${esc(g.source || '手动')}</span></td>
     <td><label class="switch" style="transform: scale(0.8); margin: 0">
       <input type="checkbox" onchange="toggleGroupDirect(${g.id}, this.checked)" ${g.is_direct !== false ? 'checked' : ''}>
@@ -790,14 +790,14 @@ async function loadGroups() {
     </td>
   </tr>`}).join('');
 
-  const grpTotalPages = Math.max(1, Math.ceil(groupTotal / PAGE_SIZE));
-  renderPagination('groups-pagination', groupPage, grpTotalPages, 'groupGoToPage');
+  const grpTotalPages = Math.max(1, Math.ceil(groupTotal / groupPageSize));
+  renderPagination('groups-pagination', groupPage, grpTotalPages, 'groupGoToPage', groupPageSize);
   document.getElementById('groups-info').textContent = `共 ${groupTotal} 个分组`;
   initGroupSort();
 }
 
 function groupGoToPage(p) {
-  const grpTotalPages = Math.max(1, Math.ceil(groupTotal / PAGE_SIZE));
+  const grpTotalPages = Math.max(1, Math.ceil(groupTotal / groupPageSize));
   if (p >= 1 && p <= grpTotalPages) { groupPage = p; loadGroups(); }
 }
 function searchGroups() {
@@ -838,7 +838,7 @@ async function saveGroupOrder() {
   rows.forEach((row, i) => {
     const id = parseInt(row.getAttribute('data-id'));
     if (!isNaN(id) && !row.classList.contains('no-drag')) {
-      items.push({ id: id, sort_order: (groupPage - 1) * PAGE_SIZE + i });
+      items.push({ id: id, sort_order: (groupPage - 1) * groupPageSize + i });
     }
   });
   // "未分类" 固定 sort_order = 99999
@@ -996,15 +996,15 @@ async function loadSources(silent = false) {
 
 function renderSourcesTable() {
   const total = sourcesList.length;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(total / sourcePageSize));
   if (sourcePage > totalPages) sourcePage = Math.max(1, totalPages);
-  const start = (sourcePage - 1) * PAGE_SIZE;
-  const pageData = sourcesList.slice(start, start + PAGE_SIZE);
+  const start = (sourcePage - 1) * sourcePageSize;
+  const pageData = sourcesList.slice(start, start + sourcePageSize);
 
   const tbody = document.getElementById('sources-body');
   if (pageData.length) {
     tbody.innerHTML = pageData.map((s, i) => `<tr>
-      <td style="color:var(--text3)">${(sourcePage - 1) * PAGE_SIZE + i + 1}</td>
+      <td style="color:var(--text3)">${(sourcePage - 1) * sourcePageSize + i + 1}</td>
       <td><strong>${esc(s.name)}</strong></td>
       <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis" title="${esc(s.url)}">${esc(s.url)}</td>
       <td>${s.auto_sync ? `<span class="badge badge-online">开启 (${s.sync_interval}h)</span>` : '<span class="badge badge-offline">关闭</span>'}</td>
@@ -1023,12 +1023,12 @@ function renderSourcesTable() {
   } else {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:40px">暂无源</td></tr>';
   }
-  renderPagination('sources-pagination', sourcePage, totalPages, 'sourceGoToPage');
+  renderPagination('sources-pagination', sourcePage, totalPages, 'sourceGoToPage', sourcePageSize);
   document.getElementById('sources-info').textContent = `共 ${total} 个源`;
 }
 
 function sourceGoToPage(p) {
-  const totalPages = Math.max(1, Math.ceil(sourcesList.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(sourcesList.length / sourcePageSize));
   if (p >= 1 && p <= totalPages) { sourcePage = p; renderSourcesTable(); }
 }
 
@@ -1151,10 +1151,10 @@ async function loadStreams() {
 
 function renderStreamsTable() {
   const total = streamsList.length;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(total / streamPageSize));
   if (streamPage > totalPages) streamPage = Math.max(1, totalPages);
-  const start = (streamPage - 1) * PAGE_SIZE;
-  const pageData = streamsList.slice(start, start + PAGE_SIZE);
+  const start = (streamPage - 1) * streamPageSize;
+  const pageData = streamsList.slice(start, start + streamPageSize);
 
   const body = document.getElementById('streams-body');
   if (pageData.length) {
@@ -1171,12 +1171,12 @@ function renderStreamsTable() {
   } else {
     body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:40px">暂无活跃流</td></tr>';
   }
-  renderPagination('streams-pagination', streamPage, totalPages, 'streamGoToPage');
+  renderPagination('streams-pagination', streamPage, totalPages, 'streamGoToPage', streamPageSize);
   document.getElementById('streams-info').textContent = `共 ${total} 个活跃流`;
 }
 
 function streamGoToPage(p) {
-  const totalPages = Math.max(1, Math.ceil(streamsList.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(streamsList.length / streamPageSize));
   if (p >= 1 && p <= totalPages) { streamPage = p; renderStreamsTable(); }
 }
 
@@ -1194,7 +1194,7 @@ async function loadClients() {
   const gen = nextGen('clients');
   const status = document.getElementById('client-status-filter').value;
   const search = document.getElementById('client-search').value;
-  let q = `?page=${clientPage}&page_size=${PAGE_SIZE}`;
+  let q = `?page=${clientPage}&page_size=${clientPageSize}`;
   if (status) q += '&status=' + status;
   if (search) q += '&search=' + encodeURIComponent(search);
 
@@ -1216,7 +1216,7 @@ async function loadClients() {
   } else {
     body.innerHTML = items.map((c, i) => `<tr>
       <td><input type="checkbox" class="client-check" value="${c.id}" onchange="updateSelectedClients()"></td>
-      <td style="color:var(--text3)">${(clientPage - 1) * PAGE_SIZE + i + 1}</td>
+      <td style="color:var(--text3)">${(clientPage - 1) * clientPageSize + i + 1}</td>
       <td><strong>${esc(c.name)}</strong> ${c.request_note ? `<span class="badge" style="font-size:11px;padding:2px 6px;color:var(--accent);background:rgba(22,186,170,.1);border-color:var(--accent);">${esc(c.request_note)}</span>` : ''}<br><span style="font-size:11px;color:var(--text2)">${esc(c.device_id).substring(0, 16)}...</span></td>
       <td>${esc(c.device_model)}<br><span style="font-size:11px;color:var(--text2)">${esc(c.device_os)}</span></td>
       <td style="font-family:monospace;font-size:12px">${esc(c.ip)}</td>
@@ -1241,13 +1241,13 @@ async function loadClients() {
       </td>
     </tr>`).join('');
   }
-  const cliTotalPages = Math.max(1, Math.ceil(clientTotal / PAGE_SIZE));
-  renderPagination('clients-pagination', clientPage, cliTotalPages, 'clientGoToPage');
+  const cliTotalPages = Math.max(1, Math.ceil(clientTotal / clientPageSize));
+  renderPagination('clients-pagination', clientPage, cliTotalPages, 'clientGoToPage', clientPageSize);
   document.getElementById('clients-info').textContent = `共 ${clientTotal} 台设备`;
 }
 
 function clientGoToPage(p) {
-  const cliTotalPages = Math.max(1, Math.ceil(clientTotal / PAGE_SIZE));
+  const cliTotalPages = Math.max(1, Math.ceil(clientTotal / clientPageSize));
   if (p >= 1 && p <= cliTotalPages) { clientPage = p; loadClients(); }
 }
 function searchClients() { clearTimeout(window._ct); window._ct = setTimeout(loadClients, 300); }
@@ -1372,10 +1372,10 @@ async function loadPlans() {
 
 function renderPlansTable() {
   const total = allPlans.length;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(total / planPageSize));
   if (planPage > totalPages) planPage = Math.max(1, totalPages);
-  const start = (planPage - 1) * PAGE_SIZE;
-  const pageData = allPlans.slice(start, start + PAGE_SIZE);
+  const start = (planPage - 1) * planPageSize;
+  const pageData = allPlans.slice(start, start + planPageSize);
 
   const showSub = (enableExternalSubSetting === 'true');
   const thSub = document.getElementById('th-plan-sub');
@@ -1392,7 +1392,7 @@ function renderPlansTable() {
         </div>
       </td>` : '';
     return `<tr>
-      <td style="color:var(--text3)">${(planPage - 1) * PAGE_SIZE + i + 1}</td>
+      <td style="color:var(--text3)">${(planPage - 1) * planPageSize + i + 1}</td>
       <td><strong>${esc(p.name)}</strong></td>
       <td>${p.days > 0 ? p.days + ' 天' : '永久'}</td>
       <td>${p.max_streams}</td>
@@ -1405,12 +1405,12 @@ function renderPlansTable() {
       </div></td>
     </tr>`;
   }).join('');
-  renderPagination('plans-pagination', planPage, totalPages, 'planGoToPage');
+  renderPagination('plans-pagination', planPage, totalPages, 'planGoToPage', planPageSize);
   document.getElementById('plans-info').textContent = `共 ${total} 个套餐`;
 }
 
 function planGoToPage(p) {
-  const totalPages = Math.max(1, Math.ceil(allPlans.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(allPlans.length / planPageSize));
   if (p >= 1 && p <= totalPages) { planPage = p; renderPlansTable(); }
 }
 
@@ -1808,10 +1808,10 @@ async function loadClientLogs() {
 
 function renderClientLogsTable() {
   const total = clientLogsList.length;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(total / clientLogPageSize));
   if (clientLogPage > totalPages) clientLogPage = Math.max(1, totalPages);
-  const start = (clientLogPage - 1) * PAGE_SIZE;
-  const pageData = clientLogsList.slice(start, start + PAGE_SIZE);
+  const start = (clientLogPage - 1) * clientLogPageSize;
+  const pageData = clientLogsList.slice(start, start + clientLogPageSize);
 
   const body = document.getElementById('client-logs-body');
   if (pageData.length) {
@@ -1824,7 +1824,7 @@ function renderClientLogsTable() {
       else actionBadge = badge(l.action);
 
       return `<tr>
-        <td style="color:var(--text3)">${(clientLogPage - 1) * PAGE_SIZE + i + 1}</td>
+        <td style="color:var(--text3)">${(clientLogPage - 1) * clientLogPageSize + i + 1}</td>
         <td><strong>${esc(l.client_name)}</strong><br><span style="font-size:11px;color:var(--text2)">ID: #${l.client_id}</span></td>
         <td>${actionBadge}</td>
         <td><strong>${l.channel_name ? esc(l.channel_name) : '-'}</strong><br><span style="font-size:11px;color:var(--text2)">${l.channel_id ? 'ID: ' + l.channel_id : ''}</span></td>
@@ -1836,12 +1836,12 @@ function renderClientLogsTable() {
   } else {
     body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text2);padding:40px">暂无日志</td></tr>';
   }
-  renderPagination('client-logs-pagination', clientLogPage, totalPages, 'clientLogGoToPage');
+  renderPagination('client-logs-pagination', clientLogPage, totalPages, 'clientLogGoToPage', clientLogPageSize);
   document.getElementById('client-logs-info').textContent = `共 ${total} 条访问日志`;
 }
 
 function clientLogGoToPage(p) {
-  const totalPages = Math.max(1, Math.ceil(clientLogsList.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(clientLogsList.length / clientLogPageSize));
   if (p >= 1 && p <= totalPages) { clientLogPage = p; renderClientLogsTable(); }
 }
 
@@ -2153,7 +2153,7 @@ async function onLogoStrategyChange(value) {
 }
 
 // ════ Pagination Helper ═════════════════════════════════════════════
-function renderPagination(containerId, currentPage, totalPages, changePageFuncName) {
+function renderPagination(containerId, currentPage, totalPages, changePageFuncName, currentPageSize = 20) {
   let html = '';
   const prevDisabled = currentPage <= 1 ? 'disabled' : '';
   html += `<button class="btn btn-ghost btn-sm" onclick="${changePageFuncName}(${currentPage - 1})" ${prevDisabled}>上一页</button>`;
@@ -2190,7 +2190,48 @@ function renderPagination(containerId, currentPage, totalPages, changePageFuncNa
   const nextDisabled = currentPage >= totalPages ? 'disabled' : '';
   html += `<button class="btn btn-ghost btn-sm" onclick="${changePageFuncName}(${currentPage + 1})" ${nextDisabled}>下一页</button>`;
 
+  // 每页显示条数选择
+  html += `<select class="btn btn-ghost btn-sm" style="padding:4px 8px;margin-left:8px;" onchange="changePageSize(this.value, '${changePageFuncName}')">`;
+  [20, 50, 100, 200, 300, 400, 500, 1000].forEach(size => {
+    html += `<option value="${size}" ${currentPageSize === size ? 'selected' : ''}>${size} 条/页</option>`;
+  });
+  html += `</select>`;
+
   document.getElementById(containerId).innerHTML = `<div class="btn-group">${html}</div>`;
+}
+
+function changePageSize(newSize, changePageFuncName) {
+  const size = parseInt(newSize);
+  // 根据 changePageFuncName 确定对应的页面变量并重置为第一页
+  if (changePageFuncName === 'channelGoToPage') {
+    channelPageSize = size;
+    channelPage = 1;
+    loadChannels();
+  } else if (changePageFuncName === 'groupGoToPage') {
+    groupPageSize = size;
+    groupPage = 1;
+    loadGroups();
+  } else if (changePageFuncName === 'sourceGoToPage') {
+    sourcePageSize = size;
+    sourcePage = 1;
+    loadSources();
+  } else if (changePageFuncName === 'clientGoToPage') {
+    clientPageSize = size;
+    clientPage = 1;
+    loadClients();
+  } else if (changePageFuncName === 'streamGoToPage') {
+    streamPageSize = size;
+    streamPage = 1;
+    loadStreams();
+  } else if (changePageFuncName === 'planGoToPage') {
+    planPageSize = size;
+    planPage = 1;
+    loadPlans();
+  } else if (changePageFuncName === 'clientLogGoToPage') {
+    clientLogPageSize = size;
+    clientLogPage = 1;
+    loadClientLogs();
+  }
 }
 
 function copyServerBase64() {
