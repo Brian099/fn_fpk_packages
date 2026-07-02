@@ -639,6 +639,7 @@ async function saveChannel() {
     custom_headers: document.getElementById('ch-headers').value,
     fcc: document.getElementById('ch-fcc').value,
     fcc_type: document.getElementById('ch-fcc-type').value,
+    content_type: document.getElementById('ch-content-type').value,
     sort_order: parseInt(document.getElementById('ch-sort').value) || 0
   };
   if (!d.name || !d.stream_url) { toast('请填写名称和流地址', 'error'); return; }
@@ -675,6 +676,7 @@ async function editChannel(id) {
   document.getElementById('ch-headers').value = c.custom_headers || '';
   document.getElementById('ch-fcc').value = c.fcc || '';
   document.getElementById('ch-fcc-type').value = c.fcc_type || '';
+  document.getElementById('ch-content-type').value = c.content_type || '';
   document.getElementById('ch-sort').value = c.sort_order || 0;
   document.getElementById('channel-modal-title').textContent = '编辑频道';
   showModal('channel-modal');
