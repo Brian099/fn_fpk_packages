@@ -27,7 +27,7 @@
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-video_transfer/ICON.PNG" width="48" height="48"> | video_transfer | v1.0.1 | x86 | 0.38 MB | 一个基于 FFmpeg 和 FastAPI 的高性能视频转码服务。支持多种格式互转，集成 NVIDIA CUDA、Intel QSV 和 VAAPI 硬件加速功能。提供直观的 Web 界面用于任务管理、进度监控和文件处理，并支持用户认证与权限管理。 |
 | <img src="https://github.com/Brian099/fn_fpk_packages/raw/main/fn-xlist-strm/ICON.PNG" width="48" height="48"> | xlist-strm | v1.0.0 | all | 0.02 MB | XList Strm 是一个用于获取alist/openlist strm文件的容器。 |
 
-![](https://img.shields.io/github/downloads/Brian099/fn_fpk_packages/2026.07.04-1209/total)
+![](https://img.shields.io/github/downloads/Brian099/fn_fpk_packages/2026.07.04-1238/total)
 
 <!-- APPS_LIST_END -->
 
