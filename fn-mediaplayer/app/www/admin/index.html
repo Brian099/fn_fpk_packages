@@ -118,6 +118,14 @@
         </svg>
         <span>系统日志</span>
       </div>
+      <div class="nav-item" onclick="showSection('manual',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          <path d="M13 2v7l3-2 3 2V2"/>
+        </svg>
+        <span>使用手册</span>
+      </div>
       <div class="nav-section">账户</div>
       <div class="nav-item" onclick="showModal('password-modal')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -145,6 +153,11 @@
       <!-- System Logs Iframe -->
       <div id="sec-system-logs" style="display:none; height:100%;">
         <iframe id="logs-iframe" src="about:blank" style="width:100%; height:100%; border:none; display:block;"></iframe>
+      </div>
+
+      <!-- Manual -->
+      <div id="sec-manual" style="display:none; height:100%;">
+        <iframe id="manual-iframe" src="about:blank" style="width:100%; height:100%; border:none; display:block;"></iframe>
       </div>
 
       <!-- Dashboard -->
@@ -246,7 +259,7 @@
                 <th>直连模式</th>
                 <th>状态</th>
                 <th>复用状态</th>
-
+                <th>最后修改时间</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -285,6 +298,7 @@
                 <th>支持复用</th>
                 <th>不支持复用</th>
                 <th>频道数</th>
+                <th>最后修改时间</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -1000,6 +1014,7 @@
     <div class="modal-overlay" id="channel-modal">
       <div class="modal">
         <h3 id="channel-modal-title">添加频道</h3>
+        <div class="modal-body">
         <input type="hidden" id="ch-edit-id">
         <div class="form-group"><label>名称</label><input type="text" id="ch-name"></div>
         <div class="form-group"><label>分组</label><select id="ch-group"></select></div>
@@ -1077,6 +1092,7 @@
           </select>
         </div>
         <div class="form-group"><label>排序</label><input type="number" id="ch-sort" value="0" placeholder="数字越小越靠前"></div>
+        </div>
         <div class="form-actions">
           <button class="btn btn-ghost" onclick="hideModal('channel-modal')">取消</button>
           <button class="btn btn-primary" onclick="saveChannel()">保存</button>
@@ -1087,6 +1103,7 @@
     <div class="modal-overlay" id="group-modal">
       <div class="modal">
         <h3 id="group-modal-title">添加分组</h3>
+        <div class="modal-body">
         <input type="hidden" id="grp-edit-id">
         <div class="form-group"><label>名称</label><input type="text" id="grp-name"></div>
         <div class="form-group"><label>排序</label><input type="number" id="grp-sort" value="0"></div>
@@ -1110,6 +1127,7 @@
             placeholder="留空使用订阅源或系统默认"></div>
         <div class="form-group"><label>自定义 Request Headers (JSON 格式)</label><textarea id="grp-headers" rows="2"
             placeholder='例如: {"Referer": "https://example.com"}'></textarea></div>
+        </div>
         <div class="form-actions">
           <button class="btn btn-ghost" onclick="hideModal('group-modal')">取消</button>
           <button class="btn btn-primary" onclick="saveGroup()">保存</button>
@@ -1120,6 +1138,7 @@
     <div class="modal-overlay" id="source-modal">
       <div class="modal">
         <h3 id="src-modal-title">添加M3U/TXT源</h3>
+        <div class="modal-body">
         <input type="hidden" id="src-edit-id">
         <div class="form-group"><label>来源名称</label><input type="text" id="src-name"></div>
         <div class="form-group"><label>URL</label>
@@ -1148,6 +1167,7 @@
             placeholder="留空使用系统默认"></div>
         <div class="form-group"><label>自定义 Request Headers (JSON 格式)</label><textarea id="src-headers" rows="2"
             placeholder='例如: {"Referer": "https://example.com"}'></textarea></div>
+        </div>
         <div class="form-actions">
           <button class="btn btn-ghost" onclick="hideModal('source-modal')">取消</button>
           <button class="btn btn-primary" onclick="saveSource()">保存</button>
@@ -1158,6 +1178,7 @@
     <div class="modal-overlay" id="import-modal">
       <div class="modal">
         <h3>粘贴M3U内容</h3>
+        <div class="modal-body">
         <div class="form-group"><label>来源名称 <span style="color:var(--danger)">*</span></label><input type="text"
             id="import-name" placeholder="例如：本地测试源" required></div>
         <div class="form-group">
@@ -1169,6 +1190,7 @@
           <input type="file" id="import-file-input" accept=".m3u,.m3u8,.txt" style="display:none"
             onchange="handleImportFile(event)">
           <textarea id="import-content" rows="10" placeholder="#EXTM3U&#10;#EXTINF:-1,CCTV-1&#10;http://..."></textarea>
+        </div>
         </div>
         <div class="form-actions">
           <button class="btn btn-ghost" onclick="hideModal('import-modal')">取消</button>
@@ -1290,6 +1312,7 @@
     <div class="modal-overlay" id="plan-modal">
       <div class="modal">
         <h3>添加/修改套餐</h3>
+        <div class="modal-body">
         <input type="hidden" id="plan-edit-id">
         <div class="form-group"><label>套餐名称</label><input type="text" id="plan-name" placeholder="如：家庭包年套餐"></div>
         <div class="form-row">
@@ -1323,14 +1346,15 @@
             <button type="button" class="btn btn-ghost btn-sm" onclick="toggleAllPlanGroups(false)" style="margin-left:4px;">取消全选</button>
           </div>
           <div id="plan-groups-selected-container"
-            style="min-height:40px;margin-bottom:10px;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg1);max-height:200px;overflow-y:auto;">
+            style="min-height:40px;margin-bottom:10px;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg1);max-height:125px;overflow-y:auto;">
             <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">已选分组（可拖拽排序）</div>
             <div id="plan-groups-selected" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
           </div>
           <div id="plan-groups-container"
-            style="display:flex;flex-wrap:wrap;gap:10px;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg1);max-height:200px;overflow-y:auto;">
+            style="display:flex;flex-wrap:wrap;gap:10px;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg1);max-height:125px;overflow-y:auto;">
             <div style="font-size:12px;color:var(--text2);margin-bottom:6px;width:100%;">未选分组</div>
           </div>
+        </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-ghost" onclick="hideModal('plan-modal')">取消</button>

@@ -240,6 +240,12 @@ function showSection(name, el) {
       if (iframe && (iframe.src === 'about:blank' || iframe.src.endsWith('blank'))) {
         iframe.src = '/admin/logs_viewer.html';
       }
+    },
+    'manual': () => {
+      const iframe = document.getElementById('manual-iframe');
+      if (iframe && (iframe.src === 'about:blank' || iframe.src.endsWith('blank'))) {
+        iframe.src = '/admin/manual.html';
+      }
     }
   };
   if (loaders[name]) loaders[name]();
@@ -367,6 +373,7 @@ async function loadChannels(search = currentChannelSearch, groupId = currentChan
         <input type="checkbox" onchange="toggleChannelMultiplex(${c.id}, this.checked)" ${c.enable_multiplex === 1 ? 'checked' : ''}>
         <span class="slider"></span>
       </label>` : '<span class="badge" style="color:var(--text3);background:var(--bg3);border:1px solid var(--border)">不支持</span>'}</td>
+      <td style="color:var(--text3);font-size:12px">${(!c.updated_at || c.updated_at.startsWith('0001-01-01')) ? '-' : new Date(c.updated_at).toLocaleString('zh-CN')}</td>
       <td><div class="btn-group">
         <button class="btn btn-ghost btn-sm" onclick="editChannel(${c.id})">编辑</button>
         <button class="btn btn-danger btn-sm" onclick="deleteChannel(${c.id})">删除</button>
@@ -782,6 +789,7 @@ async function loadGroups() {
     <td><a href="javascript:void(0)" onclick="filterChannelsByGroupMux(${g.id}, '${esc(g.name)}', '${esc(g.source || '手动')}', 1)" style="font-weight:bold;color:var(--success);text-decoration:underline;">${(g.channel_count || 0) - (g.non_mux_count || 0)}</a></td>
     <td><a href="javascript:void(0)" onclick="filterChannelsByGroupMux(${g.id}, '${esc(g.name)}', '${esc(g.source || '手动')}', 0)" style="font-weight:bold;color:var(--danger);text-decoration:underline;">${g.non_mux_count || 0}</a></td>
     <td><a href="javascript:void(0)" onclick="filterChannelsByGroup(${g.id}, '${esc(g.name)}', '${esc(g.source || '手动')}')" style="font-weight:bold;color:var(--primary);text-decoration:underline;">${g.channel_count || 0}</a></td>
+    <td style="color:var(--text3);font-size:12px">${(!g.updated_at || g.updated_at.startsWith('0001-01-01')) ? '-' : new Date(g.updated_at).toLocaleString('zh-CN')}</td>
     <td>
       ${isDefault ? '<span style="color:var(--text3);font-size:12px;user-select:none">系统内置</span>' : `<div class="btn-group">
         <button class="btn btn-ghost btn-sm" onclick="editGroup(${g.id})">编辑</button>

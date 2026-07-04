@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediaPlayer 管理后台 - 使用手册</title>
+<script>
+  if (window.top === window.self) {
+    window.location.replace('/admin/');
+  }
+</script>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --text: #333333;
+    --text2: #8c8c8c;
+    --accent: #16baaa;
+    --border: #e8e8e8;
+    --radius: 6px;
+    --warn: #ffb800;
+    --danger: #ff5722;
+    --info: #1e9fff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 32px;
+  }
+
+  .content h1 {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  .content .subtitle {
+    font-size: 14px;
+    color: var(--text2);
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── TOC ── */
+  .toc-box {
+    background: #f8f9fa;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-bottom: 32px;
+  }
+  .toc-box .toc-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--text2);
+  }
+  .toc-box .toc-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 24px;
+  }
+  .toc-box a {
+    font-size: 13px;
+    color: var(--accent);
+    text-decoration: none;
+    padding: 3px 0;
+    display: inline-block;
+  }
+  .toc-box a:hover { text-decoration: underline; }
+
+  .content h2 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 36px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--accent);
+    color: var(--text);
+  }
+  .content h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 24px 0 10px;
+    color: var(--text);
+  }
+  .content p {
+    font-size: 14px;
+    line-height: 1.8;
+    margin-bottom: 12px;
+    color: #444;
+  }
+  .content ul, .content ol {
+    margin: 8px 0 16px 20px;
+    font-size: 14px;
+    line-height: 1.8;
+    color: #444;
+  }
+  .content li { margin-bottom: 4px; }
+
+  /* ── Code ── */
+  .content code {
+    font-family: 'SF Mono', 'Consolas', 'Courier New', monospace;
+    font-size: 13px;
+    background: #f0f0f0;
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: #d63384;
+  }
+  .content pre {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    padding: 16px 20px;
+    border-radius: var(--radius);
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.6;
+    margin: 12px 0 20px;
+  }
+  .content pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+  }
+
+  /* ── Notes / Tips / Warnings ── */
+  .note, .tip, .warning {
+    padding: 14px 18px;
+    border-radius: var(--radius);
+    margin: 16px 0 20px;
+    font-size: 14px;
+    line-height: 1.6;
+    border-left: 4px solid;
+  }
+  .note { background: #f0f9ff; border-color: var(--info); color: #1a5a8c; }
+  .tip { background: #f0faf5; border-color: var(--accent); color: #1a7a6a; }
+  .warning { background: #fff8e6; border-color: var(--warn); color: #8a6a00; }
+  .note strong, .tip strong, .warning strong { color: inherit; }
+
+  /* ── Table ── */
+  .content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 20px;
+    font-size: 14px;
+  }
+  .content th, .content td {
+    padding: 10px 14px;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+  .content th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: var(--text2);
+  }
+  .content tr:hover td { background: #fafafa; }
+
+  .hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+  .back-to-top {
+    display: block;
+    text-align: right;
+    font-size: 13px;
+    color: var(--accent);
+    text-decoration: none;
+    margin-top: 16px;
+  }
+  .back-to-top:hover { text-decoration: underline; }
+
+  @media (max-width: 768px) {
+    body { padding: 16px; }
+    .content { padding: 24px 20px; }
+    .toc-box .toc-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="content">
+
+<h1>使用手册</h1>
+<p class="subtitle">MediaPlayer 管理后台 — 完整功能说明与操作指南</p>
+
+<!-- ═══ TOC ═══ -->
+<div class="toc-box">
+  <div class="toc-title">目录</div>
+  <div class="toc-grid">
+    <a href="#intro">快速入门</a>
+    <a href="#dashboard">仪表盘</a>
+    <a href="#channels">频道管理</a>
+    <a href="#groups">分组管理</a>
+    <a href="#sources">M3U 源管理</a>
+    <a href="#streams">活跃流</a>
+    <a href="#clients">设备管理</a>
+    <a href="#plans">套餐管理</a>
+    <a href="#client-logs">访问日志</a>
+    <a href="#settings">全局设置</a>
+    <a href="#update">系统更新</a>
+    <a href="#sync">主备同步</a>
+    <a href="#system-logs">系统日志</a>
+    <a href="#client-usage">客户端使用说明</a>
+    <a href="#faq">常见问题</a>
+  </div>
+</div>
+
+<!-- ── 1. 快速入门 ── -->
+<h2 id="intro">快速入门</h2>
+
+<h3>登录后台</h3>
+<p>在浏览器中访问 <code>http://你的服务器地址:端口/admin/</code>，输入管理密码即可登录。</p>
+<div class="tip">
+  <strong>默认密码：</strong><code>admin123</code>，可通过环境变量 <code>ADMIN_PASSWORD</code> 修改。首次登录后建议立即修改密码。
+</div>
+
+<h3>界面概览</h3>
+<p>后台采用左侧导航栏 + 右侧内容区的布局。左侧导航栏按功能模块分组，点击即可切换页面。顶部版本号显示当前服务端版本。</p>
+<ul>
+  <li><strong>仪表盘</strong> — 系统概览，显示频道、设备、流等统计数据</li>
+  <li><strong>内容管理</strong> — 频道、分组、M3U 源的核心管理</li>
+  <li><strong>客户端授权</strong> — 设备管理、套餐管理、访问日志</li>
+  <li><strong>系统设置</strong> — 全局设置、系统更新、主备同步、系统日志</li>
+</ul>
+
+<a href="#intro" class="back-to-top">↑ 回到顶部</a>
+<div class="hr"></div>
+
+<!-- ── 2. 仪表盘 ── -->
+<h2 id="dashboard">仪表盘</h2>
+<p>仪表盘是后台首页，展示系统关键运行指标：</p>
+<ul>
+  <li><strong>总频道数 / 在线频道</strong> — 频道库总量及当前可播放的频道数量</li>
+  <li><strong>活跃流</strong> — 当前正在被客户端拉取的代理流数量</li>
+  <li><strong>已授权设备 / 待审批</strong> — 已通过审批的设备数量和等待审批的设备数量</li>
+  <li><strong>在线设备</strong> — 最近 5 分钟内有活跃连接的设备数量</li>
+  <li><strong>M3U/TXT 源</strong> — 已配置的外部节目源数量</li>
+  <li><strong>总播放时长</strong> — 所有设备累计播放时长</li>
+  <li><strong>运行时长 / 内存占用</strong> — 服务端运行时间和当前内存使用情况</li>
+</ul>
+<p>下方"最近访问"表格显示设备的最新操作记录，点击"刷新"可更新数据。</p>
+
+<a href="#intro" class="back-to-top">↑ 回到顶部</a>
+<div class="hr"></div>
+
+<!-- ── 3. 频道管理 ── -->
+<h2 id="channels">频道管理</h2>
+<p>频道管理是后台最核心的功能模块，支持对频道进行增删改查、排序、健康检查等操作。</p>
+
+<h3>添加频道</h3>
+<ol>
+  <li>点击右上角 <strong>「+ 添加频道」</strong> 按钮</li>
+  <li>填写频道名称、选择分组、输入流地址（支持 HLS、TS、FLV、RTMP、RTSP、MP4、DASH 等格式）</li>
+  <li>设置内容类型：<strong>直播 (Live)</strong> 或 <strong>点播 (VOD)</strong>，留空自动推断</li>
+  <li>配置直连模式、复用流、Logo URL、EPG 频道 ID 等可选参数</li>
+  <li>点击「保存」即可</li>
+</ol>
+<div class="tip">
+  <strong>提示：</strong>流地址支持网络 URL 和本地文件路径（需在全局设置中开启"允许本地文件路径"）。
+</div>
+<div class="note">
+  <strong>内容类型说明：</strong>直播模式下客户端不支持暂停、进度拖拽等操作；点播模式则支持暂停、seek 进度条、音轨/字幕切换。如果选错类型，客户端相关功能可能异常。建议不确定时留空让系统自动推断。
+</div>
+
+<h3>直连模式</h3>
+<p>开启后，客户端直接连接原始流地址播放，不经过服务器中转代理。适用于客户端能直接访问的源站地址。</p>
+
+<h3>复用流 (Multiplex)</h3>
+<p>开启后，当多个客户端播放同一频道时，服务器只从源站拉取一路流，然后分发给所有客户端，大幅节省带宽。</p>
+<div class="note">
+  <strong>注意：</strong>复用流需要关闭直连模式，且流格式必须是代理可转发的格式（如 TS、HLS）。
+</div>
+
+<h3>频道排序</h3>
+<p>在频道列表表头点击 <strong>「移动」</strong> 列，可拖拽调整频道顺序。调整完成后点击右上角出现的橙色 <strong>「保存排序」</strong> 按钮即可生效。</p>
+
+<h3>健康检查</h3>
+<p>点击 <strong>「健康检查」</strong> 按钮，设置预期完成时间，系统将逐一探测所有频道是否可播放。探测采用平滑滚动机制，不会高并发请求源站。</p>
+<div class="tip">
+  <strong>建议：</strong>健康检查会占用一定的网络带宽和源站资源，建议在非高峰时段执行，避免影响用户正常观看。
+</div>
+
+<h3>批量操作</h3>
+<p>勾选多个频道后，点击 <strong>「批量操作」</strong> 可批量删除频道。</p>
+<div class="warning">
+  <strong>注意：</strong>频道删除后不可恢复，请谨慎操作。
+</div>
+
+<h3>搜索与筛选</h3>
+<p>使用搜索框可按频道名称搜索，使用来源筛选下拉框可过滤特定来源的频道。</p>
+
+<a href="#intro" class="back-to-top">↑ 回到顶部</a>
+<div class="hr"></div>
+
+<!-- ── 4. 分组管理 ── -->
+<h2 id="groups">分组管理</h2>
+<p>分组用于对频道进行分类管理，客户端也会按分组展示频道列表。</p>
+
+<h3>添加分组</h3>
+<ol>
+  <li>点击「+ 添加分组」按钮</li>
+  <li>填写分组名称、排序值</li>
+  <li>可设置该分组下所有频道的默认直连模式、User-Agent、自定义请求头</li>
+  <li>支持批量线路复用（需全组频道均支持复用）</li>
+</ol>
+
+<h3>分组排序</h3>
+<p>与频道排序类似，拖拽「移动」列调整顺序后点击「保存排序」。</p>
+
+<h3>批量操作</h3>
+<p>勾选分组后点击「批量操作」可删除分组及其下所有频道（不可恢复）。</p>
+
+<a href="#intro" class="back-to-top">↑ 回到顶部</a>
+<div class="hr"></div>
+
+<!-- ── 5. M3U 源管理 ── -->
+<h2 id="sources">M3U 源管理</h2>
+<p>支持从外部 M3U/TXT 订阅源自动拉取频道和分组数据。</p>
+
+<h3>添加源</h3>
+<ol>
+  <li>点击「+ 添加源」按钮</li>
+  <li>填写来源名称、M3U/TXT 文件的 URL</li>
+  <li>开启自动同步并设置同步间隔（小时），系统将定时拉取更新</li>
+  <li>可设置自定义 User-Agent 和请求头</li>
+</ol>
+<div class="tip">
+  <strong>建议：</strong>同步间隔不宜设置过短（建议至少 6 小时以上），频繁请求可能被源站限流或封禁 IP。
+</div>
+
+<h3>粘贴导入</h3>
+<p>点击「粘贴导入」可手动复制 M3U 内容或上传本地 .m3u/.m3u8/.txt 文件导入。</p>
+
+<div class="note">
+  <strong>注意：</strong>添加源后，频道和分组会自动创建。删除源不会自动删除已创建的频道和分组，需手动清理。
+</div>
+
+<a href="#intro" class="back-to-top">↑ 回到顶部</a>
+<div class="hr"></div>
+
+<!-- ── 6. 活跃流 ── -->
+<h2 id="streams">活跃流</h2>
+<p>实时查看当前所有正在被代理拉取的流媒体会话。每个条目显示：</p>
+<ul>
+  <li><strong>会话/设备</strong> — 播放设备的标识</li>
+  <li><strong>频道</strong> — 正在播放的频道名称</li>
+  <li><strong>原始 URL</strong> — 源站流地址</li>
+  <li><strong>状态/网速</strong> — 当前连接状态和实时传输速率</li>
+  <li><strong>启动/活跃时间</strong> — 会话开始时间和最近活跃时间</li>
+</ul>
+<p>支持手动断开特定会话，点击「刷新」更新列表。</p>
+
+<a href="#intro" class="back-to-top">↑ 回到顶部</a>
+<div class="hr"></div>
+
+<!-- ── 7. 设备管理 ── -->
+<h2 id="clients">设备管理</h2>
+<p>管理所有接入的客户端设备，支持审批、授权、封禁等操作。</p>
+
+<h3>设备状态</h3>
+<ul>
+  <li><strong>待审批</strong> — 新设备注册，需管理员手动通过（或开启自动审批）</li>
+  <li><strong>已授权</strong> — 可正常播放的设备</li>
+  <li><strong>已拒绝</strong> — 被拒绝的设备</li>
+  <li><strong>已封禁</strong> — 被封禁的设备，无法连接</li>
+  <li><strong>已过期</strong> — 授权已过期的设备</li>
+</ul>
+
+<h3>审批设备</h3>
+<ol>
+  <li>在待审批列表中点击设备对应的「通过」按钮</li>
+  <li>选择绑定套餐（可选），或手动设置有效期和同时在线数量</li>
+  <li>确认通过</li>
+</ol>
+
+<h3>批量操作</h3>
+<p>勾选多个设备后，可批量通过、拒绝、封禁或删除。</p>
+<div class="warning">
+  <strong>注意：</strong>封禁或删除操作会立即生效，被封禁设备的 Token 即时失效，客户端将断开连接。批量操作不可撤销。
+</div>
+
+<h3>筛选与搜索</h3>
+<p>支持按状态筛选，按设备名、IP、ID 搜索。</p>
+
+<div class="tip">
+  <strong>测试设备：</strong>设备列表中标记为"测试机"的设备不受维护模式限制，可在系统维护期间正常使用，便于管理员测试验证。
+</div>
+
+<a href="#intro" class="back-to-top">↑ 回到顶部</a>
+<div class="hr"></div>
+
+<!-- ── 8. 套餐管理 ── -->
+<h2 id="plans">套餐管理</h2>
+<p>套餐用于批量管理设备的授权策略，包括有效期、同时在线数量和频道访问权限。</p>
+
+<h3>创建套餐</h3>
+<ol>
+  <li>点击「+ 添加套餐」按钮</li>
+  <li>填写套餐名称、有效期（天）、允许同时在线设备数量</li>
+  <li>设置价格（可选，仅展示用途）和描述</li>
+  <li>选择该套餐可访问的频道分组（可拖拽排序），不勾选则没有任何频道的访问权限</li>
+  <li>保存后系统自动生成订阅 Token</li>
+</ol>
+
+<h3>订阅链接</h3>
+<p>套餐支持生成 M3U/TXT 订阅链接，可供第三方播放器（如 VLC、Tivimate）直接导入使用。</p>
+<div class="tip">
+  <strong>前提：</strong>需在「全局设置」中开启"外部订阅"功能。订阅链接使用专属鉴权参数，不影响设备 Token 的安全边界。
+</div>
+
+<div class="note">
+  <strong>注意：</strong>修改套餐内容（有效期、在线数量、关联分组）后，已绑定该套餐的设备不会自动更新授权，需要重新绑定才能生效。
+</div>
+
+<a href="#intro" class="back-to-top">↑ 回到顶部</a>
+<div class="hr"></div>
+
+<!-- ── 9. 访问日志 ── -->
+<h2 id="client-logs">访问日志</h2>
+<p>查看所有设备的操作记录，包括播放、暂停、停止等行为。每条记录包含：</p>
+<ul>
+  <li>客户端 ID、操作类型、频道名称、IP 地址、详情、操作时间</li>
+</ul>
+<p>支持分页浏览和刷新。</p>
+
+<a href="#intro" class="back-to-top">↑ 回到顶部</a>
+<div class="hr"></div>
+
+<!-- ── 10. 全局设置 ── -->
+<h2 id="settings">全局设置</h2>
+<p>全局设置页面包含多个配置模块，按功能区域分组展示。</p>
+
+<h3>服务器授权与网络配置</h3>
+<ul>
+  <li><strong>服务器名称</strong> — 客户端显示的服务器名称（最多 20 个字符，留空则不显示）</li>
+  <li><strong>自定义服务器外网地址</strong> — 客户端连接使用的地址，留空自动识别</li>
+  <li><strong>备用服务器地址</strong> — 主地址故障时客户端按顺序尝试连接</li>
+  <li><strong>授权码</strong> — 客户端连接服务器所需的 Base64 编码信息，可直接复制使用</li>
+</ul>
+
+<h3>订阅配置</h3>
+<p>开启后可在套餐管理页面复制 M3U/TXT 订阅地址，分享给用户导入第三方播放器使用。</p>
+
+<h3>频道源配置</h3>
+<p>开启"允许本地文件路径"后，频道流地址支持 <code>file://</code>、<code>ftp://</code>、<code>webdav://</code> 等协议。</p>
+
+<h3>设备授权配置</h3>
+<ul>
+  <li><strong>自动审批</strong> — 新设备注册时自动通过，可选绑定默认套餐或自定义授权参数</li>
+  <li><strong>允许同时在线设备数量</strong> — 自动审批时默认值</li>
+  <li><strong>有效期</strong> — 自动审批时默认有效期（0 = 永不过期）</li>
+</ul>
+
+<h3>客户端公告配置</h3>
+<p>设置系统公告（跑马灯），客户端顶部会滚动显示。可设置自动播报间隔，0 表示仅换台和启动时显示。</p>
+
+<h3>EPG 节目源配置</h3>
+<ul>
+  <li><strong>EPG 数据源 URL</strong> — 支持多个 XMLTV 格式源（每行一个），支持 .xml 和 .gz 格式</li>
+  <li><strong>自动刷新间隔</strong> — 定时拉取 EPG 数据</li>
+  <li><strong>全局时差</strong> — 调整 EPG 节目时间偏移</li>
+  <li>点击「强制拉取 EPG」可立即刷新</li>
+</ul>
+
+<h3>台标缓存配置</h3>
+<ul>
+  <li><strong>台标策略</strong> — 本地优先 / 源优先 / 接口优先</li>
+  <li><strong>台标源库地址</strong> — 配置台标包根目录，自动拼接频道名称拉取</li>
+  <li>支持缓存已有外链台标、增量拉取、全量覆盖拉取</li>
+</ul>
+
+<h3>开机广告/欢迎图配置</h3>
+<p>支持配置开机时展示的图片或视频广告：</p>
+<ul>
+  <li>选择图片模式或视频模式</li>
+  <li>设置最大展示时长和多少秒后允许跳过</li>
+</ul>
+<div class="warning">
+  <strong>注意：</strong>不建议填入 m3u8 等直播流地址，会导致开机严重卡顿。
+</div>
+
+<h3>OTA 在线升级配置</h3>
+<p>配置客户端在线升级：</p>
+<ul>
+  <li>最新版本号（Version Code）— 客户端版本号小于此值将提示升级</li>
+  <li>展示版本名（Version Name）— 如 v1.2.0</li>
+  <li>APK 下载地址</li>
+  <li>更新日志</li>
+  <li>是否强制更新</li>
+</ul>
+
+<h3>FCC 毫秒级换台加速</h3>
+<p>Fast Channel Change 功能，开启后通过 UDP 组播流实现秒开级别换台。</p>
+<div class="warning">
+  <strong>重要：</strong>FCC 需要 Docker 使用 <code>network_mode: host</code> 或 <code>macvlan</code>，并需在路由器中映射 UDP 端口范围。
+</div>
+
+<h3>系统维护模式</h3>
+<p>开启后，非测试设备连接时将进入全屏维护提示，自动停止播放，便于进行系统维护。</p>
+
+<div class="note">
+  <strong>操作提示：</strong>修改管理密码后，当前登录会话不会立即失效，重新登录后才需使用新密码。修改服务器地址后，已分发的客户端授权码需要重新复制分发。
+</div>
+
+<a href="#intro" class="back-to-top">↑ 回到顶部</a>
+<div class="hr"></div>
+
+<!-- ── 11. 系统更新 ── -->
+<h2 id="update">系统更新</h2>
+<p>系统更新页面展示当前服务端版本，并支持从 GitHub 拉取最新版本信息。</p>
+<ul>
+  <li>如果使用 Docker 部署，建议通过 Watchtower 等工具自动拉取 latest 镜像</li>
+  <li>支持选择版本（Tag）和对应平台的安装包</li>
+  <li>内置 GitHub 下载加速代理，解决国内下载慢的问题</li>
+  <li>可直接下载到客户端或下载到服务端</li>
+</ul>
+
+<a href="#intro" class="back-to-top">↑ 回到顶部</a>
+<div class="hr"></div>
+
+<!-- ── 12. 主备同步 ── -->
+<h2 id="sync">主备同步</h2>
+<p>主备同步功能用于搭建多节点架构，实现数据的热备和负载分担。</p>
+
+<h3>主服务器配置</h3>
+<ol>
+  <li>设置数据拉取授权码（Sync Serve Token），供备机连接使用</li>
+  <li>保存后，备机可使用此 Token 拉取主节点数据</li>
+</ol>
+
+<h3>备用节点配置</h3>
+<ol>
+  <li>开启「作为备用边缘节点运行」</li>
+  <li>填写主节点通信地址（Master Node URL）</li>
+  <li>填写主节点通讯秘钥</li>
+  <li>设置自动同步间隔（分钟）</li>
+  <li>保存配置即可</li>
+</ol>
+<div class="warning">
+  <strong>注意：</strong>「强制立即覆盖拉取」是危险操作，会直接用主节点数据覆盖当前备机数据。
+</div>
+
+<a href="#intro" class="back-to-top">↑ 回到顶部</a>
+<div class="hr"></div>
+
+<!-- ── 13. 系统日志 ── -->
+<h2 id="system-logs">系统日志</h2>
+<p>系统日志页面支持查看两种日志：</p>
+<ul>
+  <li><strong>后台终端日志</strong> — 服务端运行时的实时日志输出</li>
+  <li><strong>客户端日志</strong> — 选择特定设备查看其客户端日志</li>
+</ul>
+<p>功能：</p>
+<ul>
+  <li>支持自动刷新（3 秒 ~ 5 分钟可选）</li>
+  <li>支持导出当前日志</li>
+  <li>支持删除客户端日志</li>
+</ul>
+
+<a href="#intro" class="back-to-top">↑ 回到顶部</a>
+<div class="hr"></div>
+
+<!-- ── 14. 客户端使用说明 ── -->
+<h2 id="client-usage">客户端使用说明</h2>
+<p>以下说明适用于 Android TV / 手机端客户端应用。</p>
+
+<h3>连接服务器</h3>
+<ol>
+  <li>首次打开客户端，进入服务器配置界面</li>
+  <li>输入管理员提供的<strong>授权码</strong>（Base64 编码字符串，可在后台「全局设置」顶部复制）</li>
+  <li>客户端自动解析服务器地址和授权信息，完成连接</li>
+  <li>连接成功后，自动进入频道列表</li>
+</ol>
+<div class="tip">
+  <strong>提示：</strong>如果服务器地址变更，只需重新获取授权码并在客户端中更新即可，无需重新安装应用。
+</div>
+
+<h3>频道导航与换台</h3>
+<ul>
+  <li><strong>频道列表</strong> — 按分组展示，左右键切换分组，上下键选择频道</li>
+  <li><strong>数字键换台</strong> — 支持遥控器数字键直接输入频道号切换</li>
+  <li><strong>EPG 节目指南</strong> — 在频道列表中可查看当前和后续节目信息（需配置 EPG 数据源）</li>
+  <li><strong>频道收藏</strong> — 支持将常用频道添加到收藏夹，便于快速访问</li>
+</ul>
+
+<h3>直播模式操作</h3>
+<ul>
+  <li><strong>OSD 面板</strong> — 按遥控器 OK 键显示，再次按 OK 键暂停/播放（仅点播模式支持暂停）</li>
+  <li><strong>音量控制</strong> — 遥控器音量键调节</li>
+  <li><strong>信息显示</strong> — OSD 面板显示当前频道名称、节目信息、时间等</li>
+  <li><strong>OSD 自动隐藏</strong> — 面板显示后 10 秒无操作自动隐藏</li>
+</ul>
+<div class="note">
+  <strong>说明：</strong>直播模式下不支持暂停、快进/快退操作。如需这些功能，频道需设置为点播（VOD）类型。
+</div>
+
+<h3>点播模式操作</h3>
+<ul>
+  <li><strong>暂停/播放</strong> — 按 OK 键切换（OSD 显示时第二次按 OK 触发）</li>
+  <li><strong>进度拖拽</strong> — 左右方向键控制进度条前后跳转</li>
+  <li><strong>音轨切换</strong> — 在 OSD 面板中点击「音轨」按钮，选择可用的音频轨道</li>
+  <li><strong>字幕切换</strong> — 在 OSD 面板中点击「字幕」按钮，选择可用的字幕轨道</li>
+  <li><strong>进度显示</strong> — OSD 面板显示当前播放进度和总时长</li>
+</ul>
+<div class="tip">
+  <strong>提示：</strong>音轨和字幕按钮仅在频道包含多条音轨或至少一条字幕时显示。如果频道只有一条音轨且无字幕，按钮不会出现。
+</div>
+
+<h3>遥控器按键说明</h3>
+<ul>
+  <li><strong>OK 键</strong> — 首次按显示 OSD（不暂停），OSD 显示时再次按切换暂停/播放</li>
+  <li><strong>左/右键</strong> — OSD 按钮聚焦时切换按钮焦点；无按钮聚焦时控制进度条（点播模式）</li>
+  <li><strong>上/下键</strong> — 频道列表导航</li>
+  <li><strong>返回键</strong> — 返回频道列表或退出应用</li>
+  <li><strong>数字键 0-9</strong> — 快速切换频道（输入数字后自动跳转）</li>
+</ul>
+
+<h3>客户端设置</h3>
+<ul>
+  <li><strong>画面比例</strong> — 支持 16:9、4:3、拉伸、原始比例等模式</li>
+  <li><strong>解码方式</strong> — 支持硬件解码和软件解码，播放卡顿时可尝试切换</li>
+  <li><strong>播放器内核</strong> — 根据频道格式自动选择 ExoPlayer 或 VLC 内核</li>
+  <li><strong>关于信息</strong> — 查看客户端版本号、服务器信息、设备 ID 等</li>
+</ul>
+
+<h3>常见客户端问题</h3>
+<ul>
+  <li><strong>播放卡顿/缓冲</strong> — 尝试切换解码方式（硬解/软解），或检查网络连接质量</li>
+  <li><strong>无法连接服务器</strong> — 检查授权码是否正确、服务器地址是否可访问、设备是否已被封禁</li>
+  <li><strong>有声音无画面</strong> — 尝试切换解码方式，或检查频道视频编码格式是否被设备支持</li>
+  <li><strong>音轨/字幕按钮不显示</strong> — 说明当前频道只有单音轨或无字幕，属于正常现象</li>
+  <li><strong>设备待审批</strong> — 首次连接需要管理员在后台审批通过，或联系管理员开启自动审批</li>
+</ul>
+
+<a href="#intro" class="back-to-top">↑ 回到顶部</a>
+<div class="hr"></div>
+
+<!-- ── 15. 常见问题 ── -->
+<h2 id="faq">常见问题</h2>
+
+<h3>Q: 如何修改管理密码？</h3>
+<p>在侧边栏底部点击「修改密码」，输入原密码和新密码即可。也可以通过环境变量 <code>ADMIN_PASSWORD</code> 初始化密码。</p>
+
+<h3>Q: 客户端如何连接服务器？</h3>
+<p>在「全局设置」页面顶部，复制服务器授权码（Base64 编码），在客户端中输入即可自动配置连接。</p>
+
+<h3>Q: 频道播放不了怎么办？</h3>
+<p>可以尝试以下排查步骤：</p>
+<ol>
+  <li>在频道管理中使用「健康检查」功能探测频道是否可播放</li>
+  <li>检查频道流地址是否正确</li>
+  <li>尝试关闭直连模式，使用代理播放</li>
+  <li>检查是否被源站限制（User-Agent、Referer 等）</li>
+  <li>查看系统日志中的错误信息</li>
+</ol>
+
+<h3>Q: 如何让客户端自动更新？</h3>
+<p>在「全局设置」的 OTA 升级配置中设置最新版本号和 APK 下载地址，客户端启动时会自动检测更新。</p>
+
+<h3>Q: 设备显示"待审批"怎么办？</h3>
+<p>在「设备管理」中找到该设备，点击「通过」按钮进行审批。也可以在「全局设置」中开启自动审批，新设备将自动通过。</p>
+
+<h3>Q: 订阅链接无法使用？</h3>
+<p>请检查：</p>
+<ol>
+  <li>「全局设置」中是否已开启"外部订阅"功能</li>
+  <li>套餐是否已关联了频道分组</li>
+  <li>服务器地址配置是否正确（外网可访问）</li>
+</ol>
+
+<h3>Q: 如何备份和恢复数据？</h3>
+<p>主备同步功能可以实现数据的热备。如需手动备份，可以直接备份服务端的数据库文件。</p>
+
+<a href="#intro" class="back-to-top">↑ 回到顶部</a>
+
+<div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); text-align: center; font-size: 13px; color: var(--text2);">
+  MediaPlayer 管理后台使用手册 — 如有疑问请联系系统管理员
+</div>
+
+</div>
+
+</body>
+</html>
