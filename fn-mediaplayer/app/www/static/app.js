@@ -39,6 +39,7 @@ async function api(path, opts = {}) {
 
   const headers = { 'Content-Type': 'application/json' };
   if (adminToken) headers['Authorization'] = 'Bearer ' + adminToken;
+  if (!opts.cache) opts.cache = 'no-store'; // 默认禁用缓存，防止频道、源等列表不刷新
   if (!opts.silent) showLoading();
   try {
     const res = await fetch(API + path, { headers, ...opts });
@@ -421,13 +422,54 @@ function toggleAllChannels(cb) {
   document.querySelectorAll('.ch-check').forEach(el => el.checked = cb.checked);
 }
 
-async function doChannelBatchDelete() {
+function handleChannelBatchAction(action) {
+  if (!action) return;
+  document.getElementById('channel-batch-action').value = ""; // reset
+  const checked = document.querySelectorAll('.ch-check:checked');
+  if (checked.length === 0) {
+    toast('请先勾选要操作的频道', 'error');
+    return;
+  }
+  
+  window.pendingBatchAction = action;
+  const actionNames = {
+    'delete': '删除',
+    'direct_on': '开启直连模式',
+    'direct_off': '关闭直连模式',
+    'mux_on': '开启复用状态',
+    'mux_off': '关闭复用状态',
+    'content_type_auto': '设置内容类型(自动推断)',
+    'content_type_live': '设置内容类型(直播Live)',
+    'content_type_vod': '设置内容类型(点播VOD)'
+  };
+  
+  const modalText = document.getElementById('channel-batch-modal-text');
+  if (action === 'delete') {
+    modalText.innerText = `将永久删除勾选的 ${checked.length} 个频道，此操作不可恢复。`;
+  } else {
+    modalText.innerText = `将为勾选的 ${checked.length} 个频道批量${actionNames[action]}。`;
+  }
+  showModal('channel-batch-modal');
+}
+
+async function doChannelBatchAction() {
+  const action = window.pendingBatchAction;
   const ids = Array.from(document.querySelectorAll('.ch-check:checked')).map(el => +el.value);
-  if (!ids.length) { toast('请先选择要删除的频道', 'error'); return; }
-  await api('/channels/batch', { method: 'DELETE', body: JSON.stringify({ ids }) });
-  hideModal('channel-batch-modal');
-  toast(`已删除 ${ids.length} 个频道`);
-  loadChannels(document.getElementById('channel-search').value);
+  if (!ids.length || !action) return;
+  
+  try {
+    if (action === 'delete') {
+      await api('/channels/batch', { method: 'DELETE', body: JSON.stringify({ ids }) });
+      toast(`已批量删除 ${ids.length} 个频道`);
+    } else {
+      await api('/channels/batch', { method: 'PUT', body: JSON.stringify({ ids, action }) });
+      toast(`批量操作成功`);
+    }
+    hideModal('channel-batch-modal');
+    loadChannels(document.getElementById('channel-search').value);
+  } catch (e) {
+    // Error is handled by api()
+  }
 }
 
 async function startHealthCheck() {
@@ -878,15 +920,53 @@ function updateSelectedGroups() {
   document.querySelectorAll('.group-check:checked').forEach(cb => selectedGroupIds.add(+cb.value));
 }
 
-async function doGroupBatchDelete() {
-  if (selectedGroupIds.size === 0) { toast('请先勾选分组', 'error'); hideModal('group-batch-modal'); return; }
-  const r = await api('/groups/batch', {
-    method: 'POST',
-    body: JSON.stringify({ ids: [...selectedGroupIds], action: 'delete' })
-  });
-  hideModal('group-batch-modal');
-  toast(`已删除勾选的分组`);
-  loadGroups();
+function handleGroupBatchAction(action) {
+  if (!action) return;
+  document.getElementById('group-batch-action').value = ""; // reset
+  const checked = document.querySelectorAll('.group-check:checked');
+  if (checked.length === 0) {
+    toast('请先勾选要操作的分组', 'error');
+    return;
+  }
+  
+  window.pendingGroupBatchAction = action;
+  const actionNames = {
+    'delete': '删除',
+    'direct_on': '开启直连模式',
+    'direct_off': '关闭直连模式',
+    'mux_on': '开启复用状态',
+    'mux_off': '关闭复用状态',
+    'content_type_auto': '设置内容类型(自动)',
+    'content_type_live': '设置内容类型(直播)',
+    'content_type_vod': '设置内容类型(点播)'
+  };
+  
+  const modalText = document.getElementById('group-batch-modal-text');
+  if (action === 'delete') {
+    modalText.innerText = `将永久删除勾选的 ${checked.length} 个分组及其下的所有频道，此操作不可恢复。`;
+  } else {
+    modalText.innerText = `将为勾选的 ${checked.length} 个分组批量${actionNames[action]}，这也会同步修改其下所有的频道设置。`;
+  }
+  showModal('group-batch-modal');
+}
+
+async function doGroupBatchAction() {
+  const action = window.pendingGroupBatchAction;
+  const ids = Array.from(document.querySelectorAll('.group-check:checked')).map(el => +el.value);
+  if (!ids.length || !action) return;
+  
+  try {
+    await api('/groups/batch', { method: 'POST', body: JSON.stringify({ ids, action }) });
+    if (action === 'delete') {
+      toast(`已批量删除 ${ids.length} 个分组`);
+    } else {
+      toast(`批量操作成功`);
+    }
+    hideModal('group-batch-modal');
+    loadGroups(document.getElementById('group-search').value);
+  } catch (e) {
+    // Error is handled by api()
+  }
 }
 
 function showAddGroupModal() {
@@ -1115,10 +1195,45 @@ async function importM3UContent() {
   const c = document.getElementById('import-content').value;
   if (!n) { toast('请填写来源名称', 'error'); return; }
   if (!c) { toast('请粘贴内容', 'error'); return; }
-  toast('正在导入...');
-  const r = await api('/m3u/import-string', { method: 'POST', body: JSON.stringify({ name: n, content: c }) });
-  toast(r.data ? `导入: ${r.data.imported} 频道` : '失败', 'error');
-  if (r.data) hideModal('import-modal');
+  toast('正在解析与导入数据，大文件可能需要几十秒，请耐心等待...');
+  try {
+    const r = await api('/m3u/import-string', { method: 'POST', body: JSON.stringify({ name: n, content: c }) });
+    if (r.data && r.data.imported > 0) {
+      toast(`导入成功：共导入 ${r.data.imported} 个频道`, 'success');
+      hideModal('import-modal');
+      loadSources();
+    } else {
+      toast('未识别到有效的频道数据，请检查格式', 'error');
+    }
+  } catch (e) {
+    // 错误信息已由 api() 拦截提示
+  }
+}
+
+async function formatContent(targetFormat) {
+  const contentInput = document.getElementById('import-content');
+  const c = contentInput.value;
+  if (!c) {
+    toast('请粘贴需要格式化的内容', 'error');
+    return;
+  }
+  
+  toast('正在请求后端进行格式化...');
+  try {
+    const r = await api('/m3u/format', {
+      method: 'POST',
+      body: JSON.stringify({ content: c, target_format: targetFormat })
+    });
+    
+    if (r.data && r.data.formatted) {
+      contentInput.value = r.data.formatted;
+      toast(`格式化成功（${targetFormat.toUpperCase()}格式）`, 'success');
+    } else {
+      toast('未识别到有效的频道数据，无法格式化', 'error');
+    }
+  } catch (e) {
+    // 错误信息已由 api() 拦截提示
+  }
 }
 
 function handleImportFile(event) {
@@ -1130,13 +1245,13 @@ function handleImportFile(event) {
     const text = e.target.result;
     if (text.includes('#EXTM3U') || text.includes('#EXTINF') || text.includes(',')) {
       document.getElementById('import-content').value = text;
-      toast('文件读取成功，请点击导入', 'success');
+      toast(`文件 "${file.name}" 已读取完毕，请点击下方「导入」按钮进行解析`, 'success');
       const nameInput = document.getElementById('import-name');
       if (!nameInput.value) {
         nameInput.value = file.name.replace(/\.[^/.]+$/, "");
       }
     } else {
-      toast('文件格式不正确，需要是标准的 M3U 或 TXT 格式', 'error');
+      toast('文件格式不正确，需要是标准的 M3U 或 TXT(名称,URL) 格式', 'error');
     }
     event.target.value = '';
   };
