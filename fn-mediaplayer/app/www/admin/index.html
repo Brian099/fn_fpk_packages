@@ -237,7 +237,7 @@
               <option value="">全部来源</option>
             </select>
             <input type="text" placeholder="搜索频道..." id="channel-search" oninput="searchChannels()">
-            <button class="btn btn-ghost" id="btn-health-check" onclick="showModal('health-check-modal')"
+            <button class="btn btn-ghost" id="btn-health-check" onclick="openHealthCheckModal()"
               style="background:var(--accent);color:white;border:none;">健康检查</button>
             <select id="channel-batch-action" onchange="handleChannelBatchAction(this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg2);color:var(--text)">
               <option value="">批量操作...</option>
@@ -939,6 +939,8 @@
             <div class="form-actions" style="justify-content:flex-start; margin-top: 10px;">
               <button id="btn-update-download" class="btn btn-ghost" style="display:none;"
                 onclick="window.open(this.dataset.href, '_blank')">下载至客户端</button>
+              <button id="btn-update-download-all" class="btn btn-primary" style="display:none; margin-left: 10px;"
+                onclick="downloadAllClients()">一键全部下载至服务端</button>
               <button id="btn-update-pull" class="btn btn-primary" style="display:none; margin-left: 10px;"
                 onclick="pullUpdateToServer(this)">下载至服务端</button>
               <button id="btn-update-cancel" class="btn btn-danger" style="display:none; margin-left: 10px;"
@@ -1321,7 +1323,7 @@
     <div class="modal-overlay" id="health-check-modal">
       <div class="modal">
         <h3>主动健康检查</h3>
-        <p style="color:var(--text2);font-size:13px;margin-bottom:16px">系统将采用平滑滚动机制逐一探测全库频道，绝不会产生高并发被源站封禁。请设置预期完成时间。</p>
+        <p id="hc-modal-desc" style="color:var(--text2);font-size:13px;margin-bottom:16px">系统将采用平滑滚动机制逐一探测频道，绝不会产生高并发被源站封禁。请设置预期完成时间。</p>
         <div class="form-group">
           <label>预期完成时间 (分钟)</label>
           <input type="number" id="hc-expected-minutes" value="120" min="1" max="1440">
