@@ -604,6 +604,13 @@ async function loadChannelSources() {
           res.data.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
         select.value = currentVal;
       }
+      const mirrorSource = document.getElementById('ch-mirror-source');
+      if (mirrorSource) {
+        const mirrorVal = mirrorSource.value;
+        mirrorSource.innerHTML = '<option value="">(请先选择来源)</option>' +
+          res.data.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+        if (mirrorVal) mirrorSource.value = mirrorVal;
+      }
     }
   } catch (e) { /* ignore */ }
 }
@@ -684,7 +691,10 @@ function showAddChannelModal() {
   document.getElementById('ch-headers').value = '';
   document.getElementById('ch-fcc').value = '';
   document.getElementById('ch-fcc-type').value = '';
-  document.getElementById('ch-sort').value = '0';
+  document.getElementById('ch-content-type').value = '';
+  document.getElementById('ch-sort').value = 0;
+  const mirrorAction = document.getElementById('ch-mirror-action');
+  if (mirrorAction) mirrorAction.style.display = 'none';
   showModal('channel-modal');
 }
 
@@ -743,6 +753,14 @@ async function editChannel(id) {
   document.getElementById('ch-content-type').value = c.content_type || '';
   document.getElementById('ch-sort').value = c.sort_order || 0;
   document.getElementById('channel-modal-title').textContent = '编辑频道';
+  
+  const mirrorAction = document.getElementById('ch-mirror-action');
+  if (mirrorAction) {
+    mirrorAction.style.display = 'block';
+    document.getElementById('ch-mirror-source').value = '';
+    document.getElementById('ch-mirror-group').innerHTML = '<option value="">(请先选择分组)</option>';
+  }
+
   showModal('channel-modal');
 }
 
@@ -787,9 +805,52 @@ async function toggleChannelMultiplex(id, enable) {
 }
 
 async function deleteChannel(id) {
-  if (!confirm('确定删除？')) return;
+  if (!confirm('确认删除？')) return;
   await api(`/channels/${id}`, { method: 'DELETE' });
   loadChannels();
+}
+
+async function mirrorChannel() {
+  const idStr = document.getElementById('ch-edit-id').value;
+  if (!idStr) return;
+  const id = parseInt(idStr, 10);
+  const targetSource = document.getElementById('ch-mirror-source').value;
+  const targetGroupStr = document.getElementById('ch-mirror-group').value;
+  if (!targetSource || !targetGroupStr) {
+    toast('请完整选择目标来源和目标分组', 'error');
+    return;
+  }
+  
+  try {
+    await api('/channels/mirror', {
+      method: 'POST',
+      body: JSON.stringify({
+        source_channel_id: id,
+        target_group_id: parseInt(targetGroupStr, 10),
+        target_source: targetSource
+      })
+    });
+    toast('频道镜像克隆成功！');
+    hideModal('channel-modal');
+    loadChannels();
+  } catch (e) {
+    toast('镜像失败: ' + (e.message || e), 'error');
+  }
+}
+
+function updateMirrorGroups() {
+  const source = document.getElementById('ch-mirror-source').value;
+  const groupSelect = document.getElementById('ch-mirror-group');
+  if (!source) {
+    groupSelect.innerHTML = '<option value="">(请先选择分组)</option>';
+    return;
+  }
+  const filteredGroups = groups.filter(g => (g.source || '手动') === source);
+  if (filteredGroups.length === 0) {
+    groupSelect.innerHTML = '<option value="">(该来源下无分组)</option>';
+  } else {
+    groupSelect.innerHTML = filteredGroups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+  }
 }
 
 
@@ -1586,6 +1647,7 @@ async function savePlan() {
     price: parseFloat(document.getElementById('plan-price').value) || 0.0,
     description: document.getElementById('plan-desc').value,
     subscription_token: document.getElementById('plan-token').value,
+    enable_aggregation: document.getElementById('plan-enable-aggregation').checked ? 1 : 0,
     group_ids: groupIds
   };
   if (!d.name) { toast('请填写名称', 'error'); return; }
@@ -1626,9 +1688,9 @@ async function editPlan(id) {
   selectedContainer.innerHTML = selectedGroups.map(g => {
     const source = g.source && g.source !== '手动' ? g.source : '';
     const sourceTag = source ? ` <span style="font-size:11px;opacity:0.7">(${esc(source)})</span>` : '';
-    return `<div class="plan-group-tag" data-id="${g.id}" data-name="${esc(g.name)}"${source ? ` data-source="${esc(source)}"` : ''} style="display:flex;align-items:center;gap:5px;cursor:grab;background:var(--accent);color:#fff;padding:4px 10px;border-radius:4px;user-select:none;">
-      <span style="cursor:pointer;font-size:14px;" onclick="removePlanGroup(${g.id})">✕</span>
+    return `<div class="plan-group-tag" data-id="${g.id}" data-name="${esc(g.name)}"${source ? ` data-source="${esc(source)}"` : ''} style="display:flex;align-items:center;cursor:grab;background:var(--accent);color:#fff;padding:4px 10px;border-radius:4px;user-select:none;font-size:12px;transition:opacity 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.1);" onmousedown="this.style.cursor='grabbing'" onmouseup="this.style.cursor='grab'">
       ${esc(g.name)}${sourceTag}
+      <span style="cursor:pointer;font-size:14px;opacity:0.6;padding:0 0 0 6px;margin-left:4px;" onclick="removePlanGroup(${g.id})" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">✕</span>
     </div>`;
   }).join('');
 
@@ -1645,8 +1707,10 @@ async function editPlan(id) {
     tag.setAttribute('data-id', g.id);
     tag.setAttribute('data-name', g.name);
     if (source) tag.setAttribute('data-source', source);
-    tag.style.cssText = 'display:flex;align-items:center;gap:5px;cursor:pointer;background:var(--bg2);padding:4px 10px;border-radius:4px;';
-    tag.innerHTML = `<span style="font-size:14px;">+</span> ${esc(g.name)}${sourceTag}`;
+    tag.style.cssText = 'display:flex;align-items:center;cursor:pointer;background:var(--bg2);border:1px solid var(--border);padding:4px 10px;border-radius:4px;font-size:12px;transition:all 0.2s;';
+    tag.onmouseover = () => { tag.style.background = 'var(--bg3)'; tag.style.borderColor = 'var(--accent)'; };
+    tag.onmouseout = () => { tag.style.background = 'var(--bg2)'; tag.style.borderColor = 'var(--border)'; };
+    tag.innerHTML = `<span style="font-size:14px;opacity:0.6;margin-right:6px;">+</span> ${esc(g.name)}${sourceTag}`;
     tag.onclick = () => addPlanGroup(g.id);
     unselectedContainer.appendChild(tag);
   });
@@ -1657,11 +1721,14 @@ async function editPlan(id) {
   }
   window.planGroupsSortable = new Sortable(selectedContainer, {
     animation: 150,
-    ghostClass: 'sortable-ghost'
+    ghostClass: 'sortable-ghost',
+    fallbackOnBody: true,
+    swapThreshold: 0.65
   });
 
   document.getElementById('plan-edit-id').value = id || '';
   document.getElementById('plan-name').value = p.name;
+  document.getElementById('plan-enable-aggregation').checked = p.enable_aggregation === 1;
   document.getElementById('plan-days').value = p.days;
   document.getElementById('plan-streams').value = p.max_streams;
   document.getElementById('plan-price').value = p.price;
@@ -1707,8 +1774,10 @@ function addPlanGroup(groupId) {
     tag.setAttribute('data-id', groupId);
     tag.setAttribute('data-name', gName);
     if (source) tag.setAttribute('data-source', source);
-    tag.style.cssText = 'display:flex;align-items:center;gap:5px;cursor:grab;background:var(--accent);color:#fff;padding:4px 10px;border-radius:4px;user-select:none;';
-    tag.innerHTML = `<span style="cursor:pointer;font-size:14px;" onclick="removePlanGroup(${groupId})">✕</span> ${esc(gName)}${sourceTag}`;
+    tag.style.cssText = 'display:flex;align-items:center;gap:4px;cursor:grab;background:var(--accent);color:#fff;padding:2px 8px;border-radius:4px;user-select:none;font-size:13px;transition:opacity 0.2s;';
+    tag.onmousedown = () => tag.style.cursor = 'grabbing';
+    tag.onmouseup = () => tag.style.cursor = 'grab';
+    tag.innerHTML = `<span style="cursor:pointer;font-size:12px;opacity:0.8;padding:2px;" onclick="removePlanGroup(${groupId})" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">✕</span> ${esc(gName)}${sourceTag}`;
     selectedContainer.appendChild(tag);
     
     unselectedTag.remove();
@@ -1733,8 +1802,10 @@ function removePlanGroup(groupId) {
     tag.setAttribute('data-id', groupId);
     tag.setAttribute('data-name', gName);
     if (source) tag.setAttribute('data-source', source);
-    tag.style.cssText = 'display:flex;align-items:center;gap:5px;cursor:pointer;background:var(--bg2);padding:4px 10px;border-radius:4px;';
-    tag.innerHTML = `<span style="font-size:14px;">+</span> ${esc(gName)}${sourceTag}`;
+    tag.style.cssText = 'display:flex;align-items:center;gap:4px;cursor:pointer;background:var(--bg2);padding:2px 8px;border-radius:4px;font-size:13px;transition:background 0.2s;';
+    tag.onmouseover = () => tag.style.background = 'var(--bg3)';
+    tag.onmouseout = () => tag.style.background = 'var(--bg2)';
+    tag.innerHTML = `<span style="font-size:12px;opacity:0.8;">+</span> ${esc(gName)}${sourceTag}`;
     tag.onclick = () => addPlanGroup(groupId);
     unselectedContainer.appendChild(tag);
     

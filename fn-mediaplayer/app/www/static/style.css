@@ -11,11 +11,11 @@ body{font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-s
 .sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:2px}
 .logo{padding:0 24px 24px;font-size:20px;font-weight:700;color:var(--side-text);display:flex;align-items:center;gap:10px}
 .logo svg{width:28px;height:28px;color:var(--accent)}
-.nav-item{display:flex;align-items:center;gap:12px;padding:12px 24px;cursor:pointer;color:var(--side-text2);transition:all .2s;font-size:14px}
+.nav-item{display:flex;align-items:center;gap:12px;padding:8px 24px;cursor:pointer;color:var(--side-text2);transition:all .2s;font-size:14px}
 .nav-item:hover{background:var(--side-bg-hover);color:var(--side-text)}
 .nav-item.active{background:var(--accent);color:#fff;border-left:none}
 .nav-item svg{width:18px;height:18px;opacity:.8}
-.nav-section{padding:12px 24px 4px;font-size:12px;color:var(--side-text2);opacity:.5;margin-top:8px}
+.nav-section{padding:4px 24px 4px;font-size:12px;color:var(--side-text2);opacity:.5;margin-top:8px}
 
 /* ── Main ── */
 .main{flex:1;padding:32px;overflow-y:auto}

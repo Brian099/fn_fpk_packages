@@ -87,6 +87,7 @@
         </svg>
         <span>访问日志</span>
       </div>
+      <div class="nav-section">系统管理</div>
       <div class="nav-item" onclick="showSection('client-settings',this)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="3" />
@@ -118,11 +119,12 @@
         </svg>
         <span>系统日志</span>
       </div>
+      <div class="nav-section">帮助</div>
       <div class="nav-item" onclick="showSection('manual',this)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-          <path d="M13 2v7l3-2 3 2V2"/>
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+          <path d="M13 2v7l3-2 3 2V2" />
         </svg>
         <span>使用手册</span>
       </div>
@@ -152,12 +154,14 @@
     <div class="main">
       <!-- System Logs Iframe -->
       <div id="sec-system-logs" style="display:none; height:100%;">
-        <iframe id="logs-iframe" src="about:blank" style="width:100%; height:100%; border:none; display:block;"></iframe>
+        <iframe id="logs-iframe" src="about:blank"
+          style="width:100%; height:100%; border:none; display:block;"></iframe>
       </div>
 
       <!-- Manual -->
       <div id="sec-manual" style="display:none; height:100%;">
-        <iframe id="manual-iframe" src="about:blank" style="width:100%; height:100%; border:none; display:block;"></iframe>
+        <iframe id="manual-iframe" src="about:blank"
+          style="width:100%; height:100%; border:none; display:block;"></iframe>
       </div>
 
       <!-- Dashboard -->
@@ -232,14 +236,17 @@
         <div class="header">
           <h1>频道管理</h1>
           <div class="search">
-            <button class="btn btn-primary btn-sm" id="btn-save-channel-sort" style="display:none;background:#ff9800;border-color:#ff9800" onclick="saveChannelOrder()">💾 保存排序</button>
-            <select id="channel-source-filter" onchange="filterChannelsBySource(this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg2);color:var(--text)">
+            <button class="btn btn-primary btn-sm" id="btn-save-channel-sort"
+              style="display:none;background:#ff9800;border-color:#ff9800" onclick="saveChannelOrder()">💾 保存排序</button>
+            <select id="channel-source-filter" onchange="filterChannelsBySource(this.value)"
+              style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg2);color:var(--text)">
               <option value="">全部来源</option>
             </select>
             <input type="text" placeholder="搜索频道..." id="channel-search" oninput="searchChannels()">
             <button class="btn btn-ghost" id="btn-health-check" onclick="openHealthCheckModal()"
               style="background:var(--accent);color:white;border:none;">健康检查</button>
-            <select id="channel-batch-action" onchange="handleChannelBatchAction(this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg2);color:var(--text)">
+            <select id="channel-batch-action" onchange="handleChannelBatchAction(this.value)"
+              style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg2);color:var(--text)">
               <option value="">批量操作...</option>
               <option value="delete">删除选中频道</option>
               <option value="direct_on">开启直连模式</option>
@@ -287,9 +294,11 @@
         <div class="header">
           <h1>分组管理</h1>
           <div class="search">
-            <button class="btn btn-primary btn-sm" id="btn-save-sort" style="display:none;background:#ff9800;border-color:#ff9800" onclick="saveGroupOrder()">💾 保存排序</button>
+            <button class="btn btn-primary btn-sm" id="btn-save-sort"
+              style="display:none;background:#ff9800;border-color:#ff9800" onclick="saveGroupOrder()">💾 保存排序</button>
             <input type="text" placeholder="搜索分组..." id="group-search" oninput="searchGroups()">
-            <select id="group-batch-action" onchange="handleGroupBatchAction(this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg2);color:var(--text)">
+            <select id="group-batch-action" onchange="handleGroupBatchAction(this.value)"
+              style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg2);color:var(--text)">
               <option value="">批量操作...</option>
               <option value="delete">删除选中分组</option>
               <option value="direct_on">开启直连模式</option>
@@ -527,8 +536,8 @@
             <!-- 服务器名称配置 -->
             <div class="form-group" style="margin-bottom: 16px;">
               <label style="color: var(--text); font-weight: 500; font-size: 13px;">服务器名称</label>
-              <input type="text" id="set-server-name" placeholder="例如：我的电视服务器 (留空则客户端不显示)"
-                maxlength="20" style="height: 38px; margin-top: 6px;"
+              <input type="text" id="set-server-name" placeholder="例如：我的电视服务器 (留空则客户端不显示)" maxlength="20"
+                style="height: 38px; margin-top: 6px;"
                 oninput="this.value=this.value.replace(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/g,'')">
               <div style="font-size: 11px; color: var(--text2); margin-top: 4px;">
                 最多 20 个字符，仅支持中文、英文、数字、空格。留空时客户端不显示服务器名称。</div>
@@ -550,7 +559,9 @@
               </div>
               <div style="margin-top: 12px;">
                 <label style="color: var(--text); font-weight: 500; font-size: 13px;">备用服务器外网地址 (Backup URLs)</label>
-                <textarea id="set-server-backup-urls" rows="2" placeholder="填写备用地址，支持多行，每行一个。如：&#10;http://backup1.com&#10;http://backup2.com" style="margin-top:6px"></textarea>
+                <textarea id="set-server-backup-urls" rows="2"
+                  placeholder="填写备用地址，支持多行，每行一个。如：&#10;http://backup1.com&#10;http://backup2.com"
+                  style="margin-top:6px"></textarea>
                 <div style="font-size: 11px; color: var(--text2); margin-top: 4px;">可选。当主地址故障时，客户端将按顺序尝试连接备用地址。</div>
               </div>
               <div style="font-size: 11px; color: var(--text2); margin-top: 12px;">
@@ -605,7 +616,8 @@
               <option value="true">开启 (允许本地文件、FTP、WebDAV)</option>
             </select>
             <div style="font-size:11px;color:var(--text2);margin-top:4px">
-              开启后，添加频道时可使用本地文件路径（如 <code>/vol1/media/video.mp4</code>）、<code>file://</code>、<code>ftp://</code>、<code>webdav://</code> 等协议。
+              开启后，添加频道时可使用本地文件路径（如
+              <code>/vol1/media/video.mp4</code>）、<code>file://</code>、<code>ftp://</code>、<code>webdav://</code> 等协议。
               <strong style="color:#ff6b6b;">注意：请确保服务器有对应文件的访问权限。</strong>
             </div>
           </div>
@@ -795,7 +807,8 @@
           <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
           <div class="form-group">
             <h3 style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; color: var(--accent);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                style="width: 18px; height: 18px; color: var(--accent);">
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
               </svg>
               FCC (Fast Channel Change) 毫秒级换台加速
@@ -807,8 +820,10 @@
               <option value="false">关闭 (使用标准 IGMP 组播)</option>
               <option value="true">开启 (启用毫秒级起播与换台)</option>
             </select>
-            <div style="font-size:11px;color:var(--text2);margin-top:4px">开启后，客户端通过代理播放 UDP/RTP 组播流时，后端将尝试与运营商的 FCC 服务器进行握手并拉取历史流，实现秒开。</div>
-            <div style="font-size:12px;color:var(--danger);margin-top:6px;font-weight:bold;">⚠️ 警告：要使 FCC 正常工作，Docker 必须使用 <code>network_mode: host</code> 或 <code>macvlan</code>，并且必须在主路由器中将下方的 UDP 端口范围映射到本服务器！</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:4px">开启后，客户端通过代理播放 UDP/RTP 组播流时，后端将尝试与运营商的 FCC
+              服务器进行握手并拉取历史流，实现秒开。</div>
+            <div style="font-size:12px;color:var(--danger);margin-top:6px;font-weight:bold;">⚠️ 警告：要使 FCC 正常工作，Docker
+              必须使用 <code>network_mode: host</code> 或 <code>macvlan</code>，并且必须在主路由器中将下方的 UDP 端口范围映射到本服务器！</div>
           </div>
           <div class="form-row">
             <div class="form-group">
@@ -1037,83 +1052,100 @@
       <div class="modal">
         <h3 id="channel-modal-title">添加频道</h3>
         <div class="modal-body">
-        <input type="hidden" id="ch-edit-id">
-        <div class="form-group"><label>名称</label><input type="text" id="ch-name"></div>
-        <div class="form-group"><label>分组</label><select id="ch-group"></select></div>
-        <div class="form-group"><label>流地址</label>
-          <div class="input-with-copy"><input type="text" id="ch-url" placeholder="https://..."><button class="btn-copy"
-              type="button" onclick="copyText(document.getElementById('ch-url').value)" title="复制流地址"><svg
-                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-              </svg></button></div>
-        </div>
-        <div class="form-group"><label>流类型 (留空自动探测)</label>
-          <input type="text" id="ch-type" list="stream-types" placeholder="例如: hls, ts, mp4">
-          <datalist id="stream-types">
-            <option value="hls"></option>
-            <option value="ts"></option>
-            <option value="flv"></option>
-            <option value="rtmp"></option>
-            <option value="rtsp"></option>
-            <option value="mp4"></option>
-            <option value="dash"></option>
-          </datalist>
-        </div>
-        <div class="form-group"><label>内容类型</label>
-          <select id="ch-content-type">
-            <option value="">自动推断（推荐）</option>
-            <option value="live">直播 (Live)</option>
-            <option value="vod">点播 (VOD)</option>
-          </select>
-        </div>
-        <div class="form-group"><label>直连模式</label>
-          <div style="margin-top: 8px;">
-            <label class="switch">
-              <input type="checkbox" id="ch-is-direct">
-              <span class="slider"></span>
-            </label>
+          <input type="hidden" id="ch-edit-id">
+          <div class="form-group"><label>名称</label><input type="text" id="ch-name"></div>
+          <div class="form-group"><label>分组</label><select id="ch-group"></select></div>
+          <div class="form-group"><label>流地址</label>
+            <div class="input-with-copy"><input type="text" id="ch-url" placeholder="https://..."><button
+                class="btn-copy" type="button" onclick="copyText(document.getElementById('ch-url').value)"
+                title="复制流地址"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg></button></div>
           </div>
-        </div>
-        <div class="form-group" id="ch-multiplex-group">
-          <label>复用流 (需直连关闭+代理分发)</label>
-          <div style="margin-top: 8px;">
-            <label class="switch">
-              <input type="checkbox" id="ch-enable-multiplex">
-              <span class="slider"></span>
-            </label>
+          <div class="form-group"><label>流类型 (留空自动探测)</label>
+            <input type="text" id="ch-type" list="stream-types" placeholder="例如: hls, ts, mp4">
+            <datalist id="stream-types">
+              <option value="hls"></option>
+              <option value="ts"></option>
+              <option value="flv"></option>
+              <option value="rtmp"></option>
+              <option value="rtsp"></option>
+              <option value="mp4"></option>
+              <option value="dash"></option>
+            </datalist>
           </div>
-        </div>
-        <div class="form-group"><label>Logo URL</label>
-          <div class="input-with-copy"><input type="text" id="ch-logo"><button class="btn-copy" type="button"
-              onclick="copyText(document.getElementById('ch-logo').value)" title="复制Logo URL"><svg viewBox="0 0 24 24"
-                fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-              </svg></button></div>
-        </div>
-        <div class="form-group"><label>EPG频道ID</label>
-          <div class="input-with-copy"><input type="text" id="ch-epg"><button class="btn-copy" type="button"
-              onclick="copyText(document.getElementById('ch-epg').value)" title="复制EPG频道ID"><svg viewBox="0 0 24 24"
-                fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-              </svg></button></div>
-        </div>
-        <div class="form-group"><label>User-Agent (重写)</label><input type="text" id="ch-user-agent"
-            placeholder="留空使用群组默认或系统默认"></div>
-        <div class="form-group"><label>自定义 Request Headers (JSON 格式)</label><textarea id="ch-headers" rows="2"
-            placeholder='例如: {"Referer": "https://example.com"}'></textarea></div>
-        <div class="form-group"><label>自定义 FCC 服务器 (格式: IP:Port)</label><input type="text" id="ch-fcc"
-            placeholder="留空使用系统全局默认 FCC 设置"></div>
-        <div class="form-group"><label>自定义 FCC 厂商协议</label>
-          <select id="ch-fcc-type">
-            <option value="">(使用系统全局默认协议)</option>
-            <option value="telecom">电信/中兴/烽火 (Telecom/ZTE/FiberHome)</option>
-            <option value="huawei">华为 (Huawei UDP)</option>
-          </select>
-        </div>
-        <div class="form-group"><label>排序</label><input type="number" id="ch-sort" value="0" placeholder="数字越小越靠前"></div>
+          <div class="form-group"><label>内容类型</label>
+            <select id="ch-content-type">
+              <option value="">自动推断（推荐）</option>
+              <option value="live">直播 (Live)</option>
+              <option value="vod">点播 (VOD)</option>
+            </select>
+          </div>
+          <div class="form-group"><label>直连模式</label>
+            <div style="margin-top: 8px;">
+              <label class="switch">
+                <input type="checkbox" id="ch-is-direct">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+          <div class="form-group" id="ch-multiplex-group">
+            <label>复用流 (需直连关闭+代理分发)</label>
+            <div style="margin-top: 8px;">
+              <label class="switch">
+                <input type="checkbox" id="ch-enable-multiplex">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+          <div class="form-group"><label>Logo URL</label>
+            <div class="input-with-copy"><input type="text" id="ch-logo"><button class="btn-copy" type="button"
+                onclick="copyText(document.getElementById('ch-logo').value)" title="复制Logo URL"><svg viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg></button></div>
+          </div>
+          <div class="form-group"><label>EPG频道ID</label>
+            <div class="input-with-copy"><input type="text" id="ch-epg"><button class="btn-copy" type="button"
+                onclick="copyText(document.getElementById('ch-epg').value)" title="复制EPG频道ID"><svg viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg></button></div>
+          </div>
+          <div class="form-group"><label>User-Agent (重写)</label><input type="text" id="ch-user-agent"
+              placeholder="留空使用群组默认或系统默认"></div>
+          <div class="form-group"><label>自定义 Request Headers (JSON 格式)</label><textarea id="ch-headers" rows="2"
+              placeholder='例如: {"Referer": "https://example.com"}'></textarea></div>
+          <div class="form-group"><label>自定义 FCC 服务器 (格式: IP:Port)</label><input type="text" id="ch-fcc"
+              placeholder="留空使用系统全局默认 FCC 设置"></div>
+          <div class="form-group"><label>自定义 FCC 厂商协议</label>
+            <select id="ch-fcc-type">
+              <option value="">(使用系统全局默认协议)</option>
+              <option value="telecom">电信/中兴/烽火 (Telecom/ZTE/FiberHome)</option>
+              <option value="huawei">华为 (Huawei UDP)</option>
+            </select>
+          </div>
+          <div class="form-group"><label>排序</label><input type="number" id="ch-sort" value="0" placeholder="数字越小越靠前">
+          </div>
+
+          <div class="form-group" id="ch-mirror-action"
+            style="display:none; padding-top: 15px; border-top: 1px solid var(--border); margin-top: 15px;">
+            <label style="color: var(--primary);">镜像克隆到...</label>
+            <p style="font-size:12px;color:var(--text2);margin-bottom:8px">自动克隆该频道到新来源，且后续随本体源自动更新播放地址。</p>
+            <div style="display:flex; gap: 8px;">
+              <select id="ch-mirror-source" onchange="updateMirrorGroups()" style="flex:1">
+                <option value="">(请先选择来源)</option>
+              </select>
+              <select id="ch-mirror-group" style="flex:1">
+                <option value="">(请先选择分组)</option>
+              </select>
+              <button class="btn btn-primary" onclick="mirrorChannel()" type="button"
+                style="background:#ff9800;border-color:#ff9800">执行镜像</button>
+            </div>
+          </div>
         </div>
         <div class="form-actions">
           <button class="btn btn-ghost" onclick="hideModal('channel-modal')">取消</button>
@@ -1126,29 +1158,29 @@
       <div class="modal">
         <h3 id="group-modal-title">添加分组</h3>
         <div class="modal-body">
-        <input type="hidden" id="grp-edit-id">
-        <div class="form-group"><label>名称</label><input type="text" id="grp-name"></div>
-        <div class="form-group"><label>排序</label><input type="number" id="grp-sort" value="0"></div>
-        <div class="form-group"><label>所有频道直连模式</label>
-          <div style="margin-top: 8px;">
-            <label class="switch">
-              <input type="checkbox" id="grp-is-direct">
-              <span class="slider"></span>
-            </label>
+          <input type="hidden" id="grp-edit-id">
+          <div class="form-group"><label>名称</label><input type="text" id="grp-name"></div>
+          <div class="form-group"><label>排序</label><input type="number" id="grp-sort" value="0"></div>
+          <div class="form-group"><label>所有频道直连模式</label>
+            <div style="margin-top: 8px;">
+              <label class="switch">
+                <input type="checkbox" id="grp-is-direct">
+                <span class="slider"></span>
+              </label>
+            </div>
           </div>
-        </div>
-        <div class="form-group" id="grp-multiplex-group"><label>批量线路复用 (限全组支持复用)</label>
-          <div style="margin-top: 8px;">
-            <label class="switch">
-              <input type="checkbox" id="grp-enable-multiplex">
-              <span class="slider"></span>
-            </label>
+          <div class="form-group" id="grp-multiplex-group"><label>批量线路复用 (限全组支持复用)</label>
+            <div style="margin-top: 8px;">
+              <label class="switch">
+                <input type="checkbox" id="grp-enable-multiplex">
+                <span class="slider"></span>
+              </label>
+            </div>
           </div>
-        </div>
-        <div class="form-group"><label>User-Agent (群组默认)</label><input type="text" id="grp-user-agent"
-            placeholder="留空使用订阅源或系统默认"></div>
-        <div class="form-group"><label>自定义 Request Headers (JSON 格式)</label><textarea id="grp-headers" rows="2"
-            placeholder='例如: {"Referer": "https://example.com"}'></textarea></div>
+          <div class="form-group"><label>User-Agent (群组默认)</label><input type="text" id="grp-user-agent"
+              placeholder="留空使用订阅源或系统默认"></div>
+          <div class="form-group"><label>自定义 Request Headers (JSON 格式)</label><textarea id="grp-headers" rows="2"
+              placeholder='例如: {"Referer": "https://example.com"}'></textarea></div>
         </div>
         <div class="form-actions">
           <button class="btn btn-ghost" onclick="hideModal('group-modal')">取消</button>
@@ -1161,34 +1193,34 @@
       <div class="modal">
         <h3 id="src-modal-title">添加M3U/TXT源</h3>
         <div class="modal-body">
-        <input type="hidden" id="src-edit-id">
-        <div class="form-group"><label>来源名称</label><input type="text" id="src-name"></div>
-        <div class="form-group"><label>URL</label>
-          <div class="input-with-copy"><input type="text" id="src-url"
-              placeholder="https://example.com/playlist.m3u"><button class="btn-copy" type="button"
-              onclick="copyText(document.getElementById('src-url').value)" title="复制源URL"><svg viewBox="0 0 24 24"
-                fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-              </svg></button></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>自动同步</label>
-            <select id="src-auto-sync">
-              <option value="false">关闭</option>
-              <option value="true">开启</option>
-            </select>
+          <input type="hidden" id="src-edit-id">
+          <div class="form-group"><label>来源名称</label><input type="text" id="src-name"></div>
+          <div class="form-group"><label>URL</label>
+            <div class="input-with-copy"><input type="text" id="src-url"
+                placeholder="https://example.com/playlist.m3u"><button class="btn-copy" type="button"
+                onclick="copyText(document.getElementById('src-url').value)" title="复制源URL"><svg viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg></button></div>
           </div>
-          <div class="form-group">
-            <label>同步间隔 (小时)</label>
-            <input type="number" id="src-sync-interval" value="12" min="1">
+          <div class="form-row">
+            <div class="form-group">
+              <label>自动同步</label>
+              <select id="src-auto-sync">
+                <option value="false">关闭</option>
+                <option value="true">开启</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>同步间隔 (小时)</label>
+              <input type="number" id="src-sync-interval" value="12" min="1">
+            </div>
           </div>
-        </div>
-        <div class="form-group"><label>User-Agent (订阅拉取及分组默认)</label><input type="text" id="src-user-agent"
-            placeholder="留空使用系统默认"></div>
-        <div class="form-group"><label>自定义 Request Headers (JSON 格式)</label><textarea id="src-headers" rows="2"
-            placeholder='例如: {"Referer": "https://example.com"}'></textarea></div>
+          <div class="form-group"><label>User-Agent (订阅拉取及分组默认)</label><input type="text" id="src-user-agent"
+              placeholder="留空使用系统默认"></div>
+          <div class="form-group"><label>自定义 Request Headers (JSON 格式)</label><textarea id="src-headers" rows="2"
+              placeholder='例如: {"Referer": "https://example.com"}'></textarea></div>
         </div>
         <div class="form-actions">
           <button class="btn btn-ghost" onclick="hideModal('source-modal')">取消</button>
@@ -1201,22 +1233,23 @@
       <div class="modal">
         <h3>粘贴M3U内容</h3>
         <div class="modal-body">
-        <div class="form-group"><label>来源名称 <span style="color:var(--danger)">*</span></label><input type="text"
-            id="import-name" placeholder="例如：本地测试源" required></div>
-        <div class="form-group">
-          <label style="display:flex;justify-content:space-between;align-items:center;">
-            <span>M3U/TXT内容</span>
-            <div class="format-toolbar" style="display:flex;gap:8px;">
-              <button class="btn btn-ghost btn-sm" onclick="formatContent('m3u')">格式化为标准M3U</button>
-              <button class="btn btn-ghost btn-sm" onclick="formatContent('txt')">格式化为极简TXT</button>
-              <button class="btn btn-ghost btn-sm"
-                onclick="document.getElementById('import-file-input').click()">导入源文件</button>
-            </div>
-          </label>
-          <input type="file" id="import-file-input" accept=".m3u,.m3u8,.txt" style="display:none"
-            onchange="handleImportFile(event)">
-          <textarea id="import-content" rows="10" placeholder="#EXTM3U&#10;#EXTINF:-1,CCTV-1&#10;http://..."></textarea>
-        </div>
+          <div class="form-group"><label>来源名称 <span style="color:var(--danger)">*</span></label><input type="text"
+              id="import-name" placeholder="例如：本地测试源" required></div>
+          <div class="form-group">
+            <label style="display:flex;justify-content:space-between;align-items:center;">
+              <span>M3U/TXT内容</span>
+              <div class="format-toolbar" style="display:flex;gap:8px;">
+                <button class="btn btn-ghost btn-sm" onclick="formatContent('m3u')">格式化为标准M3U</button>
+                <button class="btn btn-ghost btn-sm" onclick="formatContent('txt')">格式化为极简TXT</button>
+                <button class="btn btn-ghost btn-sm"
+                  onclick="document.getElementById('import-file-input').click()">导入源文件</button>
+              </div>
+            </label>
+            <input type="file" id="import-file-input" accept=".m3u,.m3u8,.txt" style="display:none"
+              onchange="handleImportFile(event)">
+            <textarea id="import-content" rows="10"
+              placeholder="#EXTM3U&#10;#EXTINF:-1,CCTV-1&#10;http://..."></textarea>
+          </div>
         </div>
         <div class="form-actions">
           <button class="btn btn-ghost" onclick="hideModal('import-modal')">取消</button>
@@ -1301,9 +1334,11 @@
     <div class="modal-overlay" id="group-batch-modal">
       <div class="modal">
         <h3>分组批量操作</h3>
-        <p id="group-batch-modal-text" style="color:var(--text2);font-size:13px;margin-bottom:16px">将删除勾选的分组，并同步删除其下的所有频道，此操作不可恢复。</p>
+        <p id="group-batch-modal-text" style="color:var(--text2);font-size:13px;margin-bottom:16px">
+          将删除勾选的分组，并同步删除其下的所有频道，此操作不可恢复。</p>
         <div class="form-actions">
-          <button class="btn btn-ghost" onclick="hideModal('group-batch-modal'); document.getElementById('group-batch-action').value='';">取消</button>
+          <button class="btn btn-ghost"
+            onclick="hideModal('group-batch-modal'); document.getElementById('group-batch-action').value='';">取消</button>
           <button class="btn btn-danger" onclick="doGroupBatchAction()">确认操作</button>
         </div>
       </div>
@@ -1312,9 +1347,11 @@
     <div class="modal-overlay" id="channel-batch-modal">
       <div class="modal">
         <h3>频道批量操作</h3>
-        <p id="channel-batch-modal-text" style="color:var(--text2);font-size:13px;margin-bottom:16px">将永久删除勾选的频道，此操作不可恢复。</p>
+        <p id="channel-batch-modal-text" style="color:var(--text2);font-size:13px;margin-bottom:16px">
+          将永久删除勾选的频道，此操作不可恢复。</p>
         <div class="form-actions">
-          <button class="btn btn-ghost" onclick="hideModal('channel-batch-modal'); document.getElementById('channel-batch-action').value='';">取消</button>
+          <button class="btn btn-ghost"
+            onclick="hideModal('channel-batch-modal'); document.getElementById('channel-batch-action').value='';">取消</button>
           <button class="btn btn-danger" id="channel-batch-confirm-btn" onclick="doChannelBatchAction()">确认操作</button>
         </div>
       </div>
@@ -1323,7 +1360,8 @@
     <div class="modal-overlay" id="health-check-modal">
       <div class="modal">
         <h3>主动健康检查</h3>
-        <p id="hc-modal-desc" style="color:var(--text2);font-size:13px;margin-bottom:16px">系统将采用平滑滚动机制逐一探测频道，绝不会产生高并发被源站封禁。请设置预期完成时间。</p>
+        <p id="hc-modal-desc" style="color:var(--text2);font-size:13px;margin-bottom:16px">
+          系统将采用平滑滚动机制逐一探测频道，绝不会产生高并发被源站封禁。请设置预期完成时间。</p>
         <div class="form-group">
           <label>预期完成时间 (分钟)</label>
           <input type="number" id="hc-expected-minutes" value="120" min="1" max="1440">
@@ -1339,48 +1377,57 @@
       <div class="modal">
         <h3>添加/修改套餐</h3>
         <div class="modal-body">
-        <input type="hidden" id="plan-edit-id">
-        <div class="form-group"><label>套餐名称</label><input type="text" id="plan-name" placeholder="如：家庭包年套餐"></div>
-        <div class="form-row">
-          <div class="form-group"><label>有效期 (天)</label><input type="number" id="plan-days" value="365" min="0"></div>
-          <div class="form-group"><label>允许同时在线设备数量</label><input type="number" id="plan-streams" value="100" min="1">
+          <input type="hidden" id="plan-edit-id">
+          <div class="form-group"><label>套餐名称</label><input type="text" id="plan-name" placeholder="如：家庭包年套餐"></div>
+          <div class="form-row">
+            <div class="form-group"><label>有效期 (天)</label><input type="number" id="plan-days" value="365" min="0"></div>
+            <div class="form-group"><label>允许同时在线设备数量</label><input type="number" id="plan-streams" value="100" min="1">
+            </div>
           </div>
-        </div>
-        <div class="form-group"><label>价格 (可选展示)</label><input type="number" id="plan-price" value="0" step="0.01">
-        </div>
-        <div class="form-group"><label>描述</label><textarea id="plan-desc" rows="2"></textarea></div>
-        <div class="form-group" id="plan-token-group">
-          <label>订阅 Token (不填写会自动生成)</label>
-          <div style="display:flex;gap:10px;">
-            <input type="text" id="plan-token" placeholder="留空自动生成" style="flex:1;">
-            <button class="btn btn-ghost" type="button" onclick="regeneratePlanTokenInput()"
-              style="white-space:nowrap;">随机生成</button>
+          <div class="form-group"><label>价格 (可选展示)</label><input type="number" id="plan-price" value="0" step="0.01">
           </div>
-        </div>
-        <div class="form-group" id="plan-subscription-buttons-group" style="display:none;">
-          <label>复制订阅链接</label>
-          <div style="display:flex;gap:10px;">
-            <button class="btn btn-ghost" type="button" id="btn-copy-m3u" style="flex:1;">订阅 M3U</button>
-            <button class="btn btn-ghost" type="button" id="btn-copy-txt" style="flex:1;">订阅 TXT</button>
+          <div class="form-group"><label>描述</label><textarea id="plan-desc" rows="2"></textarea></div>
+          <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+            <label class="switch">
+              <input type="checkbox" id="plan-enable-aggregation">
+              <span class="slider"></span>
+            </label>
+            <label for="plan-enable-aggregation" style="margin-bottom:0;">开启同名分组聚合</label>
+            <span style="font-size:12px;color:var(--text2);margin-left:4px;">(若开启，将自动剥离来源标识合并同名分组及频道)</span>
           </div>
-        </div>
-        <div class="form-group">
-          <label>关联频道分组 <span
-              style="font-size:12px;color:var(--text2);font-weight:normal;">(不勾选则没有任何频道的访问权限，已选分组可拖拽排序)</span></label>
-          <div style="margin-bottom: 6px;">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleAllPlanGroups(true)">全选</button>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleAllPlanGroups(false)" style="margin-left:4px;">取消全选</button>
+          <div class="form-group" id="plan-token-group">
+            <label>订阅 Token (不填写会自动生成)</label>
+            <div style="display:flex;gap:10px;">
+              <input type="text" id="plan-token" placeholder="留空自动生成" style="flex:1;">
+              <button class="btn btn-ghost" type="button" onclick="regeneratePlanTokenInput()"
+                style="white-space:nowrap;">随机生成</button>
+            </div>
           </div>
-          <div id="plan-groups-selected-container"
-            style="min-height:40px;margin-bottom:10px;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg1);max-height:125px;overflow-y:auto;">
-            <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">已选分组（可拖拽排序）</div>
-            <div id="plan-groups-selected" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+          <div class="form-group" id="plan-subscription-buttons-group" style="display:none;">
+            <label>复制订阅链接</label>
+            <div style="display:flex;gap:10px;">
+              <button class="btn btn-ghost" type="button" id="btn-copy-m3u" style="flex:1;">订阅 M3U</button>
+              <button class="btn btn-ghost" type="button" id="btn-copy-txt" style="flex:1;">订阅 TXT</button>
+            </div>
           </div>
-          <div id="plan-groups-container"
-            style="display:flex;flex-wrap:wrap;gap:10px;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg1);max-height:125px;overflow-y:auto;">
-            <div style="font-size:12px;color:var(--text2);margin-bottom:6px;width:100%;">未选分组</div>
+          <div class="form-group">
+            <label>关联频道分组 <span
+                style="font-size:12px;color:var(--text2);font-weight:normal;">(不勾选则没有任何频道的访问权限，已选分组可拖拽排序)</span></label>
+            <div style="margin-bottom: 6px;">
+              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleAllPlanGroups(true)">全选</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleAllPlanGroups(false)"
+                style="margin-left:4px;">取消全选</button>
+            </div>
+            <div id="plan-groups-selected-container"
+              style="min-height:40px;margin-bottom:10px;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg1);max-height:350px;overflow-y:auto;">
+              <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">已选分组（可拖拽排序）</div>
+              <div id="plan-groups-selected" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+            </div>
+            <div id="plan-groups-container"
+              style="display:flex;flex-wrap:wrap;gap:10px;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg1);max-height:350px;overflow-y:auto;">
+              <div style="font-size:12px;color:var(--text2);margin-bottom:6px;width:100%;">未选分组</div>
+            </div>
           </div>
-        </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-ghost" onclick="hideModal('plan-modal')">取消</button>
