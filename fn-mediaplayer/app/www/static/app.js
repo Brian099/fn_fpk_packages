@@ -1483,7 +1483,11 @@ async function showClientDetail(id) {
       <div class="label">累计播放</div><div class="value">${c.total_play_minutes} 分钟</div>
       <div class="label">最近在线</div><div class="value">${fmtDate(c.last_seen)}</div>
       <div class="label">注册时间</div><div class="value">${fmtDate(c.created_at)}</div>
-      <div class="label">申请备注</div><div class="value">${esc(c.request_note) || '-'}</div>
+      <div class="label">申请备注</div>
+      <div class="value" style="display:flex;align-items:center;gap:8px;">
+        ${esc(c.request_note) || '-'}
+        <span style="cursor:pointer;opacity:0.5" onclick="editClientRemark(${c.id}, decodeURIComponent('${encodeURIComponent(c.request_note || '')}'))">✏️</span>
+      </div>
       <div class="label">令牌</div>
       <div class="value" style="display:flex;align-items:center;gap:8px;">
         <code style="font-size:12px" id="detail-token-display" data-preview="${esc(tokenPreview)}" data-full="${esc(c.access_token || '')}">${esc(tokenPreview)}</code>
@@ -1502,13 +1506,25 @@ async function showClientDetail(id) {
     </div>
     <div class="btn-group" style="flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="showTokenModal(${c.id})">🔑 令牌管理</button>
-      <button class="btn btn-ghost btn-sm" onclick="downloadClientLog(${c.id}, '${esc(c.device_id)}')">⬇️ 终端日志</button>
       ${c.status === 'approved' ? `<button class="btn btn-warn btn-sm" onclick="banClient(${c.id},'管理员封禁')">封禁</button>` : ''}
       ${c.status !== 'approved' ? `<button class="btn btn-primary btn-sm" onclick="showApproveModal(${c.id})">通过</button>` : ''}
       <button class="btn btn-danger btn-sm" onclick="deleteClient(${c.id})">删除设备</button>
     </div>
   `;
   showModal('client-detail-modal');
+}
+
+async function editClientRemark(id, oldNote) {
+  const note = prompt('请输入新的申请备注：', oldNote);
+  if (note === null) return;
+  const r = await api(`/admin/clients/${id}/remark`, { method: 'POST', body: JSON.stringify({ note }) });
+  if (r.error) {
+    toast(r.error, 'error');
+  } else {
+    toast('备注已更新');
+    showClientDetail(id);
+    loadClients();
+  }
 }
 
 async function toggleClientLog(id, enable) {
