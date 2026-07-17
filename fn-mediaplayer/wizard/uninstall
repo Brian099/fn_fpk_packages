@@ -1,30 +1,30 @@
 [
   {
-    "stepTitle": "确认卸载",
+    "stepTitle": "${uninstall.stepTitle}",
     "items": [
       {
         "type": "tips",
-        "helpText": "<strong>您正在卸载“MediaPlayer”</strong><br><br>此操作将停止服务并移除主程序文件。请选择如何处理您的配置及媒体缓存数据："
+        "helpText": "${uninstall.helpText}"
       },
       {
         "type": "radio",
         "field": "wizard_data_action",
-        "label": "MediaPlayer数据选项",
+        "label": "${uninstall.dataOptionLabel}",
         "initValue": "keep",
         "options": [
           {
-            "label": "保留数据 (推荐) - 保留数据库、配置及缓存，方便下次重装恢复",
+            "label": "${uninstall.keepDataLabel}",
             "value": "keep"
           },
           {
-            "label": "删除所有数据 - 彻底清理所有配置与数据库 (不可恢复)",
+            "label": "${uninstall.deleteDataLabel}",
             "value": "delete"
           }
         ],
         "rules": [
           {
             "required": true,
-            "message": "请选择数据处理选项"
+            "message": "${uninstall.selectionRequiredMsg}"
           }
         ]
       }

@@ -692,6 +692,9 @@ function showAddChannelModal() {
   document.getElementById('ch-fcc').value = '';
   document.getElementById('ch-fcc-type').value = '';
   document.getElementById('ch-content-type').value = '';
+  document.getElementById('ch-proxy-type').value = '';
+  document.getElementById('ch-proxy-url').value = '';
+  document.getElementById('ch-proxy-url-group').style.display = 'none';
   document.getElementById('ch-sort').value = 0;
   const mirrorAction = document.getElementById('ch-mirror-action');
   if (mirrorAction) mirrorAction.style.display = 'none';
@@ -714,9 +717,13 @@ async function saveChannel() {
     fcc: document.getElementById('ch-fcc').value,
     fcc_type: document.getElementById('ch-fcc-type').value,
     content_type: document.getElementById('ch-content-type').value,
+    proxy_type: document.getElementById('ch-proxy-type').value,
+    proxy_url: document.getElementById('ch-proxy-url').value,
     sort_order: parseInt(document.getElementById('ch-sort').value) || 0
   };
   if (!d.name || !d.stream_url) { toast('请填写名称和流地址', 'error'); return; }
+  if (d.proxy_type === 'socks5' && !d.proxy_url) { toast('请填写代理地址', 'error'); return; }
+  if (d.proxy_type !== 'socks5') { d.proxy_url = ''; }
   if (d.custom_headers) {
     try {
       JSON.parse(d.custom_headers);
@@ -751,6 +758,9 @@ async function editChannel(id) {
   document.getElementById('ch-fcc').value = c.fcc || '';
   document.getElementById('ch-fcc-type').value = c.fcc_type || '';
   document.getElementById('ch-content-type').value = c.content_type || '';
+  document.getElementById('ch-proxy-type').value = c.proxy_type || '';
+  document.getElementById('ch-proxy-url').value = c.proxy_url || '';
+  document.getElementById('ch-proxy-url-group').style.display = (c.proxy_type === 'socks5') ? 'block' : 'none';
   document.getElementById('ch-sort').value = c.sort_order || 0;
   document.getElementById('channel-modal-title').textContent = '编辑频道';
   
@@ -1055,6 +1065,9 @@ function showAddGroupModal() {
   document.getElementById('grp-user-agent').value = '';
   document.getElementById('grp-headers').value = '';
   document.getElementById('group-modal-title').textContent = '添加分组';
+  document.getElementById('grp-proxy-type').value = '';
+  document.getElementById('grp-proxy-url').value = '';
+  document.getElementById('grp-proxy-url-group').style.display = 'none';
   showModal('group-modal');
 }
 
@@ -1066,9 +1079,13 @@ async function saveGroup() {
     is_direct: document.getElementById('grp-is-direct').checked,
     enable_multiplex: document.getElementById('grp-enable-multiplex').checked ? 1 : 0,
     user_agent: document.getElementById('grp-user-agent').value,
-    custom_headers: document.getElementById('grp-headers').value
+    custom_headers: document.getElementById('grp-headers').value,
+    proxy_type: document.getElementById('grp-proxy-type').value,
+    proxy_url: document.getElementById('grp-proxy-url').value
   };
   if (!d.name) { toast('请填写名称', 'error'); return; }
+  if (d.proxy_type === 'socks5' && !d.proxy_url) { toast('请填写代理地址', 'error'); return; }
+  if (d.proxy_type !== 'socks5') { d.proxy_url = ''; }
   if (d.custom_headers) {
     try {
       JSON.parse(d.custom_headers);
@@ -1095,6 +1112,9 @@ function editGroup(id) {
   document.getElementById('grp-user-agent').value = g.user_agent || '';
   document.getElementById('grp-headers').value = g.custom_headers || '';
   document.getElementById('group-modal-title').textContent = '编辑分组';
+  document.getElementById('grp-proxy-type').value = g.proxy_type || '';
+  document.getElementById('grp-proxy-url').value = g.proxy_url || '';
+  document.getElementById('grp-proxy-url-group').style.display = (g.proxy_type === 'socks5') ? 'block' : 'none';
   showModal('group-modal');
 }
 
@@ -1205,6 +1225,9 @@ function showAddSourceModal() {
   document.getElementById('src-sync-interval').value = '12';
   document.getElementById('src-user-agent').value = '';
   document.getElementById('src-headers').value = '';
+  document.getElementById('src-proxy-type').value = '';
+  document.getElementById('src-proxy-url').value = '';
+  document.getElementById('src-proxy-url-group').style.display = 'none';
   showModal('source-modal');
 }
 
@@ -1219,6 +1242,9 @@ function editSource(id) {
   document.getElementById('src-sync-interval').value = s.sync_interval || 12;
   document.getElementById('src-user-agent').value = s.user_agent || '';
   document.getElementById('src-headers').value = s.custom_headers || '';
+  document.getElementById('src-proxy-type').value = s.proxy_type || '';
+  document.getElementById('src-proxy-url').value = s.proxy_url || '';
+  document.getElementById('src-proxy-url-group').style.display = (s.proxy_type === 'socks5') ? 'block' : 'none';
   showModal('source-modal');
 }
 
@@ -1230,9 +1256,13 @@ async function saveSource() {
     auto_sync: document.getElementById('src-auto-sync').value === 'true',
     sync_interval: parseInt(document.getElementById('src-sync-interval').value) || 12,
     user_agent: document.getElementById('src-user-agent').value,
-    custom_headers: document.getElementById('src-headers').value
+    custom_headers: document.getElementById('src-headers').value,
+    proxy_type: document.getElementById('src-proxy-type').value,
+    proxy_url: document.getElementById('src-proxy-url').value
   };
   if (!d.name || !d.url) { toast('请填写完整', 'error'); return; }
+  if (d.proxy_type === 'socks5' && !d.proxy_url) { toast('请填写代理地址', 'error'); return; }
+  if (d.proxy_type !== 'socks5') { d.proxy_url = ''; }
   if (d.custom_headers) {
     try {
       JSON.parse(d.custom_headers);
@@ -3046,4 +3076,15 @@ async function forceSyncFromMaster() {
     // api func handles error toast
   }
 }
+
+// Proxy type toggle handlers
+document.getElementById('src-proxy-type').addEventListener('change', function() {
+  document.getElementById('src-proxy-url-group').style.display = (this.value === 'socks5') ? 'block' : 'none';
+});
+document.getElementById('grp-proxy-type').addEventListener('change', function() {
+  document.getElementById('grp-proxy-url-group').style.display = (this.value === 'socks5') ? 'block' : 'none';
+});
+document.getElementById('ch-proxy-type').addEventListener('change', function() {
+  document.getElementById('ch-proxy-url-group').style.display = (this.value === 'socks5') ? 'block' : 'none';
+});
 

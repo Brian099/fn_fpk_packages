@@ -4,6 +4,10 @@
 server:
   host: "0.0.0.0"
   port: 9527
+  # trusted_proxies:    # 反向代理 IP，用于读取真实客户端 IP（默认信任本机 127.0.0.1/::1）
+  #   - "127.0.0.1"
+  #   - "::1"
+  #   - "172.17.0.1"    # Docker 部署时取消注释
 
 database:
   path: "./data/mediaplayer.db"
@@ -34,5 +38,5 @@ cors:
 # 建议外网访问部署请把这个改成 300/600/60
 rate_limit:
   api: 1000          # 通用 API（频道列表、分组、管理等）
-  logo: 1000         # 台标接口（Coil 加载台标）
+  logo: 10000         # 台标接口（Coil 加载台标）
   stream: 2000        # 流代理接口（播放换台）

@@ -1,0 +1,37 @@
+[common]
+displayName="MediaPlayer"
+desc="""<b>MediaPlayer</b> Smart TV streaming media center, transforming massive, messy M3U live sources and EPG electronic program guides into a smooth, organized viewing experience like cable TV. With robust server-side authentication and proxy mechanisms, your live sources are protected from hotlinking and packet capture.<br/><br/><b>⚡ Core Features</b><br/>📝 <b>Ultimate Security Protection (Anti-hotlinking)</b><br/>🏷️ <b>Powerful Multi-device Management</b><br/>🔄 <b>Immersive Big-screen Experience</b><br/>📌 <b>All-in-one Subscription Management & Channel Organization</b><br/>📥 <b>Client Download:</b><br/> 1、<b><a href="https://mediaplayer.laokhome.cn" >Download MediaPlayer Client</a> </b><br/><img width="100%" height="auto" src="https://cdn.gh-proxy.org/https://raw.githubusercontent.com/kuai410022283/mediaplayer/main/images/player02.png" alt="MediaPlayer" style="margin-top:0.3em"><img width="100%" height="auto" src="https://cdn.gh-proxy.org/https://raw.githubusercontent.com/kuai410022283/mediaplayer/main/images/home01.png" alt="MediaPlayer" style="margin-top:0.3em">"""
+
+[entry]
+title="MediaPlayer"
+
+[install]
+stepTitle="MediaPlayer Configuration"
+helpText="Please set the running port and admin password for MediaPlayer. This password will be used to log in to the console. If unsure about the port number, it is recommended to keep the default 9527."
+dataDirLabel="Persistent APK/Document Directory"
+portLabel="Running Port"
+passwordLabel="Admin Password"
+dataDirRequiredMsg="Directory cannot be empty"
+portRequiredMsg="Port cannot be empty"
+portPatternMsg="Port must be a number"
+portRangeMsg="Invalid port number range"
+passwordRequiredMsg="Admin password cannot be empty"
+passwordLengthMsg="Password length must be between 6-64 characters"
+
+[uninstall]
+stepTitle="Confirm Uninstall"
+helpText="""<strong>You are uninstalling "MediaPlayer"</strong><br><br>This operation will stop the service and remove the main program files. Please choose how to handle your configuration and media cache data:"""
+dataOptionLabel="MediaPlayer Data Options"
+keepDataLabel="Keep Data (Recommended) - Keep database, config and cache for easy reinstallation"
+deleteDataLabel="Delete All Data - Completely clean all config and database (irreversible)"
+selectionRequiredMsg="Please select a data handling option"
+
+[config]
+stepTitle="Modify MediaPlayer Settings"
+helpText="Parameters modified here will override the current running configuration and automatically restart the app to take effect. Leave blank or keep the original value if no change is needed."
+portLabel="New Running Port"
+portPlaceholder="Leave blank if no change"
+passwordLabel="New Admin Password"
+passwordPlaceholder="Leave blank if no change"
+portPatternMsg="Port must be a number"
+passwordLengthMsg="Password length must be between 6-64 characters"

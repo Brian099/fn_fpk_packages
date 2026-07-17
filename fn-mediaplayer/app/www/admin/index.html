@@ -1128,6 +1128,18 @@
               <option value="huawei">华为 (Huawei UDP)</option>
             </select>
           </div>
+          <div class="form-group">
+            <label>代理类型</label>
+            <select id="ch-proxy-type">
+              <option value="">继承分组代理设置</option>
+              <option value="none">不代理（覆盖继承）</option>
+              <option value="socks5">SOCKS5</option>
+            </select>
+          </div>
+          <div class="form-group" id="ch-proxy-url-group" style="display:none">
+            <label>代理地址</label>
+            <input type="text" id="ch-proxy-url" placeholder="socks5://user:pass@host:port">
+          </div>
           <div class="form-group"><label>排序</label><input type="number" id="ch-sort" value="0" placeholder="数字越小越靠前">
           </div>
 
@@ -1181,6 +1193,18 @@
               placeholder="留空使用订阅源或系统默认"></div>
           <div class="form-group"><label>自定义 Request Headers (JSON 格式)</label><textarea id="grp-headers" rows="2"
               placeholder='例如: {"Referer": "https://example.com"}'></textarea></div>
+          <div class="form-group">
+            <label>代理类型</label>
+            <select id="grp-proxy-type">
+              <option value="">继承源代理设置</option>
+              <option value="none">不代理（覆盖继承）</option>
+              <option value="socks5">SOCKS5</option>
+            </select>
+          </div>
+          <div class="form-group" id="grp-proxy-url-group" style="display:none">
+            <label>代理地址</label>
+            <input type="text" id="grp-proxy-url" placeholder="socks5://user:pass@host:port">
+          </div>
         </div>
         <div class="form-actions">
           <button class="btn btn-ghost" onclick="hideModal('group-modal')">取消</button>
@@ -1221,6 +1245,17 @@
               placeholder="留空使用系统默认"></div>
           <div class="form-group"><label>自定义 Request Headers (JSON 格式)</label><textarea id="src-headers" rows="2"
               placeholder='例如: {"Referer": "https://example.com"}'></textarea></div>
+          <div class="form-group">
+            <label>代理类型</label>
+            <select id="src-proxy-type">
+              <option value="">不使用代理</option>
+              <option value="socks5">SOCKS5</option>
+            </select>
+          </div>
+          <div class="form-group" id="src-proxy-url-group" style="display:none">
+            <label>代理地址</label>
+            <input type="text" id="src-proxy-url" placeholder="socks5://user:pass@host:port">
+          </div>
         </div>
         <div class="form-actions">
           <button class="btn btn-ghost" onclick="hideModal('source-modal')">取消</button>
