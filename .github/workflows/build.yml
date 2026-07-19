@@ -52,19 +52,6 @@ jobs:
             APPNAME=$(grep -E '^appname[[:space:]]*=' "$APP/manifest" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
             VERSION=$(grep -E '^version[[:space:]]*=' "$APP/manifest" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
             DESC=$(grep -E '^desc[[:space:]]*=' "$APP/manifest" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
-            PLATFORM=$(grep -E '^platform[[:space:]]*=' "$APP/manifest" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
-            [ -z "$PLATFORM" ] && PLATFORM="x86"
-
-            mv -f "${APPNAME}.fpk" "${APPNAME}_v${VERSION}.fpk"
-
-            ICON_URL="https://github.com/${{ github.repository }}/raw/main/${APP}/ICON.PNG"
-            SIZE=$(stat -c%s "${APPNAME}_v${VERSION}.fpk" 2>/dev/null | awk '{printf "%.2f MB",$1/1024/1024}')
-
-            README_DESC=$(echo "$DESC" | sed -E 's/<img[^>]*>//g')
-            echo "| <img src=\"${ICON_URL}\" width=\"48\" height=\"48\"> | ${APPNAME} | v${VERSION} | ${PLATFORM} | ${SIZE} | ${README_DESC} |" >> apps-list.md
-
-            # For fnpack.json
-            SIZE_NUM=$(stat -c%s "${APPNAME}_v${VERSION}.fpk" 2>/dev/null | awk '{printf "%10.3f",$1/1024/1024}')
             NAME=$(grep -E '^display_name[[:space:]]*=' "$APP/manifest" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
             # Override with zh-CN i18n values if available, fallback to en-US
             I18N_FILE=""
@@ -76,6 +63,19 @@ jobs:
                 I18N_DESC=$(grep -E '^desc[[:space:]]*=' "$I18N_FILE" 2>/dev/null | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/^"{1,3}$//')
                 [ -n "$I18N_DESC" ] && DESC="$I18N_DESC"
             fi
+            PLATFORM=$(grep -E '^platform[[:space:]]*=' "$APP/manifest" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
+            [ -z "$PLATFORM" ] && PLATFORM="x86"
+
+            mv -f "${APPNAME}.fpk" "${APPNAME}_v${VERSION}.fpk"
+
+            ICON_URL="https://github.com/${{ github.repository }}/raw/main/${APP}/ICON.PNG"
+            SIZE=$(stat -c%s "${APPNAME}_v${VERSION}.fpk" 2>/dev/null | awk '{printf "%.2f MB",$1/1024/1024}')
+
+            README_DESC=$(echo "$DESC" | sed -E 's/<img[^>]*>//g; s/"//g')
+            echo "| <img src=\"${ICON_URL}\" width=\"48\" height=\"48\"> | ${APPNAME} | v${VERSION} | ${PLATFORM} | ${SIZE} | ${README_DESC} |" >> apps-list.md
+
+            # For fnpack.json
+            SIZE_NUM=$(stat -c%s "${APPNAME}_v${VERSION}.fpk" 2>/dev/null | awk '{printf "%10.3f",$1/1024/1024}')
             TYPE=$(grep -E '^install_type[[:space:]]*=' "$APP/manifest" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
             MAINTAINER=$(grep -E '^maintainer[[:space:]]*=' "$APP/manifest" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
             MAINTAINER_URL=$(grep -E '^maintainer_url[[:space:]]*=' "$APP/manifest" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
@@ -83,7 +83,7 @@ jobs:
             [ -z "$MAINTAINER_URL" ] && MAINTAINER_URL="https://github.com/${REPO}"
             LABELS="工具"
             [ -f "$APP/labels.txt" ] && LABELS=$(cat "$APP/labels.txt" | xargs)
-            
+
             # Build JSON entry using jq --arg for safe string handling
             jq --arg app "$APP" \
                --arg name "$NAME" \
@@ -222,16 +222,16 @@ jobs:
                   RAW_TYPE=$(grep -E '^install_type[[:space:]]*=' "$MANIFEST" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
                   PLATFORM=$(grep -E '^platform[[:space:]]*=' "$MANIFEST" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
                   [ -z "$PLATFORM" ] && PLATFORM="x86"
-                  
+
                   LABELS="工具"
                   [ -f "$SOURCE_DIR/labels.txt" ] && LABELS=$(cat "$SOURCE_DIR/labels.txt" | xargs)
-                  
+
                   if [ "$RAW_TYPE" = "root" ]; then
                       INSTALL_TYPE="系统空间"
                   else
                       INSTALL_TYPE="用户空间"
                   fi
-                  
+
                   SIZE=$(stat -c%s "$FPK_FILE" | awk '{printf "%.2f",$1/1024/1024}')
 
                   # 同步图标
