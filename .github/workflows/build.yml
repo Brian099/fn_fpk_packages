@@ -40,7 +40,7 @@ jobs:
           echo "| 图标 | 应用名称 | 版本 | 平台 | 大小 | 描述 |" > apps-list.md
           echo "| :---: | :--- | :--- | :--- | :--- | :--- |" >> apps-list.md
 
-          APPS=()
+          echo "{}" > fnpack.json
           for APP in fn-*; do
             [ -f "${APP}/norelease" ] && continue
             [ -f "${APP}/manifest" ] || continue
@@ -84,9 +84,21 @@ jobs:
             LABELS="工具"
             [ -f "$APP/labels.txt" ] && LABELS=$(cat "$APP/labels.txt" | xargs)
             
-            DESC_ESCAPED="${DESC//\\/\\\\}"
-            DESC_ESCAPED="${DESC_ESCAPED//\"/\\\"}"
-            APPS+=("\"${APP}\": {\"display_name\": \"${NAME}\", \"desc\": \"${DESC_ESCAPED}\", \"labels\": \"${LABELS}\", \"version\": \"${VERSION}\", \"download_url\": \"https://github.com/${{ github.repository }}/releases/download/${TAG}/${APPNAME}_v${VERSION}.fpk\", \"author\": \"${MAINTAINER}\", \"author_url\": \"${MAINTAINER_URL}\", \"bug_report_url\": \"https://github.com/${{ github.repository }}/issues\", \"install_type\": \"${TYPE}\", \"size\": \"${SIZE_NUM}\", \"history\": {\"v${VERSION}\": \"Initial release of ${APPNAME} package.\"}}")
+            # Build JSON entry using jq --arg for safe string handling
+            jq --arg app "$APP" \
+               --arg name "$NAME" \
+               --arg desc "$DESC" \
+               --arg labels "$LABELS" \
+               --arg version "$VERSION" \
+               --arg dl "https://github.com/${{ github.repository }}/releases/download/${TAG}/${APPNAME}_v${VERSION}.fpk" \
+               --arg author "$MAINTAINER" \
+               --arg author_url "$MAINTAINER_URL" \
+               --arg bug "https://github.com/${{ github.repository }}/issues" \
+               --arg type "$TYPE" \
+               --arg size "$SIZE_NUM" \
+               --arg appname "$APPNAME" \
+               '.[$app] = {"display_name": $name, "desc": $desc, "labels": $labels, "version": $version, "download_url": $dl, "author": $author, "author_url": $author_url, "bug_report_url": $bug, "install_type": $type, "size": $size, "history": {("v" + $version): ("Initial release of " + $appname + " package.")}}' \
+               fnpack.json > fnpack.json.tmp && mv fnpack.json.tmp fnpack.json
           done
 
           echo "" >> apps-list.md
@@ -95,8 +107,6 @@ jobs:
           if ! command -v jq >/dev/null 2>&1; then
             sudo apt update >/dev/null 2>&1 && sudo apt install -y jq >/dev/null 2>&1
           fi
-          echo {$(IFS=,; echo "${APPS[*]}")} | jq . >fnpack.json
-
           # Update README.md
           python3 - << 'EOF'
           import os
