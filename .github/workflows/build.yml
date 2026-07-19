@@ -58,9 +58,9 @@ jobs:
             [ -f "$APP/i18n/zh-CN" ] && I18N_FILE="$APP/i18n/zh-CN"
             [ -z "$I18N_FILE" ] && [ -f "$APP/i18n/en-US" ] && I18N_FILE="$APP/i18n/en-US"
             if [ -n "$I18N_FILE" ]; then
-                I18N_NAME=$(grep -E '^displayName[[:space:]]*=' "$I18N_FILE" 2>/dev/null | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/^"{1,3}$//')
+                I18N_NAME=$(grep -E '^displayName[[:space:]]*=' "$I18N_FILE" 2>/dev/null | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
                 [ -n "$I18N_NAME" ] && NAME="$I18N_NAME"
-                I18N_DESC=$(grep -E '^desc[[:space:]]*=' "$I18N_FILE" 2>/dev/null | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/^"{1,3}$//')
+                I18N_DESC=$(grep -E '^desc[[:space:]]*=' "$I18N_FILE" 2>/dev/null | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
                 [ -n "$I18N_DESC" ] && DESC="$I18N_DESC"
             fi
             PLATFORM=$(grep -E '^platform[[:space:]]*=' "$APP/manifest" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
@@ -210,9 +210,9 @@ jobs:
                   [ -f "$SOURCE_DIR/i18n/zh-CN" ] && I18N_FILE="$SOURCE_DIR/i18n/zh-CN"
                   [ -z "$I18N_FILE" ] && [ -f "$SOURCE_DIR/i18n/en-US" ] && I18N_FILE="$SOURCE_DIR/i18n/en-US"
                   if [ -n "$I18N_FILE" ]; then
-                      I18N_NAME=$(grep -E '^displayName[[:space:]]*=' "$I18N_FILE" 2>/dev/null | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/^"{1,3}$//')
+                      I18N_NAME=$(grep -E '^displayName[[:space:]]*=' "$I18N_FILE" 2>/dev/null | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
                       [ -n "$I18N_NAME" ] && DISPLAY_NAME="$I18N_NAME"
-                      I18N_DESC=$(grep -E '^desc[[:space:]]*=' "$I18N_FILE" 2>/dev/null | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/^"{1,3}$//')
+                      I18N_DESC=$(grep -E '^desc[[:space:]]*=' "$I18N_FILE" 2>/dev/null | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
                       [ -n "$I18N_DESC" ] && DESC="$I18N_DESC"
                   fi
                   MAINTAINER=$(grep -E '^maintainer[[:space:]]*=' "$MANIFEST" | sed -E 's/^[^=]+=[[:space:]]*//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"{1,3}//; s/"{1,3}$//')
