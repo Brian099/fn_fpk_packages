@@ -227,9 +227,9 @@ jobs:
                   [ -f "$SOURCE_DIR/labels.txt" ] && LABELS=$(cat "$SOURCE_DIR/labels.txt" | xargs)
 
                   if [ "$RAW_TYPE" = "root" ]; then
-                      INSTALL_TYPE="系统空间"
+                      INSTALL_TYPE="root"
                   else
-                      INSTALL_TYPE="用户空间"
+                      INSTALL_TYPE=""
                   fi
 
                   SIZE=$(stat -c%s "$FPK_FILE" | awk '{printf "%.2f",$1/1024/1024}')
