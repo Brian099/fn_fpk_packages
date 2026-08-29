@@ -19,6 +19,8 @@ func SetupRoutes(r *gin.Engine) {
 	r.DELETE("/api/proxies/:id", DeleteProxy)
 	r.POST("/api/proxies/:id/reload", ReloadProxy)
 	r.GET("/api/proxies/status", GetProxyStatus)
+	r.GET("/api/certs", GetCerts)
+	r.POST("/api/test-target", TestTarget)
 }
 
 func auditLog(action, target, detail string) {
@@ -116,4 +118,26 @@ func ReloadProxy(c *gin.Context) {
 
 func GetProxyStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, proxy.GetListenErrors())
+}
+
+type TestTargetRequest struct {
+	Protocol   string `json:"protocol"`
+	Host       string `json:"host"`
+	Port       string `json:"port"`
+	TimeoutSec int    `json:"timeoutSec"`
+}
+
+func GetCerts(c *gin.Context) {
+	certs := proxy.GetCertsList()
+	c.JSON(http.StatusOK, certs)
+}
+
+func TestTarget(c *gin.Context) {
+	var req TestTargetRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	result := proxy.TestTargetConnection(req.Protocol, req.Host, req.Port, req.TimeoutSec)
+	c.JSON(http.StatusOK, result)
 }

@@ -23,6 +23,7 @@ var (
 	configDir  = flag.String("cd", ".", "Config directory")
 	wwwDir     = flag.String("www", "", "WWW directory for static files")
 	unixSocket = flag.String("unix-socket", "", "Unix socket path")
+	port       = flag.String("port", "", "HTTP port for Admin API and Web UI (defaults to 16601 if unix-socket is not specified)")
 )
 
 func main() {
@@ -51,6 +52,7 @@ func main() {
 	}
 
 	var unixSrv *http.Server
+	var httpSrv *http.Server
 
 	if *unixSocket != "" {
 		_ = os.Remove(*unixSocket)
@@ -67,6 +69,22 @@ func main() {
 				}
 			}()
 		}
+	}
+
+	listenPort := *port
+	if *unixSocket == "" && listenPort == "" {
+		listenPort = "16601"
+	}
+
+	if listenPort != "" {
+		addr := ":" + listenPort
+		httpSrv = &http.Server{Addr: addr, Handler: r}
+		go func() {
+			log.Printf("Admin API and Web UI listening on: http://127.0.0.1%s", addr)
+			if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Printf("HTTP server error: %v", err)
+			}
+		}()
 	}
 
 	go func() {
@@ -93,6 +111,12 @@ func main() {
 	if unixSrv != nil {
 		if err := unixSrv.Shutdown(ctx); err != nil {
 			log.Printf("Unix socket server shutdown error: %v", err)
+		}
+	}
+
+	if httpSrv != nil {
+		if err := httpSrv.Shutdown(ctx); err != nil {
+			log.Printf("HTTP server shutdown error: %v", err)
 		}
 	}
 

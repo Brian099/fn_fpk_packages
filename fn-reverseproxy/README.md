@@ -128,12 +128,19 @@ cd D:\UGit\fn_fpk_packages
 
 ## 版本历史
 
+### 更新v1.0.11
+- 1、修复 SNI 多域名同端口复用校验问题，支持在 80/443 或任意端口配置多个不同域名的虚拟主机
+- 2、增强泛域名（如 *.example.com）路由匹配引擎与精确匹配优先级
+- 3、优化强制 HTTPS（ForceHTTPS）重定向，自适应非标准 HTTPS 端口
+- 4、新增目标后端服务连通性测试接口（Test Connection）
+- 5、新增系统 SSL/TLS 证书透视看板与状态检测
+
 ### 更新v1.0.8
 - 1、修复代理精准度（解决丢状态码和丢协议的问题）和 吞吐性能（高并发承载能力）瓶颈。（偶发场景）
 
 ### 更新v1.0.7
 - 1、修复HSTS实际未生效问题
-- 2、新增高级设置）：最大上传限制（MB）、自定义请求头 (Custom Headers)、强制跳转 HTTPS、IP 访问控制 (Access Control)
+- 2、新增高级设置：最大上传限制（MB）、自定义请求头 (Custom Headers)、强制跳转 HTTPS、IP 访问控制 (Access Control)
 
 ## 许可证
 

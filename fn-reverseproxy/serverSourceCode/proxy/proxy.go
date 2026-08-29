@@ -35,13 +35,23 @@ type fnosCert struct {
 	PrivateKey  string   `json:"privateKey"`
 }
 
+type WildcardDomainRule struct {
+	Protocol string
+	Port     string
+	Pattern  string
+	Rule     *config.ProxyRule
+}
+
 var (
 	proxies     = make(map[string]*httputil.ReverseProxy)
 	proxiesMu   sync.RWMutex
-	domainMap   = make(map[string]*config.ProxyRule)
-	domainMapMu sync.RWMutex
-	portMap     = make(map[string]*config.ProxyRule)
-	portMapMu   sync.RWMutex
+
+	domainExactMap     = make(map[string]*config.ProxyRule)
+	wildcardDomainList []WildcardDomainRule
+	portCatchAllMap    = make(map[string]*config.ProxyRule)
+	portRulesMap       = make(map[string][]*config.ProxyRule)
+	l4RulesMap         = make(map[string]*config.ProxyRule)
+	routingMu          sync.RWMutex
 
 	listeners   = make(map[string]*http.Server)
 	listenerTLS = make(map[string]bool)
@@ -254,14 +264,15 @@ func certMatchPrecision(pattern, domain string) int {
 func loadProxies() {
 	proxiesMu.Lock()
 	defer proxiesMu.Unlock()
-	domainMapMu.Lock()
-	defer domainMapMu.Unlock()
-	portMapMu.Lock()
-	defer portMapMu.Unlock()
+	routingMu.Lock()
+	defer routingMu.Unlock()
 
 	proxies = make(map[string]*httputil.ReverseProxy)
-	domainMap = make(map[string]*config.ProxyRule)
-	portMap = make(map[string]*config.ProxyRule)
+	domainExactMap = make(map[string]*config.ProxyRule)
+	wildcardDomainList = nil
+	portCatchAllMap = make(map[string]*config.ProxyRule)
+	portRulesMap = make(map[string][]*config.ProxyRule)
+	l4RulesMap = make(map[string]*config.ProxyRule)
 
 	cfg := config.Get()
 	for i := range cfg.Proxies {
@@ -269,7 +280,57 @@ func loadProxies() {
 		if !p.Enable || p.SourcePort == "" {
 			continue
 		}
-		createProxy(p)
+
+		proto := strings.ToLower(strings.TrimSpace(p.SourceProtocol))
+		if proto == "" {
+			proto = "http"
+		}
+
+		if proto == "tcp" || proto == "udp" || proto == "tcp+udp" {
+			portKey := proto + ":" + buildListenAddr(p.SourceHost, p.SourcePort)
+			l4RulesMap[portKey] = p
+			continue
+		}
+
+		if err := createProxy(p); err != nil {
+			fmt.Printf("Failed to create proxy for rule %s: %v\n", p.Name, err)
+			continue
+		}
+
+		addr := buildListenAddr(p.SourceHost, p.SourcePort)
+		portKey := proto + ":" + addr
+		shortPortKey := proto + ":" + p.SourcePort
+
+		portRulesMap[portKey] = append(portRulesMap[portKey], p)
+		if portKey != shortPortKey {
+			portRulesMap[shortPortKey] = append(portRulesMap[shortPortKey], p)
+		}
+
+		if len(p.Domains) == 0 {
+			portCatchAllMap[portKey] = p
+			portCatchAllMap[shortPortKey] = p
+			portCatchAllMap[addr] = p
+			portCatchAllMap[":"+p.SourcePort] = p
+		} else {
+			for _, domain := range p.Domains {
+				lowerDomain := strings.ToLower(strings.TrimSpace(domain))
+				if lowerDomain == "" {
+					continue
+				}
+				if strings.HasPrefix(lowerDomain, "*.") {
+					wildcardDomainList = append(wildcardDomainList, WildcardDomainRule{
+						Protocol: proto,
+						Port:     p.SourcePort,
+						Pattern:  lowerDomain,
+						Rule:     p,
+					})
+				} else {
+					domainExactMap[proto+":"+p.SourcePort+":"+lowerDomain] = p
+					domainExactMap[p.SourcePort+":"+lowerDomain] = p
+					domainExactMap[lowerDomain] = p
+				}
+			}
+		}
 	}
 }
 
@@ -428,34 +489,12 @@ func createProxy(p *config.ProxyRule) error {
 	}
 
 	proxies[p.ID] = rp
-
-	for _, domain := range p.Domains {
-		lowerDomain := strings.ToLower(domain)
-		if existing, exists := domainMap[lowerDomain]; exists && existing.ID != p.ID {
-			fmt.Printf("WARNING: Domain '%s' conflict between rules '%s' and '%s'. Rule '%s' will be used.\n",
-				domain, existing.Name, p.Name, p.Name)
-		}
-		domainMap[lowerDomain] = p
-	}
-
-	sourceProto := p.SourceProtocol
-	if sourceProto == "" {
-		sourceProto = "http"
-	}
-	portKey := sourceProto + ":" + p.SourcePort
-
-	if existing, exists := portMap[portKey]; exists && existing.ID != p.ID {
-		fmt.Printf("WARNING: Port '%s' conflict between rules '%s' and '%s'. Rule '%s' will be used.\n",
-			portKey, existing.Name, p.Name, p.Name)
-	}
-	portMap[portKey] = p
-
 	return nil
 }
 
 func GetListenAddrs() []ListenAddr {
-	portMapMu.RLock()
-	defer portMapMu.RUnlock()
+	routingMu.RLock()
+	defer routingMu.RUnlock()
 
 	type portInfo struct {
 		addr      string
@@ -463,32 +502,27 @@ func GetListenAddrs() []ListenAddr {
 	}
 	portInfos := make(map[string]*portInfo)
 
-	for key, rule := range portMap {
-		if rule.SourceProtocol == "tcp" || rule.SourceProtocol == "udp" || rule.SourceProtocol == "tcp+udp" {
-			continue
-		}
+	for portKey, rules := range portRulesMap {
 		proto := "http"
-		if len(key) > 0 && key[:5] == "https" {
+		if strings.HasPrefix(portKey, "https:") {
 			proto = "https"
 		}
-		addr := buildListenAddr(rule.SourceHost, rule.SourcePort)
-		info, ok := portInfos[addr]
-		if !ok {
-			info = &portInfo{addr: addr, enableTLS: proto == "https"}
-			portInfos[addr] = info
-		}
-		if proto == "http" {
-			info.enableTLS = false
-		}
+		for _, rule := range rules {
+			addr := buildListenAddr(rule.SourceHost, rule.SourcePort)
+			info, ok := portInfos[addr]
+			if !ok {
+				info = &portInfo{addr: addr, enableTLS: proto == "https"}
+				portInfos[addr] = info
+			}
+			if proto == "https" {
+				info.enableTLS = true
+			}
 
-		if rule.ForceHTTPS {
-			addr80 := buildListenAddr(rule.SourceHost, "80")
-			info80, ok80 := portInfos[addr80]
-			if !ok80 {
-				info80 = &portInfo{addr: addr80, enableTLS: false}
-				portInfos[addr80] = info80
-			} else {
-				info80.enableTLS = false
+			if rule.ForceHTTPS {
+				addr80 := buildListenAddr(rule.SourceHost, "80")
+				if _, ok80 := portInfos[addr80]; !ok80 {
+					portInfos[addr80] = &portInfo{addr: addr80, enableTLS: false}
+				}
 			}
 		}
 	}
@@ -604,8 +638,8 @@ func SyncListeners() {
 	activeTCP := make(map[string]bool)
 	activeUDP := make(map[string]bool)
 
-	portMapMu.RLock()
-	for key, rule := range portMap {
+	routingMu.RLock()
+	for key, rule := range l4RulesMap {
 		if rule.SourceProtocol == "tcp" || rule.SourceProtocol == "tcp+udp" {
 			activeTCP[key] = true
 			layer4Mu.Lock()
@@ -627,7 +661,7 @@ func SyncListeners() {
 			layer4Mu.Unlock()
 		}
 	}
-	portMapMu.RUnlock()
+	routingMu.RUnlock()
 
 	layer4Mu.Lock()
 	for key, cancel := range tcpListeners {
@@ -948,35 +982,85 @@ func startUDPProxy(ctx context.Context, rule *config.ProxyRule, portMapKey strin
 	}
 }
 
+func matchWildcardDomain(pattern, domain string) bool {
+	pattern = strings.ToLower(pattern)
+	domain = strings.ToLower(domain)
+	if pattern == domain {
+		return true
+	}
+	if !strings.HasPrefix(pattern, "*.") {
+		return false
+	}
+	suffix := pattern[1:] // ".example.com"
+	if !strings.HasSuffix(domain, suffix) {
+		return false
+	}
+	prefix := domain[:len(domain)-len(suffix)]
+	return len(prefix) > 0 && !strings.Contains(prefix, ".")
+}
+
+func parseHostAndPort(rawHost string, isTLS bool) (host, port string) {
+	if strings.Contains(rawHost, ":") {
+		h, p, err := net.SplitHostPort(rawHost)
+		if err == nil {
+			return strings.ToLower(strings.Trim(h, "[]")), p
+		}
+	}
+	h := strings.ToLower(strings.Trim(rawHost, "[]"))
+	if isTLS {
+		return h, "443"
+	}
+	return h, "80"
+}
+
 func Handler(c *gin.Context) {
-	hostParts := strings.Split(c.Request.Host, ":")
-	domain := hostParts[0]
-
-	domainMapMu.RLock()
-	proxyRule, ok := domainMap[strings.ToLower(domain)]
-	domainMapMu.RUnlock()
-
-	if !ok {
-		port := ""
-		if len(hostParts) > 1 {
-			port = hostParts[1]
-		}
-
-		portMapMu.RLock()
-		proxyRule, ok = portMap[port]
-		if !ok {
-			protocol := "http"
-			if c.Request.TLS != nil {
-				protocol = "https"
-			}
-			proxyRule, ok = portMap[protocol+":"+port]
-		}
-		portMapMu.RUnlock()
+	isTLS := c.Request.TLS != nil
+	domain, port := parseHostAndPort(c.Request.Host, isTLS)
+	proto := "http"
+	if isTLS {
+		proto = "https"
 	}
 
-	if !ok {
+	routingMu.RLock()
+	var proxyRule *config.ProxyRule
+
+	// 1. 精确域名匹配（优先按 proto:port:domain 匹配，再按 port:domain 匹配，最后按 domain 匹配）
+	if r, ok := domainExactMap[proto+":"+port+":"+domain]; ok {
+		proxyRule = r
+	} else if r, ok := domainExactMap[port+":"+domain]; ok {
+		proxyRule = r
+	} else if r, ok := domainExactMap[domain]; ok {
+		proxyRule = r
+	}
+
+	// 2. 泛域名匹配
+	if proxyRule == nil {
+		for _, wr := range wildcardDomainList {
+			if (wr.Port == "" || wr.Port == port) && (wr.Protocol == "" || wr.Protocol == proto) {
+				if matchWildcardDomain(wr.Pattern, domain) {
+					proxyRule = wr.Rule
+					break
+				}
+			}
+		}
+	}
+
+	// 3. 端口兜底规则 / 默认路由
+	if proxyRule == nil {
+		portKey := proto + ":" + port
+		if r, ok := portCatchAllMap[portKey]; ok {
+			proxyRule = r
+		} else if r, ok := portCatchAllMap[":"+port]; ok {
+			proxyRule = r
+		} else if rules, ok := portRulesMap[portKey]; ok && len(rules) == 1 {
+			proxyRule = rules[0]
+		}
+	}
+	routingMu.RUnlock()
+
+	if proxyRule == nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"error": "No proxy rule found for host: " + c.Request.Host,
+			"error": fmt.Sprintf("No proxy rule found for host: %s (port: %s, proto: %s)", c.Request.Host, port, proto),
 		})
 		return
 	}
@@ -1005,13 +1089,16 @@ func Handler(c *gin.Context) {
 	}
 
 	if proxyRule.ForceHTTPS && c.Request.TLS == nil {
-		// 强制 HTTPS 重定向：始终使用标准 443 端口
-		// 源端口是 HTTP 端口，不能用作 HTTPS 目标端口
 		host := c.Request.Host
 		if strings.Contains(host, ":") {
 			host = strings.Split(host, ":")[0]
 		}
-		targetURL := "https://" + host + c.Request.URL.RequestURI()
+		// 如果规则配置了非 443 的 HTTPS 端口，重定向时附带该端口
+		httpsTarget := host
+		if proxyRule.SourceProtocol == "https" && proxyRule.SourcePort != "" && proxyRule.SourcePort != "443" && proxyRule.SourcePort != "80" {
+			httpsTarget = net.JoinHostPort(host, proxyRule.SourcePort)
+		}
+		targetURL := "https://" + httpsTarget + c.Request.URL.RequestURI()
 		c.Redirect(http.StatusMovedPermanently, targetURL)
 		return
 	}
@@ -1050,4 +1137,98 @@ func GetCertStatus() map[string]interface{} {
 
 func ReadFnOSCertsJSON() ([]byte, error) {
 	return os.ReadFile(fnosCertPath)
+}
+
+type TestResult struct {
+	Success   bool   `json:"success"`
+	LatencyMs int64  `json:"latencyMs"`
+	Message   string `json:"message"`
+}
+
+func TestTargetConnection(proto, host, port string, timeoutSec int) TestResult {
+	if timeoutSec <= 0 {
+		timeoutSec = 5
+	}
+	timeout := time.Duration(timeoutSec) * time.Second
+	proto = strings.ToLower(strings.TrimSpace(proto))
+	host = strings.TrimSpace(host)
+	port = strings.TrimSpace(port)
+
+	start := time.Now()
+
+	if proto == "unix" {
+		if host == "" {
+			return TestResult{Success: false, Message: "Unix Socket 路径不能为空"}
+		}
+		conn, err := net.DialTimeout("unix", host, timeout)
+		latency := time.Since(start).Milliseconds()
+		if err != nil {
+			return TestResult{Success: false, LatencyMs: latency, Message: fmt.Sprintf("连接 Unix Socket 失败: %v", err)}
+		}
+		conn.Close()
+		return TestResult{Success: true, LatencyMs: latency, Message: "Unix Socket 连接成功"}
+	}
+
+	if host == "" {
+		return TestResult{Success: false, Message: "目标主机不能为空"}
+	}
+	if port == "" {
+		return TestResult{Success: false, Message: "目标端口不能为空"}
+	}
+
+	targetAddr := net.JoinHostPort(host, port)
+
+	if proto == "udp" {
+		uAddr, err := net.ResolveUDPAddr("udp", targetAddr)
+		if err != nil {
+			return TestResult{Success: false, Message: fmt.Sprintf("解析 UDP 地址失败: %v", err)}
+		}
+		conn, err := net.DialUDP("udp", nil, uAddr)
+		latency := time.Since(start).Milliseconds()
+		if err != nil {
+			return TestResult{Success: false, LatencyMs: latency, Message: fmt.Sprintf("连接 UDP 失败: %v", err)}
+		}
+		conn.Close()
+		return TestResult{Success: true, LatencyMs: latency, Message: "UDP 地址解析成功"}
+	}
+
+	conn, err := net.DialTimeout("tcp", targetAddr, timeout)
+	latency := time.Since(start).Milliseconds()
+	if err != nil {
+		return TestResult{Success: false, LatencyMs: latency, Message: fmt.Sprintf("连接目标失败 (%s): %v", targetAddr, err)}
+	}
+	conn.Close()
+	return TestResult{Success: true, LatencyMs: latency, Message: fmt.Sprintf("连接成功 (%s)，延迟 %d ms", targetAddr, latency)}
+}
+
+type CertDetail struct {
+	Domain      string   `json:"domain"`
+	SAN         []string `json:"san"`
+	Certificate string   `json:"certificate"`
+	Exists      bool     `json:"exists"`
+}
+
+func GetCertsList() []CertDetail {
+	data, err := os.ReadFile(fnosCertPath)
+	if err != nil {
+		return []CertDetail{}
+	}
+	var certs []fnosCert
+	if err := json.Unmarshal(data, &certs); err != nil {
+		return []CertDetail{}
+	}
+	var res []CertDetail
+	for _, c := range certs {
+		certPath := c.Certificate
+		if c.Fullchain != "" {
+			certPath = c.Fullchain
+		}
+		res = append(res, CertDetail{
+			Domain:      c.Domain,
+			SAN:         c.SAN,
+			Certificate: certPath,
+			Exists:      fileExists(certPath) && fileExists(c.PrivateKey),
+		})
+	}
+	return res
 }

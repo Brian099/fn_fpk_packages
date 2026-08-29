@@ -4,8 +4,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>反向代理管理平台</title>
+    <title>反向代理管理平台 - 飞牛 OS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --primary-light: #eeef2f;
+            --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            --bg-main: #f8fafc;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --text-light: #94a3b8;
+            --success-bg: #ecfdf5;
+            --success-text: #047857;
+            --success-border: #a7f3d0;
+            --danger-bg: #fef2f2;
+            --danger-text: #b91c1c;
+            --danger-border: #fecaca;
+            --radius-lg: 16px;
+            --radius-md: 10px;
+            --radius-sm: 6px;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            --shadow-lg: 0 10px 25px -5px rgba(15, 23, 42, 0.06), 0 8px 10px -6px rgba(15, 23, 42, 0.02);
+            --shadow-modal: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,221 +42,266 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f1f5f9;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.08) 0px, transparent 50%);
+            color: var(--text-main);
             min-height: 100vh;
-            padding: 20px;
+            padding: 24px 16px;
+            line-height: 1.5;
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1240px;
             margin: 0 auto;
         }
 
-        .header {
-            background: white;
-            padding: 20px 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        /* App Header */
+        .app-header {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 20px 28px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
             margin-bottom: 20px;
-        }
-
-        .header h1 {
-            color: #333;
-            font-size: 24px;
-        }
-
-        .card {
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-        }
-
-        .card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .app-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .brand-logo {
+            width: 46px;
+            height: 46px;
+            background: var(--primary-gradient);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            box-shadow: 0 6px 16px rgba(79, 70, 229, 0.3);
+        }
+
+        .brand-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: -0.02em;
+        }
+
+        .version-badge {
+            background: #e0e7ff;
+            color: #4338ca;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+
+        .brand-sub {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .header-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            animation: pulseGreen 2s infinite;
+        }
+
+        @keyframes pulseGreen {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            }
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+            }
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+            }
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
             margin-bottom: 20px;
         }
 
-        .card-header h2 {
-            color: #333;
-            font-size: 20px;
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 18px 22px;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: all 0.2s ease;
         }
 
-        .table {
-            width: 100%;
-            border-collapse: collapse;
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
         }
 
-        .table th,
-        .table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #eee;
+        .stat-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
         }
 
-        .table th {
-            background: #f8f9fa;
-            color: #495057;
-            font-weight: 600;
+        .icon-indigo { background: #e0e7ff; color: #4338ca; }
+        .icon-emerald { background: #d1fae5; color: #047857; }
+        .icon-purple { background: #f3e8ff; color: #7e22ce; }
+        .icon-amber { background: #fef3c7; color: #b45309; }
+
+        .stat-info {
+            display: flex;
+            flex-direction: column;
         }
 
-        .table tr:hover {
-            background: #f8f9fa;
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-main);
+            line-height: 1.2;
         }
 
-        .badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 2px;
             font-weight: 500;
         }
 
-        .badge-success {
-            background: #d4edda;
-            color: #155724;
+        /* Main Card */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            margin-bottom: 20px;
+            overflow: hidden;
         }
 
-        .badge-danger {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .modal.show {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            padding: 0;
-            border-radius: 12px;
-            width: 95%;
-            max-width: 900px;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        }
-
-        .modal-content::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .modal-content::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .modal-content::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 3px;
-        }
-
-        .modal-content::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8;
-        }
-
-        .modal-content {
-            scrollbar-width: thin;
-            scrollbar-color: #c1c1c1 transparent;
-        }
-
-        .modal-header {
-            padding: 16px 24px;
-            border-bottom: 1px solid #eee;
+        .card-header {
+            padding: 20px 28px;
+            border-bottom: 1px solid var(--border-color);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-radius: 12px 12px 0 0;
+            flex-wrap: wrap;
+            gap: 14px;
+            background: #ffffff;
         }
 
-        .modal-header h3 {
-            color: #333;
+        .card-header h2 {
+            color: var(--text-main);
             font-size: 18px;
-        }
-
-        .close {
-            font-size: 24px;
-            color: #999;
-            cursor: pointer;
-            background: none;
-            border: none;
-            padding: 0;
-            width: 30px;
-            height: 30px;
+            font-weight: 700;
             display: flex;
             align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            transition: all 0.3s;
+            gap: 8px;
         }
 
-        .close:hover {
-            color: #333;
-            background: #f0f0f0;
-        }
-
-        .modal-body {
-            padding: 20px 24px;
-        }
-
-        .modal-footer {
-            padding: 16px 24px;
-            border-top: 1px solid #eee;
+        .controls-group {
             display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            border-radius: 0 0 12px 12px;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
         }
 
-        .actions {
+        .search-box {
+            position: relative;
             display: flex;
-            gap: 10px;
+            align-items: center;
         }
 
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #999;
+        .search-box input {
+            padding: 9px 14px 9px 36px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 13.5px;
+            min-width: 260px;
+            outline: none;
+            background: #f8fafc;
+            color: var(--text-main);
+            transition: all 0.2s ease;
         }
 
-        .empty-state svg {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 20px;
-            opacity: 0.5;
+        .search-box input:focus {
+            background: #ffffff;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
         }
 
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            color: var(--text-light);
+            pointer-events: none;
+        }
+
+        /* Buttons */
         .btn {
             padding: 9px 18px;
             border: none;
-            border-radius: 6px;
-            font-size: 14px;
+            border-radius: var(--radius-md);
+            font-size: 13.5px;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.2s ease;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            justify-content: center;
+            gap: 8px;
+            line-height: 1;
+            text-decoration: none;
         }
 
         .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-1px);
         }
 
         .btn:active {
@@ -235,122 +309,467 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--primary-gradient);
             color: white;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 6px 16px rgba(79, 70, 229, 0.35);
         }
 
         .btn-secondary {
-            background: #6c757d;
-            color: white;
+            background: #ffffff;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+        }
+
+        .btn-secondary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
 
         .btn-success {
-            background: #28a745;
+            background: #10b981;
             color: white;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+        }
+
+        .btn-success:hover {
+            background: #059669;
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
         }
 
         .btn-danger {
-            background: #dc3545;
+            background: #ef4444;
             color: white;
         }
 
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
         .btn-sm {
-            padding: 5px 11px;
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: var(--radius-sm);
+        }
+
+        /* Table */
+        #proxyList {
+            overflow-x: auto;
+            width: 100%;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .table th {
+            background: #f8fafc;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .table td {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+            font-size: 14px;
+        }
+
+        .table tbody tr {
+            transition: background 0.15s ease;
+        }
+
+        .table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Rule Details Pills */
+        .rule-title {
+            font-weight: 600;
+            color: var(--text-main);
+            font-size: 14.5px;
+        }
+
+        .proto-pill {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            margin-right: 6px;
+        }
+
+        .proto-http { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+        .proto-https { background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; }
+        .proto-tcp { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+        .proto-udp { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+        .proto-mix { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+
+        .listen-addr {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        .domains-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .domain-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 11.5px;
+            font-weight: 500;
+        }
+
+        .target-addr {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 13px;
+            color: #334155;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .target-arrow {
+            color: #94a3b8;
             font-size: 12px;
         }
 
+        .target-proto {
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            background: #f1f5f9;
+            padding: 1px 5px;
+            border-radius: 3px;
+        }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12.5px;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: var(--success-bg);
+            color: var(--success-text);
+            border: 1px solid var(--success-border);
+        }
+
+        .status-disabled {
+            background: #f1f5f9;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+        }
+
+        .status-error {
+            background: var(--danger-bg);
+            color: var(--danger-text);
+            border: 1px solid var(--danger-border);
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Pagination Bar */
+        .pagination-bar {
+            padding: 14px 28px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #ffffff;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .pagination-info {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .page-select {
+            padding: 5px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            color: var(--text-main);
+            background: #ffffff;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .page-select:focus {
+            border-color: var(--primary);
+        }
+
+        .page-btn-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .page-num-display {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+            padding: 0 4px;
+        }
+
+        /* Modals */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            width: 100%;
+            max-width: 860px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow-modal);
+            border: 1px solid var(--border-color);
+            animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow: hidden;
+        }
+
+        @keyframes modalSlideUp {
+            from {
+                opacity: 0;
+                transform: scale(0.97) translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .modal-header {
+            padding: 20px 28px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #ffffff;
+        }
+
+        .modal-header h3 {
+            color: var(--text-main);
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .close {
+            font-size: 22px;
+            color: var(--text-light);
+            cursor: pointer;
+            background: none;
+            border: none;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .close:hover {
+            color: var(--text-main);
+            background: #f1f5f9;
+        }
+
+        .modal-body {
+            padding: 24px 28px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            padding: 16px 28px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            background: #f8fafc;
+        }
+
+        /* Form Controls */
         .form-group {
-            margin-bottom: 14px;
+            margin-bottom: 16px;
         }
 
         .form-group label {
             display: block;
-            margin-bottom: 5px;
-            color: #555;
-            font-weight: 500;
+            margin-bottom: 6px;
+            color: #334155;
+            font-weight: 600;
             font-size: 13px;
         }
 
         .form-group input,
         .form-group select {
             width: 100%;
-            padding: 8px 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
+            padding: 9px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
             font-size: 14px;
-            transition: border-color 0.3s;
+            color: var(--text-main);
+            background: #ffffff;
+            transition: all 0.2s ease;
         }
 
         .form-group input:focus,
         .form-group select:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
         }
 
         .form-row {
             display: flex;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 14px;
             margin-bottom: 14px;
         }
 
         .form-row .form-group {
             flex: 1;
             margin-bottom: 0;
+            min-width: 160px;
         }
 
         .form-check {
             display: flex;
             align-items: center;
-            gap: 6px;
-            margin-bottom: 8px;
+            gap: 8px;
+            margin-bottom: 12px;
+            cursor: pointer;
         }
 
-        .form-check input {
-            width: auto;
+        .form-check input[type="checkbox"] {
+            width: 17px;
+            height: 17px;
+            accent-color: var(--primary);
+            cursor: pointer;
         }
 
         .form-check label {
+            font-size: 13.5px;
+            font-weight: 500;
+            color: var(--text-main);
+            cursor: pointer;
             margin-bottom: 0;
-            font-weight: 400;
         }
 
         .fieldset {
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 18px;
+            margin-bottom: 18px;
+            background: #f8fafc;
         }
 
         .fieldset legend {
             padding: 0 8px;
-            font-weight: 600;
-            color: #333;
-            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-main);
+            font-size: 13.5px;
         }
 
+        /* Tabs */
         .tab-container {
-            border-bottom: 1px solid #ddd;
-            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
         }
 
         .tabs {
             display: flex;
             list-style: none;
+            gap: 8px;
         }
 
         .tab {
-            padding: 10px 18px;
+            padding: 10px 16px;
             cursor: pointer;
-            border-bottom: 3px solid transparent;
-            transition: all 0.3s;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
             font-size: 14px;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .tab:hover {
+            color: var(--text-main);
         }
 
         .tab.active {
-            border-bottom-color: #667eea;
-            color: #667eea;
+            border-bottom-color: var(--primary);
+            color: var(--primary);
             font-weight: 600;
         }
 
@@ -363,116 +782,201 @@
         }
 
         .tips-card {
-            background: linear-gradient(135deg, #e8f4fd 0%, #f0e6ff 100%);
-            border-left: 4px solid #667eea;
-            padding: 18px 22px;
-            border-radius: 8px;
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--primary);
+            padding: 20px 24px;
+            border-radius: var(--radius-lg);
             margin-bottom: 20px;
             font-size: 13px;
             line-height: 1.7;
-            color: #444;
+            color: var(--text-muted);
+            box-shadow: var(--shadow-sm);
         }
 
         .tips-card strong {
-            color: #333;
+            color: var(--text-main);
+            font-size: 14px;
         }
 
         .tips-card ul {
-            margin: 6px 0 0 16px;
-            padding: 0;
+            margin: 8px 0 0 18px;
         }
 
         .tips-card li {
             margin-bottom: 4px;
         }
 
-        #proxyList {
-            overflow-x: auto;
-            width: 100%;
-            -webkit-overflow-scrolling: touch;
-        }
-
         .custom-headers-textarea {
             width: 100%;
-            padding: 8px 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-family: monospace;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size: 13px;
             resize: vertical;
             min-height: 80px;
-            transition: border-color 0.3s;
+            background: #ffffff;
         }
 
         .custom-headers-textarea:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
         }
 
+        .empty-state {
+            text-align: center;
+            padding: 64px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state svg {
+            width: 70px;
+            height: 70px;
+            margin-bottom: 16px;
+            color: var(--text-light);
+        }
+
+        .empty-state h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 6px;
+        }
+
+        /* Responsive Mobile Styles */
         @media (max-width: 768px) {
             body {
-                padding: 10px;
+                padding: 10px 8px;
             }
 
-            .header,
-            .card {
-                padding: 15px;
-            }
-
-            .header h1 {
-                font-size: 20px;
-            }
-
-            .card-header h2 {
-                font-size: 18px;
-            }
-
-            .modal-content {
-                width: 100%;
-                height: 100%;
-                max-height: 100vh;
-                border-radius: 0;
-            }
-
-            .modal-header {
-                border-radius: 0;
-            }
-
-            .form-row .form-group {
-                flex: 1 1 100%;
-            }
-
-            .card-header {
+            .app-header {
+                padding: 16px;
                 flex-direction: column;
                 align-items: flex-start;
+                gap: 12px;
+            }
+
+            .header-status-pill {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
                 gap: 10px;
             }
 
-            .card-header .btn {
-                width: 100%;
-                justify-content: center;
+            .stat-card {
+                padding: 14px;
+                gap: 10px;
             }
 
-            .modal-footer {
+            .stat-icon {
+                width: 38px;
+                height: 38px;
+                border-radius: 10px;
+            }
+
+            .stat-value {
+                font-size: 20px;
+            }
+
+            .stat-label {
+                font-size: 12px;
+            }
+
+            .card-header {
+                padding: 16px;
                 flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
             }
 
-            .modal-footer .btn {
+            .controls-group {
+                flex-direction: column;
+                align-items: stretch;
                 width: 100%;
-                justify-content: center;
+            }
+
+            .controls-group .btn {
+                width: 100%;
+            }
+
+            .search-box input {
+                width: 100%;
+                min-width: 100%;
             }
 
             .table th,
             .table td {
-                padding: 8px;
-                font-size: 13px;
+                padding: 12px 14px;
                 white-space: nowrap;
             }
 
-            .btn {
-                padding: 7px 14px;
-                font-size: 13px;
+            .table .actions {
+                display: flex;
+                gap: 6px;
+                justify-content: flex-end;
+            }
+
+            .table .btn {
+                width: auto !important;
+                padding: 5px 10px;
+                font-size: 12px;
+            }
+
+            .pagination-bar {
+                padding: 14px 16px;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+
+            .pagination-controls {
+                justify-content: space-between;
+                width: 100%;
+            }
+
+            .form-row {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .form-row .form-group {
+                width: 100%;
+                min-width: 100%;
+            }
+
+            .modal {
+                padding: 10px;
+            }
+
+            .modal-content {
+                max-height: 95vh;
+                border-radius: var(--radius-md);
+            }
+
+            .modal-header,
+            .modal-body,
+            .modal-footer {
+                padding: 16px;
+            }
+
+            .modal-footer {
+                flex-direction: column-reverse;
+                gap: 8px;
+            }
+
+            .modal-footer .btn {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -481,39 +985,151 @@
 <body>
     <div class="container">
         <div id="mainPage" class="main-content">
-            <div class="header">
-                <h1>反向代理服务器</h1>
+            <!-- App Header -->
+            <div class="app-header">
+                <div class="app-brand">
+                    <div class="brand-logo">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="brand-title-wrap">
+                            <h1 class="brand-title">反向代理服务器</h1>
+                            <span class="version-badge">v1.0.11</span>
+                        </div>
+                        <p class="brand-sub">飞牛 OS 反向代理与 HTTP/HTTPS/TCP/UDP 路由转发引擎</p>
+                    </div>
+                </div>
+                <div class="header-status-pill">
+                    <span class="pulse-dot"></span>
+                    系统代理服务正常运行
+                </div>
             </div>
 
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon icon-indigo">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statTotal">0</div>
+                        <div class="stat-label">规则总数</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon icon-emerald">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statActive">0</div>
+                        <div class="stat-label">正常就绪</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon icon-purple">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                        </svg>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statDomains">0</div>
+                        <div class="stat-label">绑定域名数</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon icon-amber">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statPorts">0</div>
+                        <div class="stat-label">监听端口组</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rules Card -->
             <div class="card">
                 <div class="card-header">
-                    <h2>代理规则列表</h2>
-                    <button class="btn btn-success" onclick="openAddModal()" title="添加新的代理规则">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-                            viewBox="0 0 16 16">
-                            <path
-                                d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z" />
+                    <h2>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                         </svg>
-                        添加规则
-                    </button>
+                        代理规则列表
+                    </h2>
+                    <div class="controls-group">
+                        <div class="search-box">
+                            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            <input type="text" id="searchInput" oninput="onSearchInput()" placeholder="搜索规则名称、域名、端口或后端..." autocomplete="off">
+                        </div>
+                        <button class="btn btn-secondary" onclick="openCertModal()" title="查看飞牛 OS 证书列表">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                            系统证书
+                        </button>
+                        <button class="btn btn-primary" onclick="openAddModal()" title="添加新的代理规则">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            添加规则
+                        </button>
+                    </div>
                 </div>
                 <div id="proxyList"></div>
+                <!-- Pagination Bar -->
+                <div id="paginationBar" class="pagination-bar">
+                    <div class="pagination-info" id="paginationInfo">显示第 0 - 0 条，共 0 条规则</div>
+                    <div class="pagination-controls">
+                        <label style="font-size: 13px; color: var(--text-muted); font-weight: 500;">每页显示：</label>
+                        <select id="pageSizeSelect" onchange="changePageSize(this.value)" class="page-select">
+                            <option value="10">10 条</option>
+                            <option value="20" selected>20 条</option>
+                            <option value="50">50 条</option>
+                            <option value="1000">全部</option>
+                        </select>
+                        <div class="page-btn-group">
+                            <button class="btn btn-sm btn-secondary" id="btnPrevPage" onclick="prevPage()" disabled>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                                </svg>
+                                上一页
+                            </button>
+                            <span id="pageNumberDisplay" class="page-num-display">1 / 1</span>
+                            <button class="btn btn-sm btn-secondary" id="btnNextPage" onclick="nextPage()" disabled>
+                                下一页
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="tips-card" title="使用前请阅读以下说明">
-                <strong>使用说明</strong>
+            <!-- Tips Card -->
+            <div class="tips-card">
+                <strong>💡 使用说明与最佳实践</strong>
                 <ul>
-                    <li><strong>证书准备：</strong>如需使用 HTTPS，请先在「系统设置 → 证书管理」中添加对应域名的 SSL 证书</li>
-                    <li><strong>添加规则：</strong>来源端口 + 协议的组合必须唯一，同一端口的同种协议只能被一条规则占用</li>
-                    <li><strong>域名匹配：</strong>支持多域名（逗号分隔），系统会自动从证书库中按精确匹配 > 通配符匹配 > 父域回退的优先级查找证书</li>
-                    <li><strong>数据转发：</strong>TCP/UDP 纯端口代理模式，专为数据库、SSH、游戏服务端等非网页协议设计。数据转发模式下，域名绑定与 HTTP 高级功能将自动隐藏失效。
-                    </li>
-                    <li><strong>保存即生效：</strong>规则保存后立即加载，无需手动重启服务</li>
+                    <li><strong>SNI 多域名复用：</strong>HTTP/HTTPS 协议支持在同一个端口（如 80 或 443）上绑定多条不同域名的规则，系统将自动基于 SNI 与 Host 头部路由分发。</li>
+                    <li><strong>系统证书匹配：</strong>如需启用 HTTPS，请先在飞牛 OS「系统设置 → 证书管理」中添加 SSL 证书，系统将按精确域名 > 泛域名 > 通配回退自动寻找最佳证书。</li>
+                    <li><strong>纯端口数据转发：</strong>TCP/UDP 模式专为数据库、SSH、游戏服务端等非网页协议设计，此模式下域名绑定与 HTTP 高级功能将自动隐藏。</li>
+                    <li><strong>热加载即时生效：</strong>规则添加、修改或删除后由引擎实时热重载，无需重新启动应用服务。</li>
                 </ul>
             </div>
         </div>
     </div>
 
+    <!-- Edit/Add Modal -->
     <div id="proxyModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -523,19 +1139,19 @@
             <div class="modal-body">
                 <div class="tab-container">
                     <ul class="tabs">
-                        <li class="tab active" onclick="switchTab('general')">常规</li>
-                        <li class="tab" onclick="switchTab('advanced')">高级设置</li>
+                        <li class="tab active" onclick="switchTab('general')">常规设置</li>
+                        <li class="tab" onclick="switchTab('advanced')">高级设置与安全</li>
                     </ul>
                 </div>
 
                 <div id="general" class="tab-content active">
                     <div class="form-group">
                         <label for="ruleName" title="用于标识和区分不同的代理规则">规则名称</label>
-                        <input type="text" id="ruleName" placeholder="例如：网站A">
+                        <input type="text" id="ruleName" placeholder="例如：网站服务A / 博客系统">
                     </div>
 
                     <div class="fieldset">
-                        <legend title="配置客户端请求的来源信息，即外部访问的入口参数">来源设置</legend>
+                        <legend title="配置客户端请求的来源信息，即外部访问的入口参数">来源设置 (Source Entry)</legend>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="sourceProtocol" title="监听客户端连接时使用的协议">协议</label>
@@ -549,7 +1165,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="sourceHost" title="监听的主机地址，通常留空表示所有地址">主机名/IP</label>
-                                <input type="text" id="sourceHost" placeholder="留空表示监听所有地址">
+                                <input type="text" id="sourceHost" placeholder="留空表示监听所有网卡 (0.0.0.0)">
                             </div>
                             <div class="form-group">
                                 <label for="sourcePort" title="对外提供服务的端口号">端口</label>
@@ -557,13 +1173,13 @@
                             </div>
                         </div>
                         <div class="form-group" id="sourceDomainsGroup">
-                            <label for="sourceDomains" title="匹配的域名列表，多个域名用英文逗号分隔">域名（多个用逗号分隔）</label>
-                            <input type="text" id="sourceDomains" placeholder="例如：example.com,www.example.com">
+                            <label for="sourceDomains" title="匹配的域名列表，多个域名用英文逗号分隔">绑定域名（支持多域名逗号分隔 & 泛域名 *.domain.com）</label>
+                            <input type="text" id="sourceDomains" placeholder="例如：example.com, www.example.com, *.app.com">
                         </div>
                     </div>
 
                     <div class="fieldset">
-                        <legend title="配置请求转发的目标后端服务地址">目标设置</legend>
+                        <legend title="配置请求转发的目标后端服务地址">目标设置 (Target Destination)</legend>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="targetProtocol" title="转发到后端服务时使用的协议">协议</label>
@@ -576,53 +1192,59 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="targetHost" id="targetHostLabel" title="后端服务的主机名或IP地址">主机名/IP</label>
+                                <label for="targetHost" id="targetHostLabel" title="后端服务的主机名或IP地址">目标主机 / Socket 路径</label>
                                 <input type="text" id="targetHost" placeholder="例如：127.0.0.1">
                             </div>
                             <div class="form-group" id="targetPortGroup">
-                                <label for="targetPort" title="后端服务监听的端口号">端口</label>
+                                <label for="targetPort" title="后端服务监听的端口号">目标端口</label>
                                 <input type="number" id="targetPort" placeholder="例如：8080">
                             </div>
                         </div>
+                        <div style="margin-top: 10px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="testTargetConnection()">
+                                ⚡ 测试目标连通性
+                            </button>
+                            <span id="testTargetResult" style="font-size: 13px; font-weight: 500;"></span>
+                        </div>
                         <div id="unixWarning" class="tips-card"
-                            style="display: none; border-left-color: #dc3545; background: #fff5f5; margin-top: 10px; margin-bottom: 0;">
+                            style="display: none; border-left-color: #ef4444; background: #fef2f2; margin-top: 10px; margin-bottom: 0;">
                             <strong>⚠️ 权限警告 (Unix Socket)</strong><br>
-                            如果代理程序没有目标 Socket 文件的系统读写权限，会导致无法通信 (502 Bad Gateway)，请确保文件权限设置正确。
+                            请确保应用进程对目标 Socket 文件具备读写权限，否则会导致 502 Bad Gateway。
                         </div>
                     </div>
 
                     <div class="form-check">
                         <input type="checkbox" id="ruleEnable" checked>
-                        <label for="ruleEnable" title="勾选后规则立即生效，取消则暂停该规则">启用规则</label>
+                        <label for="ruleEnable" title="勾选后规则立即生效，取消则暂停该规则">启用此代理规则</label>
                     </div>
                 </div>
 
                 <div id="advanced" class="tab-content">
                     <div class="form-group">
-                        <label for="proxyTimeout" title="等待后端响应的最大时间，超时后将断开连接">代理超时（秒）</label>
-                        <input type="number" id="proxyTimeout" placeholder="默认：30">
+                        <label for="proxyTimeout" title="等待后端响应的最大时间，超时后将断开连接">代理超时秒数 (Proxy Timeout)</label>
+                        <input type="number" id="proxyTimeout" placeholder="默认：30 秒">
                     </div>
                     <div class="form-group">
-                        <label for="maxBodySize" title="限制客户端上传的最大请求体大小，防范超大文件上传造成的OOM或带宽拥堵。">最大上传限制（MB）</label>
-                        <input type="number" id="maxBodySize" placeholder="留空或0表示不限制，推荐：50">
+                        <label for="maxBodySize" title="限制客户端上传的最大请求体大小，防范超大文件上传造成的OOM或带宽拥堵。">最大上传限制 (MB)</label>
+                        <input type="number" id="maxBodySize" placeholder="留空或 0 表示不限制，推荐：50">
                     </div>
                     <div class="fieldset">
                         <legend title="配置发往后端服务时的自定义请求头">自定义请求头 (Custom Headers)</legend>
                         <textarea id="customHeadersText" class="custom-headers-textarea"
-                            placeholder="每行一个请求头，格式为 名称: 值&#10;例如：&#10;Host: proxy.example.com&#10;X-Forwarded-Proto: https"
+                            placeholder="每行一个请求头，格式为 Header-Name: Header-Value&#10;例如：&#10;Host: proxy.example.com&#10;X-Forwarded-Proto: https"
                             rows="4"></textarea>
                     </div>
                     <div class="form-check">
                         <input type="checkbox" id="enableHsts">
-                        <label for="enableHsts" title="强制浏览器仅通过HTTPS访问该域名，增强安全性">启用 HSTS</label>
+                        <label for="enableHsts" title="强制浏览器仅通过HTTPS访问该域名，增强安全性">启用 HSTS (Strict-Transport-Security)</label>
                     </div>
                     <div class="form-check">
                         <input type="checkbox" id="forceHttps">
-                        <label for="forceHttps" title="当用户通过 HTTP 访问时，自动 301 重定向到 HTTPS 版本">强制跳转 HTTPS</label>
+                        <label for="forceHttps" title="当用户通过 HTTP 访问时，自动 301 重定向到 HTTPS 版本">强制跳转 HTTPS (Force HTTPS Redirect)</label>
                     </div>
                     <div class="form-check">
                         <input type="checkbox" id="preserveHost">
-                        <label for="preserveHost" title="转发时保留原始请求中的Host头，而非使用目标地址的Host">保留原始主机头</label>
+                        <label for="preserveHost" title="转发时保留原始请求中的Host头，而非使用目标地址的Host">保留原始 Host 主机头 (Preserve Host Header)</label>
                     </div>
                     <div class="fieldset" style="margin-top: 15px;">
                         <legend title="配置允许或拒绝访问的 IP 段（支持 CIDR，如 192.168.1.0/24），每行一个">IP 访问控制 (Access Control)</legend>
@@ -630,20 +1252,20 @@
                             <div class="form-group">
                                 <label for="allowIps">白名单 (Allow IPs)</label>
                                 <textarea id="allowIps" placeholder="留空允许所有&#10;例: 192.168.1.0/24" rows="3"
-                                    style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-family: monospace;"></textarea>
+                                    style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-family: monospace; font-size: 12.5px;"></textarea>
                             </div>
                             <div class="form-group">
                                 <label for="blockIps">黑名单 (Block IPs)</label>
                                 <textarea id="blockIps" placeholder="优先于白名单&#10;例: 10.0.0.1" rows="3"
-                                    style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-family: monospace;"></textarea>
+                                    style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-family: monospace; font-size: 12.5px;"></textarea>
                             </div>
                         </div>
                     </div>
                     <div class="fieldset" style="margin-top: 15px;" id="realIPFieldset">
-                        <legend title="向后端服务传递真实客户端 IP 地址，解决多层代理下 IP 丢失的问题">真实IP传递 (Real IP)</legend>
+                        <legend title="向后端服务传递真实客户端 IP 地址，解决多层代理下 IP 丢失的问题">真实 IP 传递 (Real IP Headers)</legend>
                         <div class="form-check">
                             <input type="checkbox" id="addRealIP">
-                            <label for="addRealIP" title="在转发请求中自动添加真实客户端 IP 到指定 Header">启用真实IP传递</label>
+                            <label for="addRealIP" title="在转发请求中自动添加真实客户端 IP 到指定 Header">启用真实 IP 传递</label>
                         </div>
                         <div class="form-group" style="margin-top: 8px;">
                             <label for="realIPHeader" title="传递真实IP的Header名称，默认为 X-Real-IP">IP Header 名称</label>
@@ -652,36 +1274,55 @@
                         <div class="form-group">
                             <label for="trustedCIDRs" title="信任的上游代理网段（CIDR格式），用于从 X-Forwarded-For 头部提取真实客户端 IP。留空则直接使用连接 IP。每行一个。">信任代理网段 (Trusted CIDRs)</label>
                             <textarea id="trustedCIDRs" placeholder="留空则直接使用连接IP&#10;例: 10.0.0.0/8&#10;例: 172.16.0.0/12" rows="3"
-                                style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-family: monospace;"></textarea>
+                                style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-family: monospace; font-size: 12.5px;"></textarea>
                         </div>
                     </div>
                     <div class="fieldset" style="margin-top: 15px;" id="uaFilterFieldset">
-                        <legend title="根据 User-Agent 关键字允许或拒绝访问">User-Agent 过滤</legend>
+                        <legend title="根据 User-Agent 关键字允许或拒绝访问">User-Agent 过滤 (UA Control)</legend>
                         <div class="form-group">
                             <label for="userAgentMode" title="选择 UA 过滤模式">过滤模式</label>
                             <select id="userAgentMode">
                                 <option value="">不过滤</option>
-                                <option value="whitelist">白名单 (仅允许列表中的UA)</option>
-                                <option value="blacklist">黑名单 (拒绝列表中的UA)</option>
+                                <option value="whitelist">白名单 (仅允许列表中的 UA)</option>
+                                <option value="blacklist">黑名单 (拒绝列表中的 UA)</option>
                             </select>
                         </div>
                         <div class="form-group" style="margin-top: 8px;">
-                            <label for="userAgentList" title="UA 关键字列表，匹配时包含关键字即命中，每行一个">UA 关键字列表</label>
-                            <textarea id="userAgentList" placeholder="每行一个关键字&#10;例: Googlebot&#10;例: curl" rows="3"
-                                style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-family: monospace;"></textarea>
+                            <label for="userAgentList" title="UA 关键字列表，匹配时包含关键字即命中，每行一个">UA 关键字列表 (每行一个)</label>
+                            <textarea id="userAgentList" placeholder="例: Googlebot&#10;例: curl" rows="3"
+                                style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-family: monospace; font-size: 12.5px;"></textarea>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal()">取消</button>
-                <button class="btn btn-primary" onclick="saveProxy()" title="保存当前规则并立即生效">保存</button>
+                <button class="btn btn-primary" onclick="saveProxy()" title="保存当前规则并立即生效">保存配置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Certificate Viewer Modal -->
+    <div id="certModal" class="modal">
+        <div class="modal-content" style="max-width: 820px;">
+            <div class="modal-header">
+                <h3>📜 飞牛 OS 系统 SSL/TLS 证书列表</h3>
+                <button class="close" onclick="closeCertModal()" title="关闭">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 13.5px; color: var(--text-muted); margin-bottom: 16px;">反向代理已与飞牛 OS「系统设置 → 证书管理」全自动联调。HTTPS 规则会按精确匹配 > 泛域名 > 通配自动分配对应证书：</p>
+                <div id="certList"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeCertModal()">关闭窗口</button>
             </div>
         </div>
     </div>
 
     <script>
         let editingId = null;
+        let currentPage = 1;
+        let pageSize = 20;
 
         const API_BASE = (function () {
             try {
@@ -718,50 +1359,166 @@
             loadProxies();
         }
 
+        let allProxiesCache = [];
+        let allListenErrorsCache = {};
+
         async function loadProxies() {
             try {
                 const [proxyRes, statusRes] = await Promise.all([
                     request('api/proxies'),
                     request('api/proxies/status')
                 ]);
-                const proxies = await proxyRes.json();
-                const listenErrors = await statusRes.json().catch(() => ({}));
-                renderProxies(proxies, listenErrors);
+                allProxiesCache = await proxyRes.json();
+                allListenErrorsCache = await statusRes.json().catch(() => ({}));
+                filterProxies();
             } catch (e) {
                 console.error(e);
             }
         }
 
+        function onSearchInput() {
+            currentPage = 1;
+            filterProxies();
+        }
+
+        function filterProxies() {
+            const q = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+            let filtered = allProxiesCache;
+            if (q) {
+                filtered = allProxiesCache.filter(p => {
+                    const name = (p.name || '').toLowerCase();
+                    const host = (p.sourceHost || '').toLowerCase();
+                    const port = String(p.sourcePort || '');
+                    const targetHost = (p.targetHost || '').toLowerCase();
+                    const domains = (p.domains || []).join(',').toLowerCase();
+                    return name.includes(q) || host.includes(q) || port.includes(q) || targetHost.includes(q) || domains.includes(q);
+                });
+            }
+
+            updateStats(allProxiesCache, allListenErrorsCache);
+
+            const totalCount = filtered.length;
+            const totalPages = Math.ceil(totalCount / pageSize) || 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
+
+            const startIdx = (currentPage - 1) * pageSize;
+            const endIdx = Math.min(startIdx + pageSize, totalCount);
+            const paginatedList = filtered.slice(startIdx, endIdx);
+
+            renderProxies(paginatedList, allListenErrorsCache);
+            updatePaginationUI(totalCount, startIdx, endIdx, totalPages);
+        }
+
+        function updatePaginationUI(totalCount, startIdx, endIdx, totalPages) {
+            const infoEl = document.getElementById('paginationInfo');
+            const prevBtn = document.getElementById('btnPrevPage');
+            const nextBtn = document.getElementById('btnNextPage');
+            const pageDisplay = document.getElementById('pageNumberDisplay');
+
+            if (totalCount === 0) {
+                infoEl.textContent = '暂无代理规则';
+                pageDisplay.textContent = '1 / 1';
+                prevBtn.disabled = true;
+                nextBtn.disabled = true;
+                return;
+            }
+
+            infoEl.textContent = `显示第 ${startIdx + 1} - ${endIdx} 条，共 ${totalCount} 条规则`;
+            pageDisplay.textContent = `${currentPage} / ${totalPages}`;
+            prevBtn.disabled = currentPage <= 1;
+            nextBtn.disabled = currentPage >= totalPages;
+        }
+
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                filterProxies();
+            }
+        }
+
+        function nextPage() {
+            currentPage++;
+            filterProxies();
+        }
+
+        function changePageSize(val) {
+            pageSize = parseInt(val, 10) || 20;
+            currentPage = 1;
+            filterProxies();
+        }
+
+        function updateStats(proxies, listenErrors) {
+            const total = proxies.length;
+            let active = 0;
+            let domainsCount = 0;
+            const portsSet = new Set();
+
+            proxies.forEach(p => {
+                if (p.enable) {
+                    const proto = p.sourceProtocol || 'http';
+                    const host = p.sourceHost || '';
+                    const port = p.sourcePort || '80';
+                    const addr = host ? host + ':' + port : ':' + port;
+                    const keys = [proto + ':' + addr, addr, 'tcp:' + addr, 'udp:' + addr];
+                    let hasErr = false;
+                    for (const k of keys) {
+                        if (listenErrors && listenErrors[k]) {
+                            hasErr = true;
+                            break;
+                        }
+                    }
+                    if (!hasErr) active++;
+                }
+                if (p.sourcePort) portsSet.add((p.sourceProtocol || 'http').toUpperCase() + ':' + p.sourcePort);
+                if (p.domains) domainsCount += p.domains.length;
+            });
+
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statActive').textContent = active;
+            document.getElementById('statDomains').textContent = domainsCount;
+            document.getElementById('statPorts').textContent = portsSet.size;
+        }
+
         function renderProxies(proxies, listenErrors) {
             listenErrors = listenErrors || {};
+
             const el = document.getElementById('proxyList');
             if (!proxies || proxies.length === 0) {
                 el.innerHTML = `
                     <div class="empty-state">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                         </svg>
                         <h3>暂无代理规则</h3>
-                        <p>点击右上角"添加规则"开始使用</p>
+                        <p>点击右上角"添加规则"开始配置服务</p>
                     </div>
                 `;
                 return;
             }
 
             function getListenStatus(p) {
-                if (!p.enable) return '<span class="badge badge-danger">禁用</span>';
+                if (!p.enable) return '<span class="status-badge status-disabled">已禁用</span>';
                 const proto = p.sourceProtocol || 'http';
                 const host = p.sourceHost || '';
                 const port = p.sourcePort || '80';
-                // Check all possible error keys
                 const addr = host ? host + ':' + port : ':' + port;
                 const keys = [proto + ':' + addr, addr, 'tcp:' + addr, 'udp:' + addr];
                 for (const k of keys) {
                     if (listenErrors[k]) {
-                        return '<span class="badge badge-danger" title="' + listenErrors[k].replace(/"/g, '&quot;') + '" style="cursor:help">监听失败</span>';
+                        return '<span class="status-badge status-error" title="' + listenErrors[k].replace(/"/g, '&quot;') + '" style="cursor:help"><span class="pulse-dot" style="background:#ef4444;"></span> 监听失败</span>';
                     }
                 }
-                return '<span class="badge badge-success">正常</span>';
+                return '<span class="status-badge status-active"><span class="pulse-dot"></span> 正常就绪</span>';
+            }
+
+            function getProtoPill(proto) {
+                proto = (proto || 'http').toLowerCase();
+                if (proto === 'https') return '<span class="proto-pill proto-https">HTTPS</span>';
+                if (proto === 'tcp') return '<span class="proto-pill proto-tcp">TCP</span>';
+                if (proto === 'udp') return '<span class="proto-pill proto-udp">UDP</span>';
+                if (proto === 'tcp+udp') return '<span class="proto-pill proto-mix">TCP+UDP</span>';
+                return '<span class="proto-pill proto-http">HTTP</span>';
             }
 
             el.innerHTML = `
@@ -769,22 +1526,39 @@
                     <thead>
                         <tr>
                             <th>规则名称</th>
-                            <th>来源</th>
-                            <th>目标</th>
-                            <th>状态</th>
-                            <th>操作</th>
+                            <th>入口 (Source)</th>
+                            <th>目标 (Destination)</th>
+                            <th>运行状态</th>
+                            <th style="text-align: right;">操作</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${proxies.map(p => `
                             <tr>
-                                <td><strong>${p.name || '-'}</strong></td>
-                                <td>${p.sourceProtocol || 'http'}://${p.sourceHost || '*'}:${p.sourcePort || 80}</td>
-                                <td>${p.targetProtocol === 'unix' ? 'unix://' + (p.targetHost || '') : (p.targetProtocol || 'http') + '://' + (p.targetHost || '127.0.0.1') + ':' + (p.targetPort || 8080)}</td>
+                                <td>
+                                    <div class="rule-title">${p.name || '-'}</div>
+                                </td>
+                                <td>
+                                    <div>${getProtoPill(p.sourceProtocol)}<span class="listen-addr">${p.sourceHost || '*'}:${p.sourcePort || 80}</span></div>
+                                    ${p.domains && p.domains.length > 0 ? `
+                                        <div class="domains-wrap">
+                                            ${p.domains.map(d => `<span class="domain-chip">🌐 ${d}</span>`).join('')}
+                                        </div>
+                                    ` : ''}
+                                </td>
+                                <td>
+                                    <div class="target-addr">
+                                        <span class="target-arrow">➔</span>
+                                        <span class="target-proto">${(p.targetProtocol || 'http').toUpperCase()}</span>
+                                        ${p.targetProtocol === 'unix' ? (p.targetHost || '') : (p.targetHost || '127.0.0.1') + ':' + (p.targetPort || 8080)}
+                                    </div>
+                                </td>
                                 <td>${getListenStatus(p)}</td>
-                                <td class="actions">
-                                    <button class="btn btn-sm btn-primary" onclick="editProxy('${p.id}')" title="编辑此规则">编辑</button>
-                                    <button class="btn btn-sm btn-danger" onclick="deleteProxy('${p.id}')" title="删除此规则">删除</button>
+                                <td style="text-align: right;">
+                                    <div class="actions" style="justify-content: flex-end;">
+                                        <button class="btn btn-sm btn-secondary" onclick="editProxy('${p.id}')" title="编辑此规则">编辑</button>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteProxy('${p.id}')" title="删除此规则">删除</button>
+                                    </div>
                                 </td>
                             </tr>
                         `).join('')}
@@ -816,7 +1590,7 @@
                 warning.style.display = 'block';
             } else {
                 portGroup.style.display = 'block';
-                hostLabel.textContent = '主机名/IP';
+                hostLabel.textContent = '目标主机/IP';
                 hostInput.placeholder = '例如：127.0.0.1';
                 if (hostInput.value === '') {
                     hostInput.value = '127.0.0.1';
@@ -882,17 +1656,18 @@
 
         function openAddModal() {
             editingId = null;
+            switchTab('general');
             document.getElementById('modalTitle').textContent = '添加代理规则';
             document.getElementById('ruleName').value = '';
             document.getElementById('sourceProtocol').value = 'http';
+            document.getElementById('targetProtocol').value = 'http';
             toggleSourceProtocolUI();
             document.getElementById('sourceHost').value = '';
             document.getElementById('sourcePort').value = '8080';
             document.getElementById('sourceDomains').value = '';
-            document.getElementById('targetProtocol').value = 'http';
-            toggleTargetProtocolUI();
             document.getElementById('targetHost').value = '127.0.0.1';
             document.getElementById('targetPort').value = '8080';
+            document.getElementById('testTargetResult').innerHTML = '';
             document.getElementById('ruleEnable').checked = true;
             document.getElementById('proxyTimeout').value = '30';
             document.getElementById('maxBodySize').value = '';
@@ -917,17 +1692,18 @@
                 const proxy = proxies.find(p => p.id === id);
                 if (proxy) {
                     editingId = id;
+                    switchTab('general');
                     document.getElementById('modalTitle').textContent = '编辑代理规则';
                     document.getElementById('ruleName').value = proxy.name || '';
                     document.getElementById('sourceProtocol').value = proxy.sourceProtocol || 'http';
+                    document.getElementById('targetProtocol').value = proxy.targetProtocol || 'http';
                     toggleSourceProtocolUI();
                     document.getElementById('sourceHost').value = proxy.sourceHost || '';
                     document.getElementById('sourcePort').value = proxy.sourcePort || '80';
                     document.getElementById('sourceDomains').value = (proxy.domains || []).join(',');
-                    document.getElementById('targetProtocol').value = proxy.targetProtocol || 'http';
-                    toggleTargetProtocolUI();
                     document.getElementById('targetHost').value = proxy.targetHost || '127.0.0.1';
                     document.getElementById('targetPort').value = proxy.targetPort || '8080';
+                    document.getElementById('testTargetResult').innerHTML = '';
                     document.getElementById('ruleEnable').checked = proxy.enable !== false;
                     document.getElementById('proxyTimeout').value = proxy.timeout || '30';
                     document.getElementById('maxBodySize').value = proxy.maxBodySize || '';
@@ -972,6 +1748,93 @@
             document.getElementById('proxyModal').classList.remove('show');
         }
 
+        async function openCertModal() {
+            const modal = document.getElementById('certModal');
+            const listEl = document.getElementById('certList');
+            listEl.innerHTML = `<div style="text-align: center; padding: 24px; color: var(--text-muted);">⏳ 正在读取飞牛 OS 证书列表...</div>`;
+            modal.classList.add('show');
+
+            try {
+                const res = await request('api/certs');
+                const certs = await res.json();
+                if (!certs || certs.length === 0) {
+                    listEl.innerHTML = `
+                        <div class="empty-state">
+                            <p>未检测到飞牛 OS SSL 证书配置</p>
+                            <p style="font-size: 12.5px; margin-top: 6px;">请在飞牛 OS「系统设置 → 证书管理」中导入并绑定域名证书</p>
+                        </div>
+                    `;
+                    return;
+                }
+                listEl.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>主域名</th>
+                                <th>备用名称 (SAN)</th>
+                                <th>证书存储路径</th>
+                                <th>可受信任状态</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${certs.map(c => `
+                                <tr>
+                                    <td><strong style="color: var(--text-main);">${c.domain}</strong></td>
+                                    <td>${(c.san || []).map(s => `<span class="domain-chip">${s}</span>`).join(' ') || '-'}</td>
+                                    <td style="font-family: monospace; font-size: 12px; color: var(--text-muted); word-break: break-all;">${c.certificate}</td>
+                                    <td>${c.exists ? '<span class="status-badge status-active"><span class="pulse-dot"></span> 自动加载就绪</span>' : '<span class="status-badge status-error">文件缺失</span>'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (e) {
+                listEl.innerHTML = `<div style="color: #ef4444; padding: 20px; text-align: center;">加载证书失败: ${e.message}</div>`;
+            }
+        }
+
+        function closeCertModal() {
+            document.getElementById('certModal').classList.remove('show');
+        }
+
+        async function testTargetConnection() {
+            const proto = document.getElementById('targetProtocol').value;
+            const host = document.getElementById('targetHost').value.trim();
+            const port = proto === 'unix' ? '' : document.getElementById('targetPort').value.trim();
+            const resultEl = document.getElementById('testTargetResult');
+
+            if (!host) {
+                resultEl.innerHTML = `<span style="color: #ef4444;">⚠️ 请先填写目标主机/路径</span>`;
+                return;
+            }
+            if (proto !== 'unix' && !port) {
+                resultEl.innerHTML = `<span style="color: #ef4444;">⚠️ 请先填写目标端口</span>`;
+                return;
+            }
+
+            resultEl.innerHTML = `<span style="color: var(--primary);">⏳ 正在探测连通性...</span>`;
+
+            try {
+                const res = await request('api/test-target', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        protocol: proto,
+                        host: host,
+                        port: port,
+                        timeoutSec: 5
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    resultEl.innerHTML = `<span style="color: #047857; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 3px 8px; border-radius: 4px;">✅ ${data.message}</span>`;
+                } else {
+                    resultEl.innerHTML = `<span style="color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; padding: 3px 8px; border-radius: 4px;">❌ ${data.message}</span>`;
+                }
+            } catch (e) {
+                resultEl.innerHTML = `<span style="color: #ef4444;">❌ 测试失败: ${e.message}</span>`;
+            }
+        }
+
         function getCustomHeaders() {
             const headers = {};
             const text = document.getElementById('customHeadersText').value;
@@ -990,17 +1853,21 @@
             return headers;
         }
 
-        async function validateRule(name, sourceProtocol, sourcePort, targetHost, targetPort, targetProtocol, sourceHost) {
+        async function validateRule(name, sourceProtocol, sourcePort, targetHost, targetPort, targetProtocol, sourceHost, sourceDomains) {
             if (!name) return '请输入规则名称';
             if (!sourcePort) return '请输入来源端口';
             const srcPortNum = parseInt(sourcePort, 10);
             if (isNaN(srcPortNum) || srcPortNum < 1 || srcPortNum > 65535) return '来源端口必须在 1-65535 范围内';
-            if (!targetHost) return '请输入目标主机';
+            if (!targetHost) return targetProtocol === 'unix' ? '请输入 Unix Socket 路径' : '请输入目标主机';
             if (targetProtocol !== 'unix') {
                 if (!targetPort) return '请输入目标端口';
                 const tgtPortNum = parseInt(targetPort, 10);
                 if (isNaN(tgtPortNum) || tgtPortNum < 1 || tgtPortNum > 65535) return '目标端口必须在 1-65535 范围内';
             }
+
+            const rProto = (sourceProtocol || 'http').toLowerCase();
+            const rIsL4 = rProto === 'tcp' || rProto === 'udp' || rProto === 'tcp+udp';
+            const rDomains = (sourceDomains || []).map(d => d.trim().toLowerCase()).filter(Boolean);
 
             try {
                 const res = await request('api/proxies');
@@ -1008,21 +1875,50 @@
                 for (const p of proxies) {
                     if (editingId && p.id === editingId) continue;
                     if (p.name === name) return '规则名称 "' + name + '" 已存在，请使用其他名称';
-                    const pPort = p.sourcePort || '80';
-                    const pProto = p.sourceProtocol || 'http';
+                    const pPort = String(p.sourcePort || '80');
+                    const pProto = (p.sourceProtocol || 'http').toLowerCase();
                     const pHost = (p.sourceHost || '').trim();
                     const rHost = (sourceHost || '').trim();
-                    // 同一主机+端口+协议才视为冲突
-                    if (String(pPort) === String(sourcePort) && pHost === rHost) {
-                        if (pProto === sourceProtocol) {
-                            const hostDesc = rHost ? rHost + ':' : '';
-                            return '来源 ' + hostDesc + sourceProtocol.toUpperCase() + ':' + sourcePort + ' 已被规则 "' + p.name + '" 使用';
+                    const pIsL4 = pProto === 'tcp' || pProto === 'udp' || pProto === 'tcp+udp';
+                    const pDomains = (p.domains || []).map(d => d.trim().toLowerCase()).filter(Boolean);
+
+                    if (pPort === String(sourcePort) && pHost === rHost) {
+                        const hostDesc = rHost ? rHost + ':' : '';
+                        if (rIsL4 || pIsL4) {
+                            if (pProto === rProto) {
+                                return '来源 ' + hostDesc + rProto.toUpperCase() + ':' + sourcePort + ' 已被规则 "' + p.name + '" 独占使用';
+                            }
+                            if (rProto === 'tcp+udp' && (pProto === 'tcp' || pProto === 'udp')) {
+                                return '来源端口 ' + sourcePort + ' 无法使用 TCP+UDP，已被规则 "' + p.name + '" 占用了 ' + pProto.toUpperCase();
+                            }
+                            if (pProto === 'tcp+udp' && (rProto === 'tcp' || rProto === 'udp')) {
+                                return '来源端口 ' + sourcePort + ' 无法使用 ' + rProto.toUpperCase() + '，已被规则 "' + p.name + '" 占用了 TCP+UDP';
+                            }
+                            if (rIsL4 !== pIsL4) {
+                                return '来源端口 ' + sourcePort + ' 协议冲突：四层代理与七层 Web 代理不能共用同一端口';
+                            }
                         }
-                        if (sourceProtocol === 'tcp+udp' && (pProto === 'tcp' || pProto === 'udp')) {
-                            return '来源端口 ' + sourcePort + ' 无法使用 tcp+udp，因为已被规则 "' + p.name + '" 占用了 ' + pProto.toUpperCase();
+
+                        if (pProto !== rProto) {
+                            return '来源端口 ' + sourcePort + ' 协议冲突：' + pProto.toUpperCase() + ' 与 ' + rProto.toUpperCase() + ' 不能同时监听在同一端口';
                         }
-                        if (pProto === 'tcp+udp' && (sourceProtocol === 'tcp' || sourceProtocol === 'udp')) {
-                            return '来源端口 ' + sourcePort + ' 无法使用 ' + sourceProtocol.toUpperCase() + '，因为已被规则 "' + p.name + '" 占用了 tcp+udp';
+
+                        if (pDomains.length === 0 && rDomains.length === 0) {
+                            return '来源 ' + hostDesc + rProto.toUpperCase() + ':' + sourcePort + ' 且无指定域名的通用规则已存在于规则 "' + p.name + '"';
+                        }
+                        if (pDomains.length === 0) {
+                            return '来源 ' + hostDesc + rProto.toUpperCase() + ':' + sourcePort + ' 已被规则 "' + p.name + '" 作为全域通配路由占用，请为规则 "' + p.name + '" 指定具体域名';
+                        }
+                        if (rDomains.length === 0) {
+                            return '规则 "' + name + '" 未指定域名（匹配所有域名），与已有规则 "' + p.name + '" 在端口 ' + sourcePort + ' 冲突，请指定具体域名';
+                        }
+
+                        for (const rd of rDomains) {
+                            for (const pd of pDomains) {
+                                if (rd === pd) {
+                                    return '域名 "' + rd + '" 在来源 ' + hostDesc + rProto.toUpperCase() + ':' + sourcePort + ' 已被规则 "' + p.name + '" 绑定使用';
+                                }
+                            }
                         }
                     }
                 }
@@ -1055,7 +1951,7 @@
             const userAgentMode = document.getElementById('userAgentMode').value;
             const userAgentList = document.getElementById('userAgentList').value.split('\n').map(ua => ua.trim()).filter(Boolean);
 
-            const errMsg = await validateRule(name, sourceProtocol, sourcePort, targetHost, targetPort, targetProtocol, sourceHost);
+            const errMsg = await validateRule(name, sourceProtocol, sourcePort, targetHost, targetPort, targetProtocol, sourceHost, sourceDomains);
             if (errMsg) {
                 alert(errMsg);
                 return;

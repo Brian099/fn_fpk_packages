@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -63,6 +64,7 @@ func Init(path string) error {
 	defer configMu.Unlock()
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
+		_ = os.MkdirAll(filepath.Dir(path), 0755)
 		if bakData, readErr := os.ReadFile(bakPath); readErr == nil {
 			if json.Unmarshal(bakData, &config) == nil && len(config.Proxies) > 0 {
 				log.Printf("[CONFIG] Restored %d rules from backup file: %s", len(config.Proxies), bakPath)
@@ -113,6 +115,8 @@ func Save() error {
 	if err != nil {
 		return err
 	}
+
+	_ = os.MkdirAll(filepath.Dir(configPath), 0755)
 
 	bakPath := configPath + ".bak"
 	if _, statErr := os.Stat(configPath); statErr == nil {
@@ -166,6 +170,17 @@ func generateID() string {
 	return hex.EncodeToString(b)
 }
 
+func cleanDomains(domains []string) []string {
+	var res []string
+	for _, d := range domains {
+		d = strings.ToLower(strings.TrimSpace(d))
+		if d != "" {
+			res = append(res, d)
+		}
+	}
+	return res
+}
+
 func ValidateProxy(rule ProxyRule, excludeID string) error {
 	if strings.TrimSpace(rule.Name) == "" {
 		return errors.New("规则名称不能为空")
@@ -180,16 +195,30 @@ func ValidateProxy(rule ProxyRule, excludeID string) error {
 	}
 	tgtHost := strings.TrimSpace(rule.TargetHost)
 	if tgtHost == "" {
+		if strings.ToLower(rule.TargetProtocol) == "unix" {
+			return errors.New("Unix Socket 路径不能为空")
+		}
 		return errors.New("目标主机不能为空")
 	}
-	tgtPort := strings.TrimSpace(rule.TargetPort)
-	if tgtPort == "" {
-		return errors.New("目标端口不能为空")
+	tgtProto := strings.ToLower(strings.TrimSpace(rule.TargetProtocol))
+	if tgtProto != "unix" {
+		tgtPort := strings.TrimSpace(rule.TargetPort)
+		if tgtPort == "" {
+			return errors.New("目标端口不能为空")
+		}
+		tgtPortNum, err := strconv.Atoi(tgtPort)
+		if err != nil || tgtPortNum < 1 || tgtPortNum > 65535 {
+			return errors.New("目标端口必须在 1-65535 范围内")
+		}
 	}
-	tgtPortNum, err := strconv.Atoi(tgtPort)
-	if err != nil || tgtPortNum < 1 || tgtPortNum > 65535 {
-		return errors.New("目标端口必须在 1-65535 范围内")
+
+	rProto := strings.ToLower(strings.TrimSpace(rule.SourceProtocol))
+	if rProto == "" {
+		rProto = "http"
 	}
+	rHost := strings.TrimSpace(rule.SourceHost)
+	rDomains := cleanDomains(rule.Domains)
+	rIsL4 := rProto == "tcp" || rProto == "udp" || rProto == "tcp+udp"
 
 	configMu.RLock()
 	defer configMu.RUnlock()
@@ -209,22 +238,57 @@ func ValidateProxy(rule ProxyRule, excludeID string) error {
 		if pProto == "" {
 			pProto = "http"
 		}
-		rProto := strings.ToLower(strings.TrimSpace(rule.SourceProtocol))
-		if rProto == "" {
-			rProto = "http"
-		}
 		pHost := strings.TrimSpace(p.SourceHost)
-		rHost := strings.TrimSpace(rule.SourceHost)
-		// 同一主机+端口+协议才视为冲突
-		if pPort == srcPort && pProto == rProto && pHost == rHost {
-			return fmt.Errorf("来源 %s%s:%s 已被规则 %q 使用",
-				func() string {
-					if rHost == "" {
-						return ""
+		pDomains := cleanDomains(p.Domains)
+		pIsL4 := pProto == "tcp" || pProto == "udp" || pProto == "tcp+udp"
+
+		// 检查端口与主机是否相同
+		if pPort == srcPort && pHost == rHost {
+			hostDesc := ""
+			if rHost != "" {
+				hostDesc = rHost + ":"
+			}
+
+			// 四层协议与四层/七层之间的互斥检测
+			if rIsL4 || pIsL4 {
+				if pProto == rProto {
+					return fmt.Errorf("来源 %s%s:%s 已被规则 %q 独占使用", hostDesc, strings.ToUpper(rProto), srcPort, p.Name)
+				}
+				if rProto == "tcp+udp" && (pProto == "tcp" || pProto == "udp") {
+					return fmt.Errorf("来源端口 %s 无法使用 TCP+UDP，已被规则 %q 占用了 %s", srcPort, p.Name, strings.ToUpper(pProto))
+				}
+				if pProto == "tcp+udp" && (rProto == "tcp" || rProto == "udp") {
+					return fmt.Errorf("来源端口 %s 无法使用 %s，已被规则 %q 占用了 TCP+UDP", srcPort, strings.ToUpper(rProto), p.Name)
+				}
+				if rIsL4 != pIsL4 {
+					return fmt.Errorf("来源端口 %s 协议冲突：四层代理与七层 Web 代理不能共用同一端口", srcPort)
+				}
+			}
+
+			// 七层协议 (HTTP / HTTPS)
+			if pProto != rProto {
+				return fmt.Errorf("来源端口 %s 协议冲突：%s 与 %s 不能同时监听在同一端口", srcPort, strings.ToUpper(pProto), strings.ToUpper(rProto))
+			}
+
+			// 检查域名重叠
+			if len(pDomains) == 0 && len(rDomains) == 0 {
+				return fmt.Errorf("来源 %s%s:%s 且无指定域名的通用规则已存在于规则 %q", hostDesc, strings.ToUpper(rProto), srcPort, p.Name)
+			}
+			if len(pDomains) == 0 {
+				return fmt.Errorf("来源 %s%s:%s 已被规则 %q 作为通配所有域名的默认路由占用，请为规则 %q 指定特定域名后再添加", hostDesc, strings.ToUpper(rProto), srcPort, p.Name, p.Name)
+			}
+			if len(rDomains) == 0 {
+				return fmt.Errorf("规则 %q 未指定域名（会匹配所有域名），与已有规则 %q 在端口 %s 冲突，请指定具体域名", rule.Name, p.Name, srcPort)
+			}
+
+			// 比对具体域名是否有重叠
+			for _, rd := range rDomains {
+				for _, pd := range pDomains {
+					if rd == pd {
+						return fmt.Errorf("域名 %q 在来源 %s%s:%s 已被规则 %q 绑定使用", rd, hostDesc, strings.ToUpper(rProto), srcPort, p.Name)
 					}
-					return rHost + ":"
-				}(),
-				strings.ToUpper(rProto), srcPort, p.Name)
+				}
+			}
 		}
 	}
 	return nil
