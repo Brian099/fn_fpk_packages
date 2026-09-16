@@ -450,6 +450,10 @@ server {
     root $root_dir;
     index index.html index.htm index.php;
     client_max_body_size 8M;
+    absolute_redirect off;
+    if (-d \$request_filename) {
+        rewrite ^(.*[^/])$ \$1/ permanent;
+    }
     $rewrite_block
     $root_location_block
     $php_block
@@ -477,6 +481,10 @@ server {
     root $root_dir;
     index index.html index.htm index.php;
     client_max_body_size 8M;
+    absolute_redirect off;
+    if (-d \$request_filename) {
+        rewrite ^(.*[^/])$ \$1/ permanent;
+    }
     $rewrite_block
     $root_location_block
     $php_block_ssl
@@ -514,6 +522,10 @@ EOF
     root $root_dir;
     index index.html index.htm index.php;
     client_max_body_size 8M;
+    absolute_redirect off;
+    if (-d \$request_filename) {
+        rewrite ^(.*[^/])$ \$1/ permanent;
+    }
     $rewrite_block
     $root_location_block
 EOF
