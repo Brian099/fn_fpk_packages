@@ -123,66 +123,6 @@
       "distributor": "Giraff",
       "distributor_url": "https://giraff.fun"
     },
-    "Emby": {
-      "display_name": "Emby",
-      "desc": "Emby影音管理服务器。",
-      "platform": [
-        "x86"
-      ],
-      "categories": [
-        "影音娱乐",
-        "系统工具"
-      ],
-      "readme_url": "Emby/README.md",
-      "bug_report_url": "https://github.com/MediaBrowser/Emby",
-      "maintainer": "emby",
-      "maintainer_url": "https://emby.media/",
-      "distributor": "Brian099",
-      "distributor_url": "https://giraff.fun",
-      "run_as": "package",
-      "install_type": "root",
-      "is_docker": false,
-      "releases": {
-        "4.10.0.40": {
-          "packages": {
-            "x86": {
-              "download_url": "https://github.com/Brian099/emby-fnos/releases/download/v4.10.0.40/embyserver_4.10.0.40_amd64.fpk",
-              "size": 359047181
-            }
-          }
-        }
-      }
-    },
-    "EmbyBeta": {
-      "display_name": "EmbyBeta",
-      "desc": "Emby影音管理服务器。",
-      "platform": [
-        "x86"
-      ],
-      "categories": [
-        "影音娱乐",
-        "系统工具"
-      ],
-      "readme_url": "EmbyBeta/README.md",
-      "bug_report_url": "https://github.com/MediaBrowser/Emby",
-      "maintainer": "emby",
-      "maintainer_url": "https://emby.media/",
-      "distributor": "Brian099",
-      "distributor_url": "https://giraff.fun",
-      "run_as": "package",
-      "install_type": "root",
-      "is_docker": false,
-      "releases": {
-        "4.11.0.1": {
-          "packages": {
-            "x86": {
-              "download_url": "https://github.com/Brian099/emby-fnos/releases/download/pre-4.11.0.1/embyserver_4.11.0.1_pre_amd64.fpk",
-              "size": 365956352
-            }
-          }
-        }
-      }
-    },
     "php8.2": {
       "display_name": "PHP 8.2 管理组件",
       "desc": "为飞牛系统环境提供底层 PHP 8.2 与扩展插件的离线部署及一体化参数管理，搭载精美的界面供高级开发调整各项核心参数、上传限制和加速控制。",
