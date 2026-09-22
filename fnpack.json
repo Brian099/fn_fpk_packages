@@ -14,8 +14,8 @@
         "all"
       ],
       "categories": [
-        "编程开发",
-        "系统工具"
+        "网站",
+        "工具"
       ],
       "readme_url": "WebServer/README.md",
       "bug_report_url": "https://github.com/Brian099/fn_fpk_packages/issues",
@@ -29,12 +29,13 @@
         "1.0.30": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.16-1052/WebServer_v1.0.30.fpk",
-              "size": 8025105
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1508/WebServer_v1.0.30.fpk",
+              "size": 8025170
             }
           }
         }
-      }
+      },
+      "distributor_url": "https://giraff.fun"
     },
     "musicwave": {
       "display_name": "MusicWave",
@@ -43,8 +44,8 @@
         "all"
       ],
       "categories": [
-        "影音娱乐",
-        "系统工具"
+        "音乐",
+        "工具"
       ],
       "bug_report_url": "https://github.com/Brian099/fn_fpk_packages/issues",
       "maintainer": "Giraff",
@@ -56,12 +57,14 @@
         "1.0.24": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.16-1052/musicwave_v1.0.24.fpk",
-              "size": 406782
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1508/musicwave_v1.0.24.fpk",
+              "size": 406781
             }
           }
         }
-      }
+      },
+      "distributor": "Giraff",
+      "distributor_url": "https://giraff.fun"
     },
     "video_transfer": {
       "display_name": "Video Transfer",
@@ -83,12 +86,13 @@
         "1.0.1": {
           "packages": {
             "x86": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.16-1052/video_transfer_v1.0.1.fpk",
-              "size": 402585
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1508/video_transfer_v1.0.1.fpk",
+              "size": 402583
             }
           }
         }
-      }
+      },
+      "distributor": "fpk_docker"
     },
     "xlist-strm": {
       "display_name": "xlist-strm",
@@ -97,8 +101,7 @@
         "all"
       ],
       "categories": [
-        "影音娱乐",
-        "系统工具"
+        "工具"
       ],
       "readme_url": "xlist-strm/README.md",
       "bug_report_url": "https://github.com/Brian099/fn_fpk_packages/issues",
@@ -111,12 +114,14 @@
         "1.0.0": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.16-1052/xlist-strm_v1.0.0.fpk",
-              "size": 18283
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1508/xlist-strm_v1.0.0.fpk",
+              "size": 18282
             }
           }
         }
-      }
+      },
+      "distributor": "Giraff",
+      "distributor_url": "https://giraff.fun"
     },
     "Emby": {
       "display_name": "Emby",
@@ -185,8 +190,8 @@
         "all"
       ],
       "categories": [
-        "编程开发",
-        "系统工具"
+        "网站",
+        "工具"
       ],
       "bug_report_url": "https://github.com/Brian099/fn_fpk_packages/issues",
       "maintainer": "PHP.net",
@@ -200,8 +205,8 @@
         "1.0.1": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.16-1052/php8.2_v1.0.1.fpk",
-              "size": 15972654
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1508/php8.2_v1.0.1.fpk",
+              "size": 15972627
             }
           }
         }
@@ -214,8 +219,8 @@
         "all"
       ],
       "categories": [
-        "编程开发",
-        "系统工具"
+        "网站",
+        "工具"
       ],
       "bug_report_url": "https://github.com/Brian099/fn_fpk_packages/issues",
       "maintainer": "PHP.net",
@@ -229,8 +234,8 @@
         "1.0.1": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.16-1052/php8.3_v1.0.1.fpk",
-              "size": 17709612
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1508/php8.3_v1.0.1.fpk",
+              "size": 17709603
             }
           }
         }
@@ -243,8 +248,8 @@
         "all"
       ],
       "categories": [
-        "编程开发",
-        "系统工具"
+        "网站",
+        "工具"
       ],
       "bug_report_url": "https://github.com/Brian099/fn_fpk_packages/issues",
       "maintainer": "PHP.net",
@@ -258,8 +263,8 @@
         "1.0.1": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.16-1052/php8.4_v1.0.1.fpk",
-              "size": 19066966
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1508/php8.4_v1.0.1.fpk",
+              "size": 19066935
             }
           }
         }
@@ -272,8 +277,8 @@
         "all"
       ],
       "categories": [
-        "编程开发",
-        "系统工具"
+        "网站",
+        "工具"
       ],
       "readme_url": "NginxManager/README.md",
       "bug_report_url": "https://github.com/Brian099/fn_fpk_packages/issues",
@@ -286,12 +291,14 @@
         "1.1.4": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.16-1052/NginxManager_v1.1.4.fpk",
-              "size": 7224193
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1508/NginxManager_v1.1.4.fpk",
+              "size": 7224204
             }
           }
         }
-      }
+      },
+      "distributor": "Giraff",
+      "distributor_url": "https://giraff.fun"
     },
     "notepad": {
       "display_name": "便签记事本",
@@ -300,8 +307,8 @@
         "all"
       ],
       "categories": [
-        "生活服务",
-        "系统工具"
+        "实用效率",
+        "生活"
       ],
       "readme_url": "notepad/README.md",
       "bug_report_url": "https://github.com/Brian099/fn_fpk_packages/issues",
@@ -314,12 +321,14 @@
         "1.0.4": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.16-1052/notepad_v1.0.4.fpk",
-              "size": 8858640
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1508/notepad_v1.0.4.fpk",
+              "size": 8858553
             }
           }
         }
-      }
+      },
+      "distributor": "laok",
+      "distributor_url": "https://gitee.com/laoknas/fn_fpk_packages/tree/master/fn-notepad"
     },
     "ApacheManager": {
       "display_name": "Apache 管理器",
@@ -328,8 +337,8 @@
         "all"
       ],
       "categories": [
-        "编程开发",
-        "系统工具"
+        "网站",
+        "工具"
       ],
       "readme_url": "ApacheManager/README.md",
       "bug_report_url": "https://github.com/Brian099/fn_fpk_packages/issues",
@@ -342,12 +351,14 @@
         "1.0.10": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.16-1052/ApacheManager_v1.0.10.fpk",
-              "size": 8264082
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1508/ApacheManager_v1.0.10.fpk",
+              "size": 8264112
             }
           }
         }
-      }
+      },
+      "distributor": "Giraff",
+      "distributor_url": "https://giraff.fun"
     },
     "phpMyAdmin": {
       "display_name": "phpMyAdmin",
@@ -356,8 +367,7 @@
         "all"
       ],
       "categories": [
-        "编程开发",
-        "系统工具"
+        "工具"
       ],
       "readme_url": "phpMyAdmin/README.md",
       "bug_report_url": "https://github.com/Brian099/fn_fpk_packages/issues",
@@ -372,8 +382,8 @@
         "1.0.4": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.16-1052/phpMyAdmin_v1.0.4.fpk",
-              "size": 74370156
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1508/phpMyAdmin_v1.0.4.fpk",
+              "size": 74370700
             }
           }
         }
@@ -386,8 +396,7 @@
         "all"
       ],
       "categories": [
-        "编程开发",
-        "系统工具"
+        "工具"
       ],
       "readme_url": "MariaDB12/README.md",
       "bug_report_url": "https://github.com/Brian099/fn_fpk_packages/issues",
@@ -402,8 +411,8 @@
         "12.2.2": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.16-1052/MariaDB12_v12.2.2.fpk",
-              "size": 89571811
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1508/MariaDB12_v12.2.2.fpk",
+              "size": 89573410
             }
           }
         }
@@ -416,7 +425,7 @@
         "all"
       ],
       "categories": [
-        "系统工具"
+        "工具"
       ],
       "readme_url": "appcenterThirdParty/README.md",
       "bug_report_url": "https://github.com/Brian099/fn_fpk_packages/issues",
@@ -430,12 +439,13 @@
         "1.0.113": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.16-1052/appcenterThirdParty_v1.0.113.fpk",
-              "size": 7840747
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1508/appcenterThirdParty_v1.0.113.fpk",
+              "size": 7840751
             }
           }
         }
-      }
+      },
+      "distributor_url": "https://github.com/Giraff/FnDepot"
     },
     "fn-reverseproxy": {
       "display_name": "反向代理服务器",
@@ -444,8 +454,8 @@
         "all"
       ],
       "categories": [
-        "编程开发",
-        "系统工具"
+        "实用效率",
+        "开发工具"
       ],
       "readme_url": "fn-reverseproxy/README.md",
       "bug_report_url": "https://github.com/Brian099/fn_fpk_packages/issues",
@@ -459,12 +469,13 @@
         "1.0.11": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.16-1052/fn-reverseproxy_v1.0.11.fpk",
-              "size": 7456947
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1508/fn-reverseproxy_v1.0.11.fpk",
+              "size": 7456934
             }
           }
         }
-      }
+      },
+      "distributor": "laok"
     },
     "fn-scheduledtask": {
       "display_name": "计划任务",
@@ -473,8 +484,7 @@
         "all"
       ],
       "categories": [
-        "系统工具",
-        "编程开发"
+        "开发工具"
       ],
       "readme_url": "fn-scheduledtask/README.md",
       "bug_report_url": "https://github.com/Brian099/fn_fpk_packages/issues",
@@ -488,12 +498,13 @@
         "1.0.11": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.16-1052/fn-scheduledtask_v1.0.11.fpk",
-              "size": 118536
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1508/fn-scheduledtask_v1.0.11.fpk",
+              "size": 118546
             }
           }
         }
-      }
+      },
+      "distributor": "laok"
     },
     "mytvadmin": {
       "display_name": "mytvAdmin",
@@ -515,12 +526,14 @@
         "3.1.8": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.16-1052/mytvadmin_v3.1.8.fpk",
-              "size": 45730
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1508/mytvadmin_v3.1.8.fpk",
+              "size": 45727
             }
           }
         }
-      }
+      },
+      "distributor": "Giraff",
+      "distributor_url": "https://giraff.fun"
     },
     "imageadmin": {
       "display_name": "ImagesGallery",
@@ -529,8 +542,8 @@
         "all"
       ],
       "categories": [
-        "生活服务",
-        "系统工具"
+        "实用效率",
+        "生活"
       ],
       "readme_url": "imageadmin/README.md",
       "bug_report_url": "https://github.com/Brian099/fn_fpk_packages/issues",
@@ -544,12 +557,13 @@
         "1.0.1": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.16-1052/imageadmin_v1.0.1.fpk",
-              "size": 28679050
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1508/imageadmin_v1.0.1.fpk",
+              "size": 28679194
             }
           }
         }
-      }
+      },
+      "distributor": "laok"
     },
     "fnosnassign": {
       "display_name": "飞牛club签到",
@@ -602,12 +616,13 @@
         "1.1.10": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.16-1052/mediaplayer_v1.1.10.fpk",
-              "size": 14647462
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1508/mediaplayer_v1.1.10.fpk",
+              "size": 14647686
             }
           }
         }
-      }
+      },
+      "distributor_url": "https://github.com/kuai410022283/mediaplayer"
     },
     "music-toolkit": {
       "display_name": "music-toolkit",
