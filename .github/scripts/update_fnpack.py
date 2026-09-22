@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Update fnpack.json according to Schema Version 2 specification.
+Reference: 应用商店源信息规范 V2.md
 """
 
 import os
@@ -9,6 +10,31 @@ import sys
 import json
 import re
 import argparse
+import hashlib
+from datetime import datetime, timezone, timedelta
+
+# V2 Standard fixed 9 categories
+VALID_CATEGORIES = [
+    "影音娱乐", "系统工具", "编程开发", "AI赋能",
+    "生活服务", "智能智控", "教育学习", "游戏地带", "硬件驱动"
+]
+
+CATEGORY_ALIASES = {
+    "工具": "系统工具",
+    "实用效率": "生活服务",
+    "生活": "生活服务",
+    "效率": "生活服务",
+    "网站": "编程开发",
+    "开发": "编程开发",
+    "音乐": "影音娱乐",
+    "视频": "影音娱乐",
+    "影音": "影音娱乐",
+    "AI": "AI赋能",
+    "游戏": "游戏地带",
+    "驱动": "硬件驱动",
+    "教育": "教育学习",
+    "智控": "智能智控",
+}
 
 
 def read_text_file(filepath):
@@ -23,6 +49,15 @@ def read_text_file(filepath):
             continue
     with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
         return f.read()
+
+
+def calculate_sha256(filepath):
+    """Calculate SHA256 checksum of a file."""
+    sha256 = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
 
 
 def parse_kv_file(filepath):
@@ -40,6 +75,21 @@ def parse_kv_file(filepath):
         v = v.strip().strip('"\'')
         data[k] = v
     return data
+
+
+def normalize_categories(raw_list):
+    """Map and filter categories into standard V2 fixed list (max 2)."""
+    result = []
+    for item in raw_list:
+        clean = item.strip()
+        if not clean:
+            continue
+        mapped = CATEGORY_ALIASES.get(clean, clean)
+        if mapped in VALID_CATEGORIES and mapped not in result:
+            result.append(mapped)
+        if len(result) >= 2:
+            break
+    return result if result else ["系统工具"]
 
 
 def find_source_dir(appname, search_base="."):
@@ -114,7 +164,8 @@ def update_app_entry(fnpack_path, repo, tag, fpk_file, source_dir=None, search_b
         if os.path.exists(labels_path):
             labels_content = read_text_file(labels_path).strip()
             if labels_content:
-                categories = [c.strip() for c in re.split(r'[,，、|/ \s\n\r]+', labels_content) if c.strip()]
+                raw_cats = [c.strip() for c in re.split(r'[,，、|/ \s\n\r]+', labels_content) if c.strip()]
+                categories = normalize_categories(raw_cats)
 
     maintainer = manifest.get("maintainer")
     maintainer_url = manifest.get("maintainer_url")
@@ -124,6 +175,10 @@ def update_app_entry(fnpack_path, repo, tag, fpk_file, source_dir=None, search_b
     install_type = "root" if install_type_raw == "root" else ""
 
     size_bytes = os.path.getsize(fpk_file)
+    sha256_hex = calculate_sha256(fpk_file)
+
+    tz_bj = timezone(timedelta(hours=8))
+    updated_at_str = datetime.now(tz_bj).isoformat(timespec='seconds')
 
     # Load existing fnpack.json
     if os.path.exists(fnpack_path):
@@ -165,8 +220,22 @@ def update_app_entry(fnpack_path, repo, tag, fpk_file, source_dir=None, search_b
     elif "categories" not in app_entry:
         app_entry["categories"] = ["系统工具"]
 
-    if os.path.isdir(source_dir) and os.path.exists(os.path.join(source_dir, "README.md")):
-        app_entry.setdefault("readme_url", f"{appname}/README.md")
+    # ICON / Previews / Readme
+    if os.path.isdir(source_dir):
+        if os.path.exists(os.path.join(source_dir, "ICON.PNG")):
+            app_entry.setdefault("icon_url", f"{appname}/ICON.PNG")
+
+        preview_dir = os.path.join(source_dir, "Preview")
+        if os.path.isdir(preview_dir):
+            previews = [
+                f"{appname}/Preview/{p}" for p in sorted(os.listdir(preview_dir))
+                if p.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))
+            ]
+            if previews:
+                app_entry["preview_urls"] = previews[:8]
+
+        if os.path.exists(os.path.join(source_dir, "README.md")):
+            app_entry.setdefault("readme_url", f"{appname}/README.md")
 
     app_entry.setdefault("bug_report_url", f"https://github.com/{repo}/issues")
 
@@ -193,6 +262,8 @@ def update_app_entry(fnpack_path, repo, tag, fpk_file, source_dir=None, search_b
     # Update releases
     releases = app_entry.setdefault("releases", {})
     ver_entry = releases.setdefault(version, {})
+    ver_entry["updated_at"] = updated_at_str
+
     packages = ver_entry.setdefault("packages", {})
 
     arch_key = platform_list[0] if platform_list else "x86"
@@ -200,7 +271,8 @@ def update_app_entry(fnpack_path, repo, tag, fpk_file, source_dir=None, search_b
 
     packages[arch_key] = {
         "download_url": download_url,
-        "size": size_bytes
+        "size": size_bytes,
+        "sha256": sha256_hex
     }
 
     # Save to file
@@ -208,7 +280,7 @@ def update_app_entry(fnpack_path, repo, tag, fpk_file, source_dir=None, search_b
         json.dump(data, f, ensure_ascii=False, indent=2)
         f.write("\n")
 
-    print(f"Successfully updated fnpack.json for app: {appname} (version: {version}, arch: {arch_key}, size: {size_bytes} bytes)")
+    print(f"Successfully updated fnpack.json for app: {appname} (version: {version}, arch: {arch_key}, size: {size_bytes} bytes, sha256: {sha256_hex[:8]}...)")
 
 
 def main():
