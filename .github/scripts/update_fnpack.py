@@ -223,12 +223,12 @@ def update_app_entry(fnpack_path, repo, tag, fpk_file, source_dir=None, search_b
     # ICON / Previews / Readme
     if os.path.isdir(source_dir):
         if os.path.exists(os.path.join(source_dir, "ICON.PNG")):
-            app_entry.setdefault("icon_url", f"{appname}/ICON.PNG")
+            app_entry["icon_url"] = f"./{appname}/ICON.PNG"
 
         preview_dir = os.path.join(source_dir, "Preview")
         if os.path.isdir(preview_dir):
             previews = [
-                f"{appname}/Preview/{p}" for p in sorted(os.listdir(preview_dir))
+                f"./{appname}/Preview/{p}" for p in sorted(os.listdir(preview_dir))
                 if p.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))
             ]
             if previews:
