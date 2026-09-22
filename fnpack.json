@@ -29,12 +29,12 @@
         "1.0.30": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1523/WebServer_v1.0.30.fpk",
-              "size": 8025114,
-              "sha256": "cc313cf1974c0eb29f20e9afce7305bb34eac796b88581fab0b725548da85b8a"
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1546/WebServer_v1.0.30.fpk",
+              "size": 8025184,
+              "sha256": "0b46e9667ee6fef02e96b6fb50f2203e54bc13f7a4344a863f12104c72d47109"
             }
           },
-          "updated_at": "2026-09-22T15:23:20+08:00"
+          "updated_at": "2026-09-22T15:46:32+08:00"
         }
       },
       "distributor_url": "https://giraff.fun",
@@ -60,12 +60,12 @@
         "1.0.24": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1523/musicwave_v1.0.24.fpk",
-              "size": 406772,
-              "sha256": "5a0a2b3d367fd91b89cc86db3b353711f8d2af872aa58098d0931c8ad8c92e3c"
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1546/musicwave_v1.0.24.fpk",
+              "size": 406784,
+              "sha256": "0fe70f9ae3bf522c794d2775d40263f8efdaacc6578b2ce1c96a190a71ed2bb2"
             }
           },
-          "updated_at": "2026-09-22T15:23:18+08:00"
+          "updated_at": "2026-09-22T15:46:30+08:00"
         }
       },
       "distributor": "Giraff",
@@ -92,12 +92,12 @@
         "1.0.1": {
           "packages": {
             "x86": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1523/video_transfer_v1.0.1.fpk",
-              "size": 402584,
-              "sha256": "7b72b53a497e2261d6bf5c13bb01bcedf550ddbb4418e43ab615d1596fd5d72f"
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1546/video_transfer_v1.0.1.fpk",
+              "size": 402589,
+              "sha256": "89f454d0ce54d34804a5a4b0497e4a9562c1230a805fffa659faa710dad2de3a"
             }
           },
-          "updated_at": "2026-09-22T15:23:46+08:00"
+          "updated_at": "2026-09-22T15:46:56+08:00"
         }
       },
       "distributor": "fpk_docker",
@@ -123,12 +123,12 @@
         "1.0.0": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1523/xlist-strm_v1.0.0.fpk",
-              "size": 18288,
-              "sha256": "ca0613947cbe262efbb545806ee2062b5e60447443db3b4a63a0e647045b9e6f"
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1546/xlist-strm_v1.0.0.fpk",
+              "size": 18282,
+              "sha256": "05c0bcf650edfeb323410be8d66023d0c6a64e53a4c71ccc8903f4cad6868dd2"
             }
           },
-          "updated_at": "2026-09-22T15:23:46+08:00"
+          "updated_at": "2026-09-22T15:46:56+08:00"
         }
       },
       "distributor": "Giraff",
@@ -157,12 +157,12 @@
         "1.0.1": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1523/php8.2_v1.0.1.fpk",
-              "size": 15972633,
-              "sha256": "bb4e5dba649b3281c4bad758614fa880829b397ef5f6468f758cdf9d517c5d15"
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1546/php8.2_v1.0.1.fpk",
+              "size": 15972642,
+              "sha256": "5a04dd0995241cbe203795810682a23abd72d5e52f61d7ed94990f3ae58239f9"
             }
           },
-          "updated_at": "2026-09-22T15:23:37+08:00"
+          "updated_at": "2026-09-22T15:46:48+08:00"
         }
       },
       "icon_url": "./php8.2/ICON.PNG"
@@ -189,12 +189,12 @@
         "1.0.1": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1523/php8.3_v1.0.1.fpk",
-              "size": 17709614,
-              "sha256": "14e163661de9fc986470b6eef642b8bd348151aae1c63bffdecc728f90a0aa3f"
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1546/php8.3_v1.0.1.fpk",
+              "size": 17709563,
+              "sha256": "11091a1c48a1da7f359908f0162334be389fd96d25cdd39dccccbcdee318ae1b"
             }
           },
-          "updated_at": "2026-09-22T15:23:38+08:00"
+          "updated_at": "2026-09-22T15:46:49+08:00"
         }
       },
       "icon_url": "./php8.3/ICON.PNG"
@@ -221,12 +221,12 @@
         "1.0.1": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1523/php8.4_v1.0.1.fpk",
-              "size": 19066937,
-              "sha256": "c098b41f160ffa063cdc4933fa90488ab15b23667b5ac01bf5cec5921e18bb67"
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1546/php8.4_v1.0.1.fpk",
+              "size": 19066933,
+              "sha256": "39a741b048281f5789528ca625632af221a0cc44f86289905976236e62021ecb"
             }
           },
-          "updated_at": "2026-09-22T15:23:39+08:00"
+          "updated_at": "2026-09-22T15:46:50+08:00"
         }
       },
       "icon_url": "./php8.4/ICON.PNG"
@@ -252,12 +252,12 @@
         "1.1.4": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1523/NginxManager_v1.1.4.fpk",
-              "size": 7224206,
-              "sha256": "5ff4c70ce6ae73d935ac6a57e27a18fdbc7a5744af40c9240bc3980ad4dd8841"
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1546/NginxManager_v1.1.4.fpk",
+              "size": 7224198,
+              "sha256": "760f8ed41f56286a2f49267156e9212fd2cd4b4466dc7e2a5b85d6d11acab91e"
             }
           },
-          "updated_at": "2026-09-22T15:23:19+08:00"
+          "updated_at": "2026-09-22T15:46:31+08:00"
         }
       },
       "distributor": "Giraff",
@@ -284,12 +284,12 @@
         "1.0.4": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1523/notepad_v1.0.4.fpk",
-              "size": 8858593,
-              "sha256": "f5d0a5532e4fd743bd3b4bc1a461e661eca9d05bd23c05a0c1927340aec4bfc9"
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1546/notepad_v1.0.4.fpk",
+              "size": 8858554,
+              "sha256": "5ad5577381a7c7778283fe799904d64d456613f543a35dcf9e3128e0795f843f"
             }
           },
-          "updated_at": "2026-09-22T15:23:36+08:00"
+          "updated_at": "2026-09-22T15:46:47+08:00"
         }
       },
       "distributor": "laok",
@@ -321,12 +321,12 @@
         "1.0.10": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1523/ApacheManager_v1.0.10.fpk",
-              "size": 8264124,
-              "sha256": "9583ecf60111581e42c6e9f18c011e2e5334a8faa381e75430de6e438122720b"
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1546/ApacheManager_v1.0.10.fpk",
+              "size": 8264104,
+              "sha256": "c5b73404ca6caa68aa25e4f3fb83cf1a22a9bf42e9255600f156938c106d65a4"
             }
           },
-          "updated_at": "2026-09-22T15:23:16+08:00"
+          "updated_at": "2026-09-22T15:46:28+08:00"
         }
       },
       "distributor": "Giraff",
@@ -355,12 +355,12 @@
         "1.0.4": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1523/phpMyAdmin_v1.0.4.fpk",
-              "size": 74370670,
-              "sha256": "9d742a3b4c2a9cb67a164699bc4a916030f893b91e93a4ad9ee0145a0223cfd7"
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1546/phpMyAdmin_v1.0.4.fpk",
+              "size": 74370442,
+              "sha256": "495777c03bd3b77668f08e11c482186fbe5a015e6c0c7728e5509cbf3476eafd"
             }
           },
-          "updated_at": "2026-09-22T15:23:45+08:00"
+          "updated_at": "2026-09-22T15:46:55+08:00"
         }
       },
       "icon_url": "./phpMyAdmin/ICON.PNG"
@@ -387,12 +387,12 @@
         "12.2.2": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1523/MariaDB12_v12.2.2.fpk",
-              "size": 89576503,
-              "sha256": "7422daae1695ac7ff5a6ab13bb3aec3f809a7a58fa32ac688c2b31d6dc2a65b0"
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1546/MariaDB12_v12.2.2.fpk",
+              "size": 89567558,
+              "sha256": "17a9ecf0b56cc86839a4f0b3a13e1e8118c62a010b419860d14dfd73a0530537"
             }
           },
-          "updated_at": "2026-09-22T15:23:34+08:00"
+          "updated_at": "2026-09-22T15:46:45+08:00"
         }
       },
       "icon_url": "./MariaDB12/ICON.PNG"
@@ -418,12 +418,12 @@
         "1.0.113": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1523/appcenterThirdParty_v1.0.113.fpk",
-              "size": 7840693,
-              "sha256": "80ac9b3de972ab8e33a1448ef005962de04ed5208dd595f100b75c39e0a8602e"
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1546/appcenterThirdParty_v1.0.113.fpk",
+              "size": 7840703,
+              "sha256": "9081d2689634f680c1fc26a4d61b9d63f9da1e32dc73adbd87d9142c2db8f9ff"
             }
           },
-          "updated_at": "2026-09-22T15:23:21+08:00"
+          "updated_at": "2026-09-22T15:46:33+08:00"
         }
       },
       "distributor_url": "https://github.com/Giraff/FnDepot",
@@ -450,12 +450,12 @@
         "1.0.11": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1523/fn-reverseproxy_v1.0.11.fpk",
-              "size": 7456937,
-              "sha256": "a06f0667d5df3b9d0e37738f647ff753b6c594ff591627456072e8daa696d20c"
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1546/fn-reverseproxy_v1.0.11.fpk",
+              "size": 7456989,
+              "sha256": "e0ff0b033aa2811098c6b34b18df4808ff3f17497d5eaebc8c017daa2a888aa3"
             }
           },
-          "updated_at": "2026-09-22T15:23:46+08:00"
+          "updated_at": "2026-09-22T15:46:56+08:00"
         }
       },
       "distributor": "laok",
@@ -485,12 +485,12 @@
         "1.0.11": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1523/fn-scheduledtask_v1.0.11.fpk",
-              "size": 118547,
-              "sha256": "29c452d7b9b6a0c49eced46d840111ec099100e3bd56edc673271cee408d95e8"
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1546/fn-scheduledtask_v1.0.11.fpk",
+              "size": 118545,
+              "sha256": "605bd523172cc6ae0abd33acdab4c89e6ab9df2e081059577bcf80642a9a83b4"
             }
           },
-          "updated_at": "2026-09-22T15:23:46+08:00"
+          "updated_at": "2026-09-22T15:46:56+08:00"
         }
       },
       "distributor": "laok",
@@ -516,12 +516,12 @@
         "3.1.8": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1523/mytvadmin_v3.1.8.fpk",
-              "size": 45723,
-              "sha256": "75e43ea04e7dcad4134a16bbd13c04785905c545f27f928f10f5eb77f65570ba"
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1546/mytvadmin_v3.1.8.fpk",
+              "size": 45725,
+              "sha256": "eb0fa996140d605a4bc1653b219f5ce687726ddd1af9369ad36d8467dce0a56c"
             }
           },
-          "updated_at": "2026-09-22T15:23:35+08:00"
+          "updated_at": "2026-09-22T15:46:46+08:00"
         }
       },
       "distributor": "Giraff",
@@ -549,12 +549,12 @@
         "1.0.1": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1523/imageadmin_v1.0.1.fpk",
-              "size": 28679305,
-              "sha256": "755b137f0afa38cbbae2ad2db586f9519f2dce378dfd7ab2ba00bdfaba2d2dbd"
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1546/imageadmin_v1.0.1.fpk",
+              "size": 28679199,
+              "sha256": "11f5d40d3be0ba11bf80b10041a66ddfe1df3ffa6d3811c60e1c64a548ec0dae"
             }
           },
-          "updated_at": "2026-09-22T15:23:18+08:00"
+          "updated_at": "2026-09-22T15:46:30+08:00"
         }
       },
       "distributor": "laok",
@@ -619,12 +619,12 @@
         "1.1.10": {
           "packages": {
             "all": {
-              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1523/mediaplayer_v1.1.10.fpk",
-              "size": 14647603,
-              "sha256": "1314249bb07dd53c3a6bfed5201ea7a60acd30289120d3f6a576a2023fb19414"
+              "download_url": "https://github.com/Brian099/fn_fpk_packages/releases/download/2026.09.22-1546/mediaplayer_v1.1.10.fpk",
+              "size": 14647681,
+              "sha256": "8b3c2ff91f244a12aead46cd92eea80eaca0b56d93c8471fe518c5fefa7ce369"
             }
           },
-          "updated_at": "2026-09-22T15:23:35+08:00"
+          "updated_at": "2026-09-22T15:46:46+08:00"
         }
       },
       "distributor_url": "https://github.com/kuai410022283/mediaplayer",
